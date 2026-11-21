@@ -45,7 +45,6 @@ class RebelABTesting extends Plugin
     {
         (new Experiments())->install();
         (new LogExperiment())->install();
-        Takeover::renameTagType();
     }
 
     public function uninstall()

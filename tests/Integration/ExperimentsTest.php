@@ -3,8 +3,6 @@
 namespace Piwik\Plugins\RebelABTesting\tests\Integration;
 
 use Exception;
-use Piwik\Common;
-use Piwik\Db;
 use Piwik\NoAccessException;
 use Piwik\Plugins\RebelABTesting\API;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
@@ -53,16 +51,6 @@ class ExperimentsTest extends IntegrationTestCase
         $this->assertSame('2024-03-31', $experiment['to_date']);
         $this->assertSame('h1 > a { color: red; }', $experiment['css_insert']);
         $this->assertSame(self::JS, $experiment['js_insert']);
-    }
-
-    public function testAnExperimentStoredByAnOlderVersionIsDecoded()
-    {
-        Db::query(
-            'INSERT INTO ' . Common::prefixTable(Experiments::TABLE) . ' (idsite, name, `from_date`, `to_date`, css_insert, js_insert) VALUES (?,?,?,?,?,?)',
-            [1, 'old', '2024-03-01', '2024-03-31', '', 'alert(&quot;hi&quot;) &amp;&amp; x &lt; 1']
-        );
-
-        $this->assertSame('alert("hi") && x < 1', $this->api->getExperiment(1, 1)['js_insert']);
     }
 
     public function testAnExperimentIsUpdated()

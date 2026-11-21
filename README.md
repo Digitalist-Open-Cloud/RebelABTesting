@@ -64,18 +64,6 @@ nothing is told about experiments that have ended or not started.
 | `RebelABTesting.getExperimentUniqueVisitorData` (idSite, period, date, segment), days only | view |
 | `RebelABTesting.getExperimentReportData` (idSite, period, date), read from the log | view |
 
-## Coming from SimpleABTesting
-
-This plugin replaces SimpleABTesting and takes over its experiments and its log.
-
-1. Update SimpleABTesting to its latest version and run `./console core:update`.
-2. Deactivate SimpleABTesting. Do not uninstall it: that deletes its data.
-3. Activate RebelABTesting.
-4. Publish the containers that have an A/B testing tag again.
-5. Remove the directory `plugins/SimpleABTesting`.
-6. Archive the reports of earlier periods again:
-   `./console core:invalidate-report-data --plugin=RebelABTesting --dates=<from>,<to>`
-
 ## Personal data
 
 The plugin stores for each tracking request of a visitor in an experiment: the visit, the visitor

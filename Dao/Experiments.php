@@ -14,7 +14,6 @@ use Piwik\Common;
 use Piwik\Db;
 use Piwik\DbHelper;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Takeover;
 use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 
 class Experiments
@@ -25,12 +24,6 @@ class Experiments
 
     public function install()
     {
-        if (Takeover::renameTable('simple_ab_testing_experiments', self::TABLE)) {
-            // SimpleABTesting had names unique across all websites.
-            Db::exec('ALTER TABLE `' . $this->table() . '` DROP INDEX `unique_name`, ADD UNIQUE KEY `unique_name` (`idsite`, `name`)');
-            return;
-        }
-
         DbHelper::createTable(self::TABLE, "
             `id` INT NOT NULL AUTO_INCREMENT,
             `idsite` INT NOT NULL,
@@ -57,7 +50,7 @@ class Experiments
 
         $this->write(
             'INSERT INTO `' . $this->table() . '` (idsite, name, hypothesis, description, `from_date`, `to_date`, css_insert, js_insert) VALUES (?,?,?,?,?,?,?,?)',
-            array_merge([$idSite], self::encode([$name, $hypothesis, $description]), [$fromDate, $toDate], self::encode([$cssInsert, $customJs]))
+            [$idSite, $name, $hypothesis, $description, $fromDate, $toDate, $cssInsert, $customJs]
         );
 
         return (int) Db::get()->lastInsertId();
@@ -69,7 +62,7 @@ class Experiments
 
         $this->write(
             'UPDATE `' . $this->table() . '` SET name = ?, hypothesis = ?, description = ?, `from_date` = ?, `to_date` = ?, css_insert = ?, js_insert = ? WHERE id = ? AND idsite = ?',
-            array_merge(self::encode([$name, $hypothesis, $description]), [$fromDate, $toDate], self::encode([$cssInsert, $customJs]), [$id, $idSite])
+            [$name, $hypothesis, $description, $fromDate, $toDate, $cssInsert, $customJs, $id, $idSite]
         );
     }
 
@@ -80,7 +73,7 @@ class Experiments
     {
         $row = Db::fetchRow('SELECT * FROM `' . $this->table() . '` WHERE id = ? AND idsite = ?', [$id, $idSite]);
 
-        return $row ? self::decode($row) : null;
+        return $row ?: null;
     }
 
     /**
@@ -88,14 +81,12 @@ class Experiments
      */
     public function getAllForSite(int $idSite): array
     {
-        $rows = Db::fetchAll('SELECT * FROM `' . $this->table() . '` WHERE idsite = ? ORDER BY id', [$idSite]);
-
-        return array_map([self::class, 'decode'], $rows);
+        return Db::fetchAll('SELECT * FROM `' . $this->table() . '` WHERE idsite = ? ORDER BY id', [$idSite]);
     }
 
     public function getIdByName(int $idSite, string $name): ?int
     {
-        $id = Db::fetchOne('SELECT id FROM `' . $this->table() . '` WHERE idsite = ? AND name = ?', array_merge([$idSite], self::encode([$name])));
+        $id = Db::fetchOne('SELECT id FROM `' . $this->table() . '` WHERE idsite = ? AND name = ?', [$idSite, $name]);
 
         return $id ? (int) $id : null;
     }
@@ -118,33 +109,6 @@ class Experiments
         }
 
         return Db::fetchAll($query, $params);
-    }
-
-    /**
-     * Texts are stored with HTML special characters encoded, as Matomo's API handed them over when
-     * the first experiments were stored.
-     *
-     * @param string[] $texts
-     * @return string[]
-     */
-    private static function encode(array $texts): array
-    {
-        return array_map(function (string $text): string {
-            return htmlspecialchars($text, Common::HTML_ENCODING_QUOTE_STYLE, 'UTF-8');
-        }, $texts);
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     * @return array<string, mixed>
-     */
-    private static function decode(array $row): array
-    {
-        foreach (['name', 'hypothesis', 'description', 'css_insert', 'js_insert'] as $field) {
-            $row[$field] = Common::unsanitizeInputValue((string) ($row[$field] ?? ''));
-        }
-
-        return $row;
     }
 
     private function table(): string

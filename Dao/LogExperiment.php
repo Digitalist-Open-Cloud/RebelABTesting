@@ -12,7 +12,6 @@ namespace Piwik\Plugins\RebelABTesting\Dao;
 use Piwik\Common;
 use Piwik\Db;
 use Piwik\DbHelper;
-use Piwik\Plugins\RebelABTesting\Takeover;
 
 class LogExperiment
 {
@@ -20,10 +19,6 @@ class LogExperiment
 
     public function install()
     {
-        if (Takeover::renameTable('simple_ab_testing_log', self::TABLE)) {
-            return;
-        }
-
         DbHelper::createTable(self::TABLE, "
             `idlog` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             `idsite` INT UNSIGNED NOT NULL,
