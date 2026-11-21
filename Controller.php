@@ -7,302 +7,227 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\SimpleABTesting;
+namespace Piwik\Plugins\RebelABTesting;
 
-use Piwik\Piwik;
+use Exception;
 use Piwik\Common;
-use Piwik\Url;
-use Piwik\Plugins\SimpleABTesting\API;
-use Piwik\Plugins\SimpleABTesting\Dao\Experiments;
-use Piwik\Container\StaticContainer;
-use Piwik\Plugins\SimpleABTesting\Helpers;
+use Piwik\Date;
+use Piwik\Nonce;
+use Piwik\Notification;
+use Piwik\Piwik;
+use Piwik\Plugins\RebelABTesting\Dao\Experiments;
+use Piwik\Plugins\RebelABTesting\Tracker\ExposureParams;
 use Piwik\Request;
+use Piwik\Url;
 use Piwik\ViewDataTable\Factory;
 
 class Controller extends \Piwik\Plugin\Controller
 {
-    use Helpers;
+    public const NONCE = 'RebelABTesting.experiment';
+
+    private const LIST_PAGE = 'RebelABTesting_ExistingExperiments';
+    private const CREATE_PAGE = 'RebelABTesting_CreateNewExperiment';
 
     /**
-     * Actions reachable by anonymous visitors on the tracked site — never
-     * gated behind admin access. Keep this list to read-only, already-public
-     * data (see getExperimentPublic()'s own docblock).
+     * @return int the requested website when the user is admin of it, otherwise 0
      */
-    private const PUBLIC_ACTIONS = ['getExperimentPublic'];
-
-    public function __construct()
+    public static function getAdminSite(): int
     {
-        parent::__construct();
+        $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
 
-        $action = Common::getRequestVar('action', '', 'string');
-        if (in_array($action, self::PUBLIC_ACTIONS, true)) {
+        return $idSite > 0 && Piwik::isUserHasAdminAccess($idSite) ? $idSite : 0;
+    }
+
+    public static function checkAdminSite(): int
+    {
+        $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
+        Piwik::checkUserHasAdminAccess($idSite);
+
+        return $idSite;
+    }
+
+    public static function getActionUrl(string $action, int $idSite): string
+    {
+        return '?' . http_build_query(['module' => 'RebelABTesting', 'action' => $action] + self::getPageParameters($idSite));
+    }
+
+    public function addExperiment()
+    {
+        $idSite = $this->checkWriteRequest();
+
+        try {
+            API::getInstance()->insertExperiment($idSite, ...$this->getExperimentFields());
+            $this->notify('RebelABTesting_ExperimentCreated', Notification::CONTEXT_SUCCESS);
+        } catch (Exception $e) {
+            $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
+            $this->redirect($this->getReportingUrl($idSite, self::CREATE_PAGE));
             return;
         }
 
-        if (!Piwik::isUserHasSomeAdminAccess()) {
-            echo "Not allowed!";
-            exit();
-        }
+        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
     }
 
-    /**
-     * Add an experiment
-     */
-    public function addExperiment()
-    {
-        $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
-        $this->securityChecks($idSite);
-
-        $name = trim(Request::fromRequest()->getStringParameter('name', 'string'));
-        $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $name);
-        $hypothesis = trim(Request::fromRequest()->getStringParameter('hypothesis', 'string'));
-        $description = trim(Request::fromRequest()->getStringParameter('description', 'string'));
-        $fromDate = trim(Request::fromRequest()->getStringParameter('from_date', 'string'));
-        $toDate = trim(Request::fromRequest()->getStringParameter('to_date', 'string'));
-        $cssInsert = trim(Request::fromRequest()->getStringParameter('css_insert', 'string'));
-        $customJs = trim(Request::fromRequest()->getStringParameter('js_insert', 'string'));
-        $redirectUrl = $_POST['redirect_url'] . "&message=Experiment%20Created";
-
-        $api = new API();
-        try {
-            $api->insertExperiment(
-                $idSite,
-                $name,
-                $hypothesis,
-                $description,
-                $fromDate,
-                $toDate,
-                $cssInsert,
-                $customJs
-            );
-            Url::redirectToUrl($redirectUrl);
-        } catch (\Exception $e) {
-            // The name/overlap validators (Dao\Experiments) throw on an
-            // invalid or overlapping experiment. Without this, that
-            // exception would otherwise reach Matomo's generic error page
-            // instead of the existing redirect-with-message UX this method
-            // already uses on success.
-            $errorRedirectUrl = $_POST['redirect_url'] . "&message=" . urlencode($e->getMessage());
-            Url::redirectToUrl($errorRedirectUrl);
-        }
-    }
-
-    /**
-     * Update an experiment (edit).
-     */
     public function updateExperiment()
     {
-        $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
-        $this->securityChecks($idSite);
+        $idSite = $this->checkWriteRequest();
+        $id = Request::fromRequest()->getIntegerParameter('id', 0);
 
-        $id = trim(Request::fromRequest()->getIntegerParameter('id', 0));
-        $name = trim(Request::fromRequest()->getStringParameter('name', 'string'));
-        $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $name);
-        $hypothesis = trim(Request::fromRequest()->getStringParameter('hypothesis', 'string'));
-        $description = trim(Request::fromRequest()->getStringParameter('description', 'string'));
-        $fromDate = trim(Request::fromRequest()->getStringParameter('from_date', 'string'));
-        $toDate = trim(Request::fromRequest()->getStringParameter('to_date', 'string'));
-        $cssInsert = trim(Request::fromRequest()->getStringParameter('css_insert', 'string'));
-        $customJs = trim(Request::fromRequest()->getStringParameter('js_insert', 'string'));
-        $redirectUrl = $_POST['redirect_url'];
-
-        $api = new API();
         try {
-            $api->updateExperiment(
-                $id,
-                $idSite,
-                $name,
-                $hypothesis,
-                $description,
-                $fromDate,
-                $toDate,
-                $cssInsert,
-                $customJs
-            );
-            Url::redirectToUrl($redirectUrl . "&message=Experiment%20Updated");
-        } catch (\Exception $e) {
-            $errorRedirectUrl = $redirectUrl . "&message=" . urlencode($e->getMessage());
-            Url::redirectToUrl($errorRedirectUrl);
+            API::getInstance()->updateExperiment($id, $idSite, ...$this->getExperimentFields());
+            $this->notify('RebelABTesting_ExperimentUpdated', Notification::CONTEXT_SUCCESS);
+        } catch (Exception $e) {
+            $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
+            $this->redirect(Url::getCurrentUrlWithoutQueryString() . self::getActionUrl('editExperimentForm', $idSite) . '&id=' . $id);
+            return;
         }
+
+        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
     }
 
-    /**
-     * Renders a dedicated full page for editing a single experiment.
-     * Reached via a plain link (not a modal) from the Edit action in
-     * experiments.twig; submits back to updateExperiment() above, same
-     * pattern as Goals' "Manage Goals" admin page.
-     */
+    public function delete()
+    {
+        $idSite = $this->checkWriteRequest();
+
+        API::getInstance()->deleteExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite);
+        $this->notify('RebelABTesting_ExperimentDeleted', Notification::CONTEXT_SUCCESS);
+
+        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
+    }
+
     public function editExperimentForm()
     {
-        $idSite = Common::getRequestVar('idSite', 0, 'int');
-        Piwik::checkUserHasAdminAccess($idSite);
-        $id = Common::getRequestVar('id', 0, 'int');
-        $period = Common::getRequestVar('period', 'day', 'string');
-        $date = Common::getRequestVar('date', 'today', 'string');
+        $idSite = self::checkAdminSite();
 
-        $backUrl = $this->getCustomUrl($period, $date, 'SimpleABTesting_SimpleABTesting', 'SimpleABTesting_ExistingExperiments');
-
-        $api = new API();
-        $experiment = $api->getExperiment($id, $idSite);
-
-        if ($experiment) {
-            $experiment['css_insert'] = Common::unsanitizeInputValues($experiment['css_insert']);
-            $experiment['js_insert'] = Common::unsanitizeInputValues($experiment['js_insert']);
-        }
-
-        $updateUrl = Url::getCurrentQueryStringWithParametersModified([
-            'module' => 'SimpleABTesting',
-            'action' => 'updateExperiment',
-        ]);
-
-        $nonce = \Piwik\Nonce::getNonce('SimpleABTesting.index');
-        $message = trim(Request::fromRequest()->getStringParameter('message', ''));
+        $experiment = API::getInstance()->getExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite);
 
         return $this->renderTemplate('edit', [
             'experiment' => $experiment,
             'idSite' => $idSite,
-            'updateUrl' => $updateUrl,
-            'redirectUrl' => $backUrl,
-            'backUrl' => $backUrl,
-            'nonce' => $nonce,
-            'message' => $message,
+            'updateUrl' => self::getActionUrl('updateExperiment', $idSite),
+            'backUrl' => $this->getReportingUrl($idSite, self::LIST_PAGE),
+            'nonce' => Nonce::getNonce(self::NONCE),
         ]);
     }
 
     /**
-     * Public, unauthenticated JSON endpoint called at runtime by
-     * Template/Tag/SimpleABTestingTag.web.js. Returns the CURRENT
-     * name/dates/css/js for one experiment so an edit takes effect on the
-     * next page load without republishing the Tag Manager container.
-     *
-     * CORS-open (Access-Control-Allow-Origin: *): the tracked site's origin
-     * is not knowable in advance, and this returns exactly the content an
-     * admin already configured to be injected into that site's public
-     * pages — not a new disclosure, just a different delivery mechanism
-     * than baking it into the compiled container JS.
+     * What the tag on the website asks for, without being logged in: the variant of an experiment
+     * that is running. Nothing is told about experiments that have ended or not started.
      */
     public function getExperimentPublic()
     {
-        header('Access-Control-Allow-Origin: *');
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-store');
+        Common::sendHeader('Access-Control-Allow-Origin: *');
+        Common::sendHeader('Content-Type: application/json; charset=utf-8');
+        Common::sendHeader('Cache-Control: no-store');
 
-        $idSite = Common::getRequestVar('idSite', 0, 'int');
-        $id = Common::getRequestVar('id', 0, 'int');
+        $request = Request::fromRequest();
+        $row = (new Experiments())->getById($request->getIntegerParameter('id', 0), $request->getIntegerParameter('idSite', 0));
 
-        // Anonymous by design: read the row directly (filters on id AND idsite)
-        // rather than through the access-checked API method.
-        $row = StaticContainer::get(Experiments::class)->getById($id, $idSite);
-
-        if (!$row) {
-            echo json_encode(['found' => false]);
-            exit();
+        if (!ExposureParams::isWithinSchedule(Date::now()->getTimestamp(), $row)) {
+            return json_encode(['found' => false]);
         }
 
-        $experiment = API::publicFields($row);
-        $experiment['css_insert'] = Common::unsanitizeInputValues($experiment['css_insert']);
-        $experiment['js_insert'] = Common::unsanitizeInputValues($experiment['js_insert']);
-        echo json_encode($experiment);
-        exit();
+        return json_encode(API::publicFields($row));
     }
 
-    /**
-     * Delete an experiment.
-     */
-    public function delete()
+    public function getExperimentReport()
     {
-        $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
-        $this->securityChecks($idSite);
+        $this->checkSitePermission();
 
-        $redirectUrl = $_POST['redirect_url'];
-        $id = trim(Request::fromRequest()->getIntegerParameter('id', 0));
-
-        $api = new API();
-        $api->deleteExperiment($id, $idSite);
-        Url::redirectToUrl($redirectUrl);
-    }
-
-    /**
-     * Write actions: POST with a valid nonce, and admin access to the site the
-     * experiment belongs to (not just to some site).
-     */
-    private function securityChecks(int $idSite)
-    {
-        Piwik::checkUserHasAdminAccess($idSite);
-
-        $nonce = Common::getRequestVar('nonce', false);
-        //$nonce = trim(Request::fromRequest()->getStringParameter('nonce', 'string'));
-
-        if ($_SERVER["REQUEST_METHOD"] != "POST" || !\Piwik\Nonce::verifyNonce('SimpleABTesting.index', $nonce)) {
-            echo "Not allowed. You can go to the <a href='/'>Dashboard / Home</a>.";
-            exit();
-        }
-    }
-
-    public function getExperimentReport($fetch = false)
-    {
-        Piwik::checkUserHasSomeViewAccess();
-        // Build the ViewDataTable object
-        //
-        // This is the actual live render path — Matomo's controller dispatch
-        // prefers this action over Reports/GetExperimentReport.php's own
-        // configureView() whenever both exist. variant is now a subtable row
-        // (Archiver::buildOneLevelTable), not a flat column — expand an
-        // experiment's row to see nb_visits per variant. nb_unique_visitors
-        // is a separate record (Archiver::RECORD_NAME_UNIQUE_VISITORS) not
-        // read by this report at all: it is day-only and does not roll up
-        // into week/month totals (see Archiver::recordNamesForMultiPeriod),
-        // so this report — which spans arbitrary periods — no longer claims
-        // to show it. Keep this in sync with GetExperimentReport::configureView().
-        //
-        // The third Factory::build() argument pins this view's own
-        // self_url/reload target ("controllerAction") to getExperimentReport.
-        // Without it, ViewDataTable::__construct() defaults controllerAction
-        // to the api action ('getExperimentData'), so every interactive
-        // reload of THIS top-level table (sort, page, flatten toggle) would
-        // re-render via getExperimentData() below instead — which sets its
-        // own "Variant" column translation, wrong at this level. Subtable
-        // expand still correctly routes to getExperimentData(): see
-        // Reports/GetExperimentData.php's actionToLoadSubTables.
-        $view = Factory::build('table', 'SimpleABTesting.getExperimentData', 'SimpleABTesting.getExperimentReport');
+        // The third argument keeps sorting and paging of the report on this action. Without it they
+        // would go to getExperimentData, which names the first column after the variant.
+        $view = Factory::build('table', 'RebelABTesting.getExperimentData', 'RebelABTesting.getExperimentReport');
         $view->config->columns_to_display = ['label', 'nb_visits'];
-        $view->config->addTranslation('label', Piwik::translate('SimpleABTesting_ExperimentName'));
-        $view->config->addTranslation('nb_visits', Piwik::translate('SimpleABTesting_NbVisits'));
-
-        $view->config->title = Piwik::translate('SimpleABTesting_ExperimentsReport');
-        $view->config->documentation = Piwik::translate('SimpleABTesting_ReportHelpText');
-        // Configure sorting options
+        $view->config->addTranslation('label', Piwik::translate('RebelABTesting_ExperimentName'));
+        $view->config->addTranslation('nb_visits', Piwik::translate('RebelABTesting_NbVisits'));
+        $view->config->title = Piwik::translate('RebelABTesting_ExperimentsReport');
+        $view->config->documentation = Piwik::translate('RebelABTesting_ReportHelpText');
         $view->requestConfig->filter_sort_column = 'nb_visits';
         $view->requestConfig->filter_sort_order = 'desc';
 
-        // Render the report and return the view (fetched if required)
         return $view->render();
     }
 
     /**
-     * Subtable action for getExperimentReport()'s expand (+) arrow.
+     * The variants of an experiment, shown when its row in the report is opened.
+     */
+    public function getExperimentData()
+    {
+        $this->checkSitePermission();
+
+        $view = Factory::build('table', 'RebelABTesting.getExperimentData');
+        $view->config->columns_to_display = ['label', 'nb_visits'];
+        $view->config->addTranslation('label', Piwik::translate('RebelABTesting_Variant'));
+        $view->config->addTranslation('nb_visits', Piwik::translate('RebelABTesting_NbVisits'));
+        $view->requestConfig->filter_sort_column = 'nb_visits';
+        $view->requestConfig->filter_sort_order = 'desc';
+
+        return $view->render();
+    }
+
+    /**
+     * @return int the website the request may change experiments of
+     */
+    private function checkWriteRequest(): int
+    {
+        $idSite = self::checkAdminSite();
+
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            throw new Exception(Piwik::translate('General_ExceptionSecurityCheckFailed'));
+        }
+        Nonce::checkNonce(self::NONCE, Request::fromPost()->getStringParameter('nonce', ''));
+
+        return $idSite;
+    }
+
+    /**
+     * The fields of the form, in the order the API takes them.
      *
-     * ViewDataTable::__construct() defaults config->subtable_controller_action
-     * to the bare action name of the apiAction passed to Factory::build()
-     * ('getExperimentData', split from 'SimpleABTesting.getExperimentData') —
-     * so this is the action Matomo's own dataTable.js already requests on
-     * expand. It was simply never defined. Same shape as getExperimentReport():
-     * one experiment's variant rows (label = variant, nb_visits per variant),
-     * scoped via the idSubtable request param that API::getExperimentData()
-     * now forwards to Archive::createDataTableFromArchive().
+     * @return string[]
      */
-    public function getExperimentData($fetch = false)
+    private function getExperimentFields(): array
     {
-        Piwik::checkUserHasSomeViewAccess();
+        $post = Request::fromPost();
+        $fields = [preg_replace('/[^a-zA-Z0-9_-]/', '', $post->getStringParameter('name', ''))];
 
-        $view = Factory::build('table', 'SimpleABTesting.getExperimentData');
-        $view->config->columns_to_display = ['label', 'nb_visits'];
-        $view->config->addTranslation('label', Piwik::translate('SimpleABTesting_Variant'));
-        $view->config->addTranslation('nb_visits', Piwik::translate('SimpleABTesting_NbVisits'));
+        foreach (['hypothesis', 'description', 'from_date', 'to_date', 'css_insert', 'js_insert'] as $field) {
+            $fields[] = trim($post->getStringParameter($field, ''));
+        }
 
-        $view->requestConfig->filter_sort_column = 'nb_visits';
-        $view->requestConfig->filter_sort_order = 'desc';
+        return $fields;
+    }
 
-        return $view->render();
+    private function notify(string $message, string $context): void
+    {
+        $notification = new Notification(Piwik::translate($message));
+        $notification->context = $context;
+        Notification\Manager::notify('RebelABTesting_result', $notification);
+    }
+
+    /**
+     * @return array{idSite: int, period: string, date: string}
+     */
+    private static function getPageParameters(int $idSite): array
+    {
+        $request = Request::fromRequest();
+
+        return [
+            'idSite' => $idSite,
+            'period' => $request->getStringParameter('period', 'day'),
+            'date' => $request->getStringParameter('date', 'yesterday'),
+        ];
+    }
+
+    private function getReportingUrl(int $idSite, string $subcategory): string
+    {
+        $page = self::getPageParameters($idSite);
+
+        return Url::getCurrentUrlWithoutQueryString()
+            . '?' . http_build_query(['module' => 'CoreHome', 'action' => 'index'] + $page)
+            . '#?' . http_build_query($page + ['category' => 'RebelABTesting_RebelABTesting', 'subcategory' => $subcategory]);
+    }
+
+    private function redirect(string $url): void
+    {
+        Url::redirectToUrl($url);
     }
 }

@@ -1,9 +1,9 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting\Tests\Unit;
+namespace Piwik\Plugins\RebelABTesting\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Piwik\Plugins\SimpleABTesting\RowGrouper;
+use Piwik\Plugins\RebelABTesting\RowGrouper;
 
 /**
  * Confirmed live against the real dev stack: a flat row per
@@ -16,6 +16,10 @@ use Piwik\Plugins\SimpleABTesting\RowGrouper;
  * columns entirely by nesting them, so this class's job is exactly the
  * property these tests check: two variants of the same experiment must
  * never collapse into one entry.
+ */
+/**
+ * @group RebelABTesting
+ * @group Plugins
  */
 final class RowGrouperTest extends TestCase
 {

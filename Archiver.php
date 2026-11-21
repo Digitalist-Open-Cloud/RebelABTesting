@@ -1,44 +1,43 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting;
+/**
+ * Matomo - free/libre analytics platform
+ *
+ * @link    https://matomo.org
+ * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
+ */
+
+namespace Piwik\Plugins\RebelABTesting;
 
 use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
 use Piwik\Plugin\Archiver as MatomoArchiver;
 use Piwik\Db;
-use Piwik\Log\LoggerInterface;
-use Piwik\Container\StaticContainer;
+use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
 
 class Archiver extends MatomoArchiver
 {
-    const RECORD_NAME = 'SimpleABTesting_ExperimentData';
-    const RECORD_NAME_UNIQUE_VISITORS = 'SimpleABTesting_ExperimentUniqueVisitors';
-    const RECORD_NAME_GOALS = 'SimpleABTesting_ExperimentGoals';
-    const DIMENSION = 'experiment_name';
+    public const RECORD_NAME = 'RebelABTesting_ExperimentData';
+    public const RECORD_NAME_UNIQUE_VISITORS = 'RebelABTesting_ExperimentUniqueVisitors';
+    public const RECORD_NAME_GOALS = 'RebelABTesting_ExperimentGoals';
+    public const DIMENSION = 'experiment_name';
 
     public function aggregateDayReport()
     {
-        /** @var LoggerInterface $logger */
-        $logger = StaticContainer::get('Psr\Log\LoggerInterface');
-        $logger->debug('SimpleABTesting: Starting day report aggregation.');
 
         $params = $this->getProcessor()->getParams();
-        $idSite  = $this->getProcessor()->getParams()->getSite()->getId();
+        $idSite = $params->getSite()->getId();
         $dateStart = $params->getDateStart()->toString('Y-m-d 00:00:00');
         $dateEnd = $params->getDateEnd()->toString('Y-m-d 23:59:59');
 
-        $logger->debug("SimpleABTesting: Archiving params: idSite={$idSite}, dateStart={$dateStart}, dateEnd={$dateEnd}");
-
-        // Visits: COUNT(DISTINCT idvisit), not COUNT(*) — the log table has
-        // one row per tracking request, not per visit, so COUNT(*) overcounts
-        // by however many pageviews/events happened during the visit.
+        // The log has a row per tracking request, so visits and visitors are counted distinct.
         $visitsQuery = "
             SELECT
                 experiment_name AS label,
                 variant AS variant,
                 COUNT(DISTINCT idvisit) AS nb_visits
-            FROM " . Common::prefixTable('simple_ab_testing_log') . "
+            FROM " . Common::prefixTable(LogExperiment::TABLE) . "
             WHERE idsite = ?
             AND server_time BETWEEN ? AND ?
             GROUP BY experiment_name, variant
@@ -49,15 +48,12 @@ class Archiver extends MatomoArchiver
             $this->buildOneLevelTable($visitRows, 'variant', ['nb_visits'])->getSerialized()
         );
 
-        // Unique visitors: its OWN record, day-only. A browser seen on
-        // several days would be double-counted if this were summed into a
-        // week/month the way nb_visits safely is — see recordNamesForMultiPeriod().
         $uniqueVisitorsQuery = "
             SELECT
                 experiment_name AS label,
                 variant AS variant,
                 COUNT(DISTINCT idvisitor) AS nb_unique_visitors
-            FROM " . Common::prefixTable('simple_ab_testing_log') . "
+            FROM " . Common::prefixTable(LogExperiment::TABLE) . "
             WHERE idsite = ?
             AND server_time BETWEEN ? AND ?
             GROUP BY experiment_name, variant
@@ -68,13 +64,8 @@ class Archiver extends MatomoArchiver
             $this->buildOneLevelTable($uniqueVisitorRows, 'variant', ['nb_unique_visitors'])->getSerialized()
         );
 
-        // Goals: which of the experiment's visits converted, and how many
-        // times. The subquery collapses the log table to one row per
-        // (idvisit, variant) BEFORE joining log_conversion — without it, a
-        // visit logged on N tracking requests joins N times and inflates
-        // nb_conversions by a factor of N. Confirmed live against real
-        // fixture data: 3 log rows for one visit that converted once
-        // produced nb_conversions=3 until this dedup subquery was added.
+        // A visit is taken once per variant before the join, or each of its requests would add
+        // its conversions again.
         $goalsQuery = "
             SELECT
                 v.experiment_name AS label,
@@ -84,7 +75,7 @@ class Archiver extends MatomoArchiver
                 COUNT(*) AS nb_conversions
             FROM (
                 SELECT DISTINCT idsite, idvisit, experiment_name, variant
-                FROM " . Common::prefixTable('simple_ab_testing_log') . "
+                FROM " . Common::prefixTable(LogExperiment::TABLE) . "
                 WHERE idsite = ?
                 AND server_time BETWEEN ? AND ?
             ) v
@@ -97,13 +88,11 @@ class Archiver extends MatomoArchiver
             self::RECORD_NAME_GOALS,
             $this->buildTwoLevelTable($goalRows, 'variant', 'idgoal', ['nb_visits_converted', 'nb_conversions'])->getSerialized()
         );
-
-        if (empty($visitRows) && empty($uniqueVisitorRows) && empty($goalRows)) {
-            $logger->debug("SimpleABTesting: No rows fetched for site: {$idSite}");
-        }
     }
 
     /**
+     * A row per label with the sum of its subtable, which has a row per value of the identity column.
+     *
      * @param array<int, array<string, mixed>> $rows
      * @param string[] $metricColumns
      */
@@ -118,12 +107,6 @@ class Archiver extends MatomoArchiver
                 $subtable->addRowFromSimpleArray(array_merge(['label' => $identityValue], $metrics));
                 $totals = self::addMetrics($totals, $metrics);
             }
-            // The top-level (experiment) row carries the SUM of its subtable's
-            // metrics, not just the label — without this the visible parent
-            // row (what renders before anyone expands it) shows an empty
-            // nb_visits, even though the real numbers exist one level down.
-            // variant itself stays out of this row entirely: it is an
-            // identity, not a metric (see RowGrouper's own docblock).
             $topRow = new Row([Row::COLUMNS => array_merge(['label' => $label], $totals)]);
             $topRow->setSubtable($subtable);
             $table->addRow($topRow);
@@ -149,16 +132,11 @@ class Archiver extends MatomoArchiver
                     $innerTable->addRowFromSimpleArray(array_merge(['label' => $innerValue], $metrics));
                     $outerTotals = self::addMetrics($outerTotals, $metrics);
                 }
-                // The middle-level (variant) row gets metrics summed across
-                // its own goals — same reasoning as buildOneLevelTable's
-                // top-level row, one level down.
                 $outerRow = new Row([Row::COLUMNS => array_merge(['label' => $outerValue], $outerTotals)]);
                 $outerRow->setSubtable($innerTable);
                 $outerTable->addRow($outerRow);
                 $topTotals = self::addMetrics($topTotals, $outerTotals);
             }
-            // The top-level (experiment) row gets metrics summed across ALL
-            // its variants/goals combined.
             $topRow = new Row([Row::COLUMNS => array_merge(['label' => $label], $topTotals)]);
             $topRow->setSubtable($outerTable);
             $table->addRow($topRow);
@@ -176,12 +154,6 @@ class Archiver extends MatomoArchiver
     }
 
     /**
-     * Sums each metric column of $metrics into $totals. Pure array
-     * arithmetic — identity columns (variant, idgoal) are never passed in
-     * here, only the already-extracted metric leaf values RowGrouper
-     * produces, so this can never accidentally sum an identity into a
-     * meaningless number the way the un-nested flat rows once did.
-     *
      * @param array<string, int> $totals
      * @param array<string, mixed> $metrics
      * @return array<string, int>
@@ -195,25 +167,10 @@ class Archiver extends MatomoArchiver
     }
 
     /**
-     * Which archive records are valid to sum across sub-periods (day -> week
-     * -> month -> year). A pure, no-Matomo-calls decision so it can be
-     * unit-tested directly.
+     * The records that can be added up over days. Unique visitors cannot: a visitor of three days
+     * would count three times.
      *
-     * Visits and conversions are summed across periods, same as Matomo's own
-     * nb_visits everywhere. Unique VISITORS are not (the same browser across
-     * several days would be counted once per day) — RECORD_NAME_UNIQUE_VISITORS
-     * is deliberately absent here, so Matomo's archiving stores no multi-period
-     * blob for it rather than a plausible-looking wrong sum.
-     *
-     * Known limitation, inherited from bucketing by server_time (a per-
-     * tracking-request timestamp) rather than by the visit's own day: a visit
-     * that spans midnight emits log rows on both days, so its visit and
-     * conversion counts can each be counted once per day it touches, inflating
-     * a week/month rollup by one for that visit. Narrower than the per-hit
-     * multiplication this task's queries fix (bounded to midnight-crossing
-     * visits, not every tracking hit), and not addressed here — a real fix
-     * would bucket by log_visit.visit_last_action_time instead, which needs
-     * a join this plugin's queries don't currently do.
+     * A visit that crosses midnight is logged on both days and counts once for each.
      *
      * @return string[]
      */
@@ -222,9 +179,6 @@ class Archiver extends MatomoArchiver
         return [self::RECORD_NAME, self::RECORD_NAME_GOALS];
     }
 
-    /**
-     * Aggregate data across multiple periods (e.g., week, month, year).
-     */
     public function aggregateMultipleReports()
     {
         $this->getProcessor()->aggregateDataTableRecords(self::recordNamesForMultiPeriod());

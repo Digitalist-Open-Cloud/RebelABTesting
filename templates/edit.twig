@@ -1,51 +1,35 @@
 {% extends 'admin.twig' %}
 
-{% set title %}{{ 'SimpleABTesting_EditExperiment'|translate }}{% endset %}
+{% set title %}{{ 'RebelABTesting_EditExperiment'|translate }}{% endset %}
 
 {% block topcontrols %}
     {% include "@CoreHome/_siteSelectHeader.twig" %}
 {% endblock %}
 
 {% block content %}
-<div class="simpleABTestingPlugin">
-    <h1>Edit Experiment</h1>
-
-    {% if message is not empty %}
-    <div class="alert">
-        {{ message }}
-    </div>
-    {% endif %}
-
-    {% if experiment is empty %}
+<div class="rebelABTestingPlugin">
     <div class="card">
         <div class="card-content">
-            <div class="alert">
-                This experiment could not be found. It may have been deleted.
-            </div>
-            <a href="{{ backUrl }}" class="btn">Back to experiments</a>
-        </div>
-    </div>
-    {% else %}
-    <div class="card">
-        <div class="card-content">
+            <h2>{{ 'RebelABTesting_EditExperiment'|translate }}</h2>
             <a href="{{ backUrl }}" class="back-link">&laquo; Back to experiments</a>
-
+            {% if experiment is empty %}
+            <div class="alert">This experiment could not be found. It may have been deleted.</div>
+            {% else %}
             <form method="post" action="{{ updateUrl }}">
-                <input type="hidden" name="redirect_url" value="{{ redirectUrl }}">
                 <input type="hidden" name="nonce" value="{{ nonce }}">
                 <input type="hidden" name="id" value="{{ experiment.id }}">
-                <input type="hidden" name="idSite" value="{{ idSite }}">
 
                 <h3 class="form-section-title">Basic info</h3>
                 <div class="row">
                     <div class="col s12 m6 form-field">
                         <label for="name">Experiment Name</label>
                         <input type="text" name="name" id="name" value="{{ experiment.name }}" required>
-                        <span class="form-hint">Only alphanumeric characters, no spaces &mdash; changing this may reset visitor cookies for this experiment.</span>
+                        <span class="form-hint">Letters, digits, - and _ only.</span>
                     </div>
                     <div class="col s12 m6 form-field">
                         <label for="hypothesis">Hypothesis</label>
                         <input type="text" name="hypothesis" id="hypothesis" value="{{ experiment.hypothesis }}">
+                        <span class="form-hint">What you expect and why, for example &ldquo;A green button gets more clicks.&rdquo;</span>
                     </div>
                 </div>
                 <div class="row">
@@ -70,17 +54,19 @@
                 </div>
 
                 <h3 class="form-section-title">Variant code</h3>
-                <p class="section-help">Fill in CSS insert and/or Custom JS below &mdash; you don't need both.</p>
+                <p class="section-help">Fill in CSS, JavaScript or both. Use CSS for how the page looks and JavaScript for what it does or says.</p>
                 <div class="row">
                     <div class="col s12 code-field">
-                        <label for="css_insert">CSS insert (variant 1)</label>
+                        <label for="css_insert">CSS for the variant</label>
                         <textarea name="css_insert" id="css_insert" class="code-textarea">{{ experiment.css_insert }}</textarea>
+                        <span class="form-hint">For example <code>.btn { background-color: #ff5722; }</code></span>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col s12 code-field">
-                        <label for="js_insert">Custom JS (variant 1)</label>
+                        <label for="js_insert">JavaScript for the variant</label>
                         <textarea name="js_insert" id="js_insert" class="code-textarea">{{ experiment.js_insert }}</textarea>
+                        <span class="form-hint">For example <code>document.querySelector('h1').textContent = 'New headline';</code></span>
                     </div>
                 </div>
 
@@ -89,8 +75,8 @@
                     <a href="{{ backUrl }}" class="btn btn-flat">Cancel</a>
                 </div>
             </form>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 </div>
 {% endblock %}

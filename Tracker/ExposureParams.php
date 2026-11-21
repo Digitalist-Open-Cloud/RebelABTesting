@@ -1,16 +1,28 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting\Tracker;
+/**
+ * Matomo - free/libre analytics platform
+ *
+ * @link    https://matomo.org
+ * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
+ */
+
+namespace Piwik\Plugins\RebelABTesting\Tracker;
 
 /**
- * Validates the experiment tracking parameters of a request. Everything the
- * visitor's browser sends is untrusted: anything malformed becomes null.
+ * The experiment parameters of a tracking request. What the browser sends is not trusted: a value
+ * that is not well-formed becomes null.
  */
 class ExposureParams
 {
+    public const UNKNOWN_NAME = 'Unknown';
+
+    private const NAME_MAX_LENGTH = 255;
+
     /**
+     * @param array<string, mixed> $params
      * @return array{variant: ?int, idexperiment: ?int, experiment_name: string, assignment_id: ?string}|null
-     *         null when the request carries no sabt parameter at all
+     *         null when the request is not about an experiment
      */
     public static function fromRequestParams(array $params): ?array
     {
@@ -24,10 +36,10 @@ class ExposureParams
         $idexperiment = (is_string($id) || is_int($id)) && preg_match('/^[1-9][0-9]{0,9}$/', (string) $id)
             ? (int) $id : null;
 
-        $name = 'Unknown';
+        $name = self::UNKNOWN_NAME;
         foreach (['sabn', 'experiment'] as $key) {
             if (isset($params[$key]) && is_string($params[$key]) && $params[$key] !== '') {
-                $name = mb_substr($params[$key], 0, 255);
+                $name = mb_substr($params[$key], 0, self::NAME_MAX_LENGTH);
                 break;
             }
         }
@@ -44,39 +56,18 @@ class ExposureParams
     }
 
     /**
-     * Resolves the experiment id without trusting the request: a supplied id
-     * is kept only if it exists for the request's site, otherwise the
-     * (site-scoped) name lookup decides.
+     * Whether the time is within the first and the last day of the experiment. Days are in UTC, as
+     * in the tag.
      *
-     * @param callable(int): bool $existsForSite
-     * @param callable(string): ?int $idByName
+     * @param array<string, mixed>|null $experiment
      */
-    public static function resolveExperimentId(?int $sabi, string $name, callable $existsForSite, callable $idByName): ?int
+    public static function isWithinSchedule(int $timestamp, ?array $experiment): bool
     {
-        if ($sabi !== null && $existsForSite($sabi)) {
-            return $sabi;
-        }
-        if ($name !== 'Unknown') {
-            return $idByName($name);
-        }
-        return null;
-    }
-
-    /**
-     * Whether a request at $timestamp falls inside the experiment row's
-     * schedule [from_date, to_date], compared as UTC days (the tag uses UTC
-     * too). A concluded test has its to_date moved back, but a returning
-     * visitor's stored assignment keeps sending the old id until it expires
-     * in the browser; such requests must not count for the test.
-     *
-     * @param array{from_date: string, to_date: string}|null $row
-     */
-    public static function isWithinSchedule(int $timestamp, ?array $row): bool
-    {
-        if ($row === null) {
+        if ($experiment === null) {
             return false;
         }
         $day = gmdate('Y-m-d', $timestamp);
-        return $day >= (string) $row['from_date'] && $day <= (string) $row['to_date'];
+
+        return $day >= (string) $experiment['from_date'] && $day <= (string) $experiment['to_date'];
     }
 }

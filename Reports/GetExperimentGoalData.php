@@ -1,63 +1,44 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting\Reports;
+/**
+ * Matomo - free/libre analytics platform
+ *
+ * @link    https://matomo.org
+ * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
+ */
+
+namespace Piwik\Plugins\RebelABTesting\Reports;
 
 use Piwik\Piwik;
 use Piwik\Plugin\ViewDataTable;
-use Piwik\Plugins\SimpleABTesting\Columns\ExperimentName;
+use Piwik\Plugins\RebelABTesting\Columns\ExperimentName;
 
 /**
- * Surfaces Archiver::RECORD_NAME_GOALS (API.getExperimentGoalData) in the UI.
- *
- * Before this, the plugin's own goal-conversion-per-variant data (verified
- * correct at the data level: variant -> idgoal -> nb_visits_converted /
- * nb_conversions) was only reachable via the API, never shown in a report —
- * "Experiments Report" only ever displayed nb_visits. This is a plain,
- * Report-driven widget (no Controller override, unlike GetExperimentReport /
- * Controller::getExperimentReport()): Matomo auto-renders any Report that
- * has a subcategoryId, calling configureView() below, so there is no
- * separate self_url/controllerAction mismatch to get wrong here.
- *
- * Three levels deep: experiment -> variant -> goal. actionToLoadSubTables
- * pointing at this report's own action makes BOTH expand arrows (experiment
- * row -> its variants, variant row -> its goals) recurse through the same
- * API.getExperimentGoalData call with idSubtable set — Matomo's generic
- * subtable mechanism handles the extra depth transparently.
+ * Conversions by experiment, then variant, then goal.
  */
 class GetExperimentGoalData extends Base
 {
     protected function init()
     {
         parent::init();
-
-        $this->name = Piwik::translate('SimpleABTesting_GoalsReport');
+        $this->name = Piwik::translate('RebelABTesting_GoalsReport');
         $this->dimension = new ExperimentName();
         $this->metrics = [
-            'nb_visits_converted' => Piwik::translate('SimpleABTesting_NbVisitsConverted'),
-            'nb_conversions' => Piwik::translate('SimpleABTesting_NbConversions'),
+            'nb_visits_converted' => Piwik::translate('RebelABTesting_NbVisitsConverted'),
+            'nb_conversions' => Piwik::translate('RebelABTesting_NbConversions'),
         ];
         $this->processedMetrics = [];
         $this->order = 2;
         $this->subcategoryId = $this->name;
-        $this->documentation = Piwik::translate('SimpleABTesting_GoalsReportHelpText');
+        $this->documentation = Piwik::translate('RebelABTesting_GoalsReportHelpText');
         $this->actionToLoadSubTables = $this->action;
     }
 
-    /**
-     * @param ViewDataTable $view
-     */
     public function configureView(ViewDataTable $view)
     {
         $view->config->show_table = true;
-        $view->config->columns_to_display = [
-            'label',
-            'nb_visits_converted',
-            'nb_conversions',
-        ];
-
-        $view->config->translations['label'] = Piwik::translate('SimpleABTesting_ExperimentName');
-        $view->config->translations['nb_visits_converted'] = Piwik::translate('SimpleABTesting_NbVisitsConverted');
-        $view->config->translations['nb_conversions'] = Piwik::translate('SimpleABTesting_NbConversions');
+        $view->config->columns_to_display = ['label', 'nb_visits_converted', 'nb_conversions'];
+        $view->config->addTranslation('label', Piwik::translate('RebelABTesting_ExperimentName'));
         $view->config->show_footer_message = true;
     }
 }

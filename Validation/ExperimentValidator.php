@@ -1,35 +1,51 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting\Validation;
+/**
+ * Matomo - free/libre analytics platform
+ *
+ * @link    https://matomo.org
+ * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
+ */
+
+namespace Piwik\Plugins\RebelABTesting\Validation;
 
 /**
- * Pure validation rules for an experiment's name and schedule. No Matomo
- * calls — every rule here is testable in isolation, and Dao\Experiments
- * calls these before touching the database.
+ * The rules for the name and the schedule of an experiment. An error is the key of its translation.
  */
 final class ExperimentValidator
 {
-    /**
-     * @return string|null An error message, or null if $name is valid.
-     */
+    private const NAME_MAX_LENGTH = 255;
+
     public static function validateName(string $name): ?string
     {
         if (trim($name) === '') {
-            return 'Experiment name must not be empty.';
+            return 'RebelABTesting_ErrorNameEmpty';
         }
+        if (mb_strlen($name) > self::NAME_MAX_LENGTH) {
+            return 'RebelABTesting_ErrorNameTooLong';
+        }
+        // Tags published by older versions keep the experiment as a comma-separated text.
         if (strpos($name, ',') !== false) {
-            // Template/Tag/SimpleABTestingTag.php concatenates
-            // "name,from,to,css,js" into one Tag Manager parameter string
-            // and splits it back on "," at runtime without ever URL-encoding
-            // the name — a comma here silently corrupts every field after it.
-            return 'Experiment name must not contain a comma.';
+            return 'RebelABTesting_ErrorNameComma';
         }
+
         return null;
     }
 
+    public static function validateDates(string $fromDate, string $toDate): ?string
+    {
+        foreach ([$fromDate, $toDate] as $date) {
+            $parsed = \DateTime::createFromFormat('!Y-m-d', $date);
+            if (!$parsed || $parsed->format('Y-m-d') !== $date) {
+                return 'RebelABTesting_ErrorDateFormat';
+            }
+        }
+
+        return $fromDate > $toDate ? 'RebelABTesting_ErrorDateOrder' : null;
+    }
+
     /**
-     * Whether [$newFrom, $newTo] overlaps any range in $existingRanges.
-     * Inclusive on both ends: two ranges sharing even one day overlap.
+     * Whether the period shares a day with one of the existing periods.
      *
      * @param array<int, array{from_date: string, to_date: string}> $existingRanges
      */
@@ -40,6 +56,7 @@ final class ExperimentValidator
                 return true;
             }
         }
+
         return false;
     }
 }

@@ -1,65 +1,97 @@
-# Matomo Simple A/B Testing Plugin
+# Rebel A/B Testing
 
-## Description
+A/B testing for Matomo. An experiment shows a variant of a page to half of the visitors, and the
+reports show visits and goal conversions per variant.
 
-Simple A/B Testing is a plugin for Matomo to do A/B testing experiments through Matomo.
+The variant is CSS, JavaScript or both, which a tag of Matomo Tag Manager adds to the page.
 
-## Dependencies
+## Requirements
 
-The plugin depends on Matomo Tag Manager, as the experiments are added as a Tag in Matomo Tag Manager.
+- Matomo 5
+- PHP 8.2 or newer
+- The Tag Manager plugin, activated
 
-## Events
+## Create an experiment
 
-The plugin sends events to Matomo:
+1. Go to **A/B Testing > Create a new experiment** in the reporting menu of the website. You need
+   admin access to the website.
+2. Give the experiment a name, a first and a last day, and the CSS or JavaScript of the variant.
 
-- Event category: "SimpleABTesting".
-- Event action: Experiment: NAME_OF_EXPERIMENT.
-- Event names: original or variant (the experiment).
-- Event value: 1 or 2 (original or variant).
+Only one experiment can run on a website at a time. Days are in UTC.
 
-## Adding a new experiment
+## Put the experiment on the website
 
-1. From Dashboard -> Simple A/B Testing -> Create a new experiment.
-2. Set a name for the experiment.
-3. Insert custom CSS or JS for the variant.
+1. In a container of Matomo Tag Manager, create a tag of the type **Rebel A/B Testing**.
+2. Choose the experiment.
+3. Choose a trigger, for example Pageview.
+4. Publish the container.
 
-## Activate the experiment
+The tag fetches the experiment from Matomo each time it fires. A change to the experiment therefore
+needs no new version of the container.
 
-1. In your Matomo Tag Manager container, create a new tag - choose "Simple A/B Testing".
-2. Set a name for the tag
-3. Add description (optional)
-4. At "Configure what this tag should do", choose the the experiment you want to add.
-5. At "Configure when the tag should do this", choose a trigger (Pageview works fine).
-6. Click "Create new tag"
-7. Publish the change of your container.
-8. Test it!
+## How visitors are assigned
+
+A visitor gets the original or the variant by chance and keeps it until the experiment ends. The
+choice is kept in the `localStorage` of the browser, under `sabt:<id of the experiment>`. A browser
+without `localStorage` gets the original and is not counted.
 
 ## Reports
 
-We are still working on for getting reports into the plugin. For now, you could get some clue what is going on while checking into events.
+- **A/B Testing > Experiments Report**: visits per experiment. Open an experiment to see its
+  variants: 1 is the original, 2 the variant.
+- **A/B Testing > Experiment Goals**: conversions per experiment, variant and goal.
 
-![Events report](assets/events-report.png "Events in Matomo")
+Any other report can be compared between the variants with the segments **Experiment variant** and
+**Experiment ID**, for example `experimentId==3;experimentVariant==2`.
 
-## Cookie
+## What is public
 
-The plugin sets a cookie prefixed with the "sabt_" and then the experiment name. If the experiment is named "redbutton", the cookie will be named `sabt_redbutton`. The cookie lives until the end of the experiment.
+The tag runs in the browser of a visitor who is not logged in to Matomo. Anyone can therefore read
+the name, the days, the CSS and the JavaScript of an experiment while it is running. Do not put
+anything secret in them. Hypothesis and description are only shown to admins of the website, and
+nothing is told about experiments that have ended or not started.
 
 ## API
 
-You can add and delete experiments with Matomo API.
+| Method | Access |
+| --- | --- |
+| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, cssInsert, customJs) | admin |
+| `RebelABTesting.updateExperiment` (id, idSite, name, hypothesis, description, fromDate, toDate, cssInsert, customJs) | admin |
+| `RebelABTesting.deleteExperiment` (id, idSite) | admin |
+| `RebelABTesting.getExperiment` (id, idSite) | admin |
+| `RebelABTesting.getExperimentData` (idSite, period, date, segment) | view |
+| `RebelABTesting.getExperimentGoalData` (idSite, period, date, segment) | view |
+| `RebelABTesting.getExperimentUniqueVisitorData` (idSite, period, date, segment), days only | view |
+| `RebelABTesting.getExperimentReportData` (idSite, period, date), read from the log | view |
 
-- `SimpleABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, cssInsert, customJs)
-- `SimpleABTesting.deleteExperiment` (id)
+## Coming from SimpleABTesting
 
-You can also get the experiments:
+This plugin replaces SimpleABTesting and takes over its experiments and its log.
 
-- `SimpleABTesting.getExperimentReportData` (idSite, period, date) - the raw data
-- `SimpleABTesting.getExperimentData` (idSite, period, date, segment) - the archived data.
+1. Update SimpleABTesting to its latest version and run `./console core:update`.
+2. Deactivate SimpleABTesting. Do not uninstall it: that deletes its data.
+3. Activate RebelABTesting.
+4. Publish the containers that have an A/B testing tag again.
+5. Remove the directory `plugins/SimpleABTesting`.
+6. Archive the reports of earlier periods again:
+   `./console core:invalidate-report-data --plugin=RebelABTesting --dates=<from>,<to>`
 
-## GDPR and personally identifiable information
+## Personal data
 
-Out of the box, this plugin does not store any personal information. With that said, with using JavaScript within an experiment, personal data could be stored somewhere else.
+The plugin stores for each tracking request of a visitor in an experiment: the visit, the visitor
+ID, the variant and a random ID of the assignment. The CSS and JavaScript of an experiment are
+yours, and what they do with personal data is up to you.
 
-## Fork
+## Tests
 
-This is a fork of the original [Simple A/B testing-plugin](https://github.com/nofrillsplugins/matomo-simple-ab-testing), and we are contributing back to the original.
+From the root of Matomo:
+
+```sh
+./console tests:run RebelABTesting
+deno test --allow-read plugins/RebelABTesting/tests/js
+```
+
+## Credits
+
+Based on [Simple A/B Testing](https://github.com/nofrillsplugins/matomo-simple-ab-testing) by No
+Frills Plugins.

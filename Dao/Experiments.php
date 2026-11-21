@@ -1,116 +1,108 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting\Dao;
+/**
+ * Matomo - free/libre analytics platform
+ *
+ * @link    https://matomo.org
+ * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
+ */
 
+namespace Piwik\Plugins\RebelABTesting\Dao;
+
+use Exception;
 use Piwik\Common;
 use Piwik\Db;
-use Exception;
+use Piwik\DbHelper;
+use Piwik\Piwik;
+use Piwik\Plugins\RebelABTesting\Takeover;
+use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 
 class Experiments
 {
+    public const TABLE = 'rebel_ab_testing_experiments';
+
+    private const DUPLICATE_ENTRY = '1062';
+
     public function install()
     {
-        try {
-            $sql = "CREATE TABLE " . Common::prefixTable('simple_ab_testing_experiments') . " (
-                  `id` int(11) NOT NULL AUTO_INCREMENT,
-                  `idsite` int(11) NOT NULL,
-                  `name` varchar(255) NOT NULL,
-                  `hypothesis` text,
-                  `description` text,
-                  `from_date` date NOT NULL,
-                  `to_date` date NOT NULL,
-                  `css_insert` text,
-                  `js_insert` text,
-                  PRIMARY KEY (`id`),
-                  UNIQUE KEY `unique_name` (`name`)
-                  )  DEFAULT CHARSET=utf8 ";
-            Db::exec($sql);
-        } catch (Exception $e) {
-            // ignore error if table already exists (1050 code is for 'table already exists')
-            if (!Db::get()->isErrNo($e, '1050')) {
-                throw $e;
-            }
+        if (Takeover::renameTable('simple_ab_testing_experiments', self::TABLE)) {
+            // SimpleABTesting had names unique across all websites.
+            Db::exec('ALTER TABLE `' . $this->table() . '` DROP INDEX `unique_name`, ADD UNIQUE KEY `unique_name` (`idsite`, `name`)');
+            return;
         }
+
+        DbHelper::createTable(self::TABLE, "
+            `id` INT NOT NULL AUTO_INCREMENT,
+            `idsite` INT NOT NULL,
+            `name` VARCHAR(255) NOT NULL,
+            `hypothesis` TEXT,
+            `description` TEXT,
+            `from_date` DATE NOT NULL,
+            `to_date` DATE NOT NULL,
+            `css_insert` TEXT,
+            `js_insert` TEXT,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `unique_name` (`idsite`, `name`)
+        ");
     }
 
-    public function insertExperiment(int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, string $cssInsert, string $customJs)
+    public function uninstall()
     {
-        $this->assertValidAndNotOverlapping($idSite, $name, $fromDate, $toDate);
+        Db::dropTables(Common::prefixTable(self::TABLE));
+    }
 
-        $query = "INSERT INTO `" . Common::prefixTable('simple_ab_testing_experiments') .
-        "` (idsite, name, hypothesis, description, from_date, to_date, css_insert, js_insert) " .
-        "VALUES (?,?,?,?,?,?,?,?)";
-        $params = [
-        $idSite,
-        $name,
-        $hypothesis,
-        $description,
-        $fromDate,
-        $toDate,
-        $cssInsert,
-        $customJs
-        ];
-        try {
-            $db = $this->getDb();
-            $db->query($query, $params);
-        } catch (Exception $e) {
-            if ($db->isErrNo($e, '1062')) {
-                throw new Exception("An experiment named \"{$name}\" already exists. Experiment names must be unique across all sites.");
-            }
-            throw $e;
-        }
+    public function insertExperiment(int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, string $cssInsert, string $customJs): int
+    {
+        $this->assertValid($idSite, $name, $fromDate, $toDate);
+
+        $this->write(
+            'INSERT INTO `' . $this->table() . '` (idsite, name, hypothesis, description, `from_date`, `to_date`, css_insert, js_insert) VALUES (?,?,?,?,?,?,?,?)',
+            array_merge([$idSite], self::encode([$name, $hypothesis, $description]), [$fromDate, $toDate], self::encode([$cssInsert, $customJs]))
+        );
+
+        return (int) Db::get()->lastInsertId();
     }
 
     public function updateExperiment(int $id, int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, string $cssInsert, string $customJs): void
     {
-        $this->assertValidAndNotOverlapping($idSite, $name, $fromDate, $toDate, $id);
+        $this->assertValid($idSite, $name, $fromDate, $toDate, $id);
 
-        // Scoped to the row's own site, and idsite is never changed: a row
-        // cannot be edited from, or moved to, another site.
-        $query = "UPDATE `" . Common::prefixTable('simple_ab_testing_experiments') . "` SET " .
-            "name = ?, hypothesis = ?, description = ?, from_date = ?, to_date = ?, css_insert = ?, js_insert = ? " .
-            "WHERE id = ? AND idsite = ?";
-        $params = [$name, $hypothesis, $description, $fromDate, $toDate, $cssInsert, $customJs, $id, $idSite];
-        try {
-            $db = $this->getDb();
-            $db->query($query, $params);
-        } catch (Exception $e) {
-            if ($db->isErrNo($e, '1062')) {
-                throw new Exception("An experiment named \"{$name}\" already exists. Experiment names must be unique across all sites.");
-            }
-            throw $e;
-        }
+        $this->write(
+            'UPDATE `' . $this->table() . '` SET name = ?, hypothesis = ?, description = ?, `from_date` = ?, `to_date` = ?, css_insert = ?, js_insert = ? WHERE id = ? AND idsite = ?',
+            array_merge(self::encode([$name, $hypothesis, $description]), [$fromDate, $toDate], self::encode([$cssInsert, $customJs]), [$id, $idSite])
+        );
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getById(int $id, int $idSite): ?array
     {
-        $query = "SELECT * FROM `" . Common::prefixTable('simple_ab_testing_experiments') . "` WHERE id = ? AND idsite = ?";
-        $row = Db::fetchRow($query, [$id, $idSite]);
-        return $row ?: null;
+        $row = Db::fetchRow('SELECT * FROM `' . $this->table() . '` WHERE id = ? AND idsite = ?', [$id, $idSite]);
+
+        return $row ? self::decode($row) : null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getAllForSite(int $idSite): array
+    {
+        $rows = Db::fetchAll('SELECT * FROM `' . $this->table() . '` WHERE idsite = ? ORDER BY id', [$idSite]);
+
+        return array_map([self::class, 'decode'], $rows);
     }
 
     public function getIdByName(int $idSite, string $name): ?int
     {
-        $query = "SELECT id FROM `" . Common::prefixTable('simple_ab_testing_experiments') . "` WHERE idsite = ? AND name = ?";
-        $id = Db::fetchOne($query, [$idSite, $name]);
+        $id = Db::fetchOne('SELECT id FROM `' . $this->table() . '` WHERE idsite = ? AND name = ?', array_merge([$idSite], self::encode([$name])));
+
         return $id ? (int) $id : null;
     }
 
     public function deleteExperiment(int $id, int $idSite): void
     {
-        $query = "DELETE FROM `" . Common::prefixTable('simple_ab_testing_experiments') . "` WHERE id = ? AND idsite = ?";
-        $params = [$id, $idSite];
-        try {
-            $db = $this->getDb();
-            $db->query($query, $params);
-        } catch (Exception $e) {
-            throw $e;
-        }
-    }
-
-    private function getDb()
-    {
-        return Db::get();
+        Db::query('DELETE FROM `' . $this->table() . '` WHERE id = ? AND idsite = ?', [$id, $idSite]);
     }
 
     /**
@@ -118,36 +110,76 @@ class Experiments
      */
     public function getDateRangesForSite(int $idSite, ?int $excludeId = null): array
     {
-        $query = "SELECT from_date, to_date FROM `" . Common::prefixTable('simple_ab_testing_experiments') . "` WHERE idsite = ?";
+        $query = 'SELECT `from_date`, `to_date` FROM `' . $this->table() . '` WHERE idsite = ?';
         $params = [$idSite];
         if ($excludeId !== null) {
-            $query .= " AND id != ?";
+            $query .= ' AND id != ?';
             $params[] = $excludeId;
         }
-        return $this->getDb()->fetchAll($query, $params);
+
+        return Db::fetchAll($query, $params);
     }
 
     /**
-     * Shared by insertExperiment() and updateExperiment() so the two rules
-     * (name, schedule overlap) live in exactly one place. $excludeId is the
-     * row being updated (null for a fresh insert) — it must not count as
-     * "overlapping itself".
+     * Texts are stored with HTML special characters encoded, as Matomo's API handed them over when
+     * the first experiments were stored.
+     *
+     * @param string[] $texts
+     * @return string[]
      */
-    private function assertValidAndNotOverlapping(int $idSite, string $name, string $fromDate, string $toDate, ?int $excludeId = null): void
+    private static function encode(array $texts): array
     {
-        $error = \Piwik\Plugins\SimpleABTesting\Validation\ExperimentValidator::validateName($name);
-        if ($error !== null) {
-            throw new \InvalidArgumentException($error);
+        return array_map(function (string $text): string {
+            return htmlspecialchars($text, Common::HTML_ENCODING_QUOTE_STYLE, 'UTF-8');
+        }, $texts);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function decode(array $row): array
+    {
+        foreach (['name', 'hypothesis', 'description', 'css_insert', 'js_insert'] as $field) {
+            $row[$field] = Common::unsanitizeInputValue((string) ($row[$field] ?? ''));
         }
 
-        $existingRanges = $this->getDateRangesForSite($idSite, $excludeId);
-        if (\Piwik\Plugins\SimpleABTesting\Validation\ExperimentValidator::hasOverlap($existingRanges, $fromDate, $toDate)) {
-            throw new Exception("Site {$idSite} already has an experiment scheduled between {$fromDate} and {$toDate}. Only one experiment can run at a time per site (see the plugin's tracker.js limitation).");
+        return $row;
+    }
+
+    private function table(): string
+    {
+        return Common::prefixTable(self::TABLE);
+    }
+
+    /**
+     * @param array<int, mixed> $params
+     */
+    private function write(string $query, array $params): void
+    {
+        try {
+            Db::query($query, $params);
+        } catch (Exception $e) {
+            if (Db::get()->isErrNo($e, self::DUPLICATE_ENTRY)) {
+                throw new Exception(Piwik::translate('RebelABTesting_ErrorNameExists'));
+            }
+            throw $e;
         }
     }
 
-    public function uninstall()
+    /**
+     * @param int|null $excludeId the experiment that is updated, which may overlap itself
+     */
+    private function assertValid(int $idSite, string $name, string $fromDate, string $toDate, ?int $excludeId = null): void
     {
-        Db::dropTables(Common::prefixTable('simple_ab_testing_experiments'));
+        $error = ExperimentValidator::validateName($name) ?? ExperimentValidator::validateDates($fromDate, $toDate);
+
+        if ($error === null && ExperimentValidator::hasOverlap($this->getDateRangesForSite($idSite, $excludeId), $fromDate, $toDate)) {
+            $error = 'RebelABTesting_ErrorOverlap';
+        }
+
+        if ($error !== null) {
+            throw new Exception(Piwik::translate($error));
+        }
     }
 }

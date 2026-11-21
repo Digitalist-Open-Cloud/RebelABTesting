@@ -1,29 +1,32 @@
 {
-    "name": "SimpleABTesting",
-    "description": "A free and simple A\/B testing plugin. Insert custom CSS \/ JS for your variant and you are done.",
-    "version": "0.1.99",
+    "name": "RebelABTesting",
+    "description": "A/B testing with Matomo Tag Manager. Write CSS or JavaScript for the variant and see visits and conversions per variant.",
+    "version": "0.2.0",
     "theme": false,
     "require": {
+        "php": ">=8.2.0",
         "matomo": ">=5.2.1-stable,<6.0.0-b1"
     },
     "authors": [
         {
+            "name": "Digitalist",
+            "email": "cloud@digitalist.com",
+            "homepage": "https://digitalist.cloud"
+        },
+        {
             "name": "No Frills Plugins",
-            "email": "",
-            "homepage": "https:\/\/www.nofrillsplugins.com"
+            "homepage": "https://www.nofrillsplugins.com"
         }
     ],
     "support": {
-        "email": "",
-        "issues": "",
-        "forum": "",
-        "irc": "",
-        "wiki": "",
-        "source": "",
-        "docs": "",
-        "rss": ""
+        "issues": "https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/issues",
+        "source": "https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting"
     },
-    "homepage": "https:\/\/www.nofrillsplugins.com\/matomo-simple-ab-testing",
-    "license": "GPL v3+",
-    "keywords": []
+    "homepage": "https://digitalist.cloud/matomo",
+    "license": "GPL-3.0-or-later",
+    "keywords": [
+        "ab testing",
+        "experiments",
+        "tag manager"
+    ]
 }
