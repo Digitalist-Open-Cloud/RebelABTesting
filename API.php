@@ -13,6 +13,7 @@ use Exception;
 use Piwik\Archive;
 use Piwik\DataTable;
 use Piwik\Piwik;
+use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 
 /**
@@ -47,22 +48,47 @@ class API extends \Piwik\Plugin\API
      *                          original and the variants
      * @param string $targetMatch how the address of a page is compared with $targetValue: any,
      *                            equals, contains, starts_with or regexp
+     * @param string $primaryGoal the goal the experiment is judged by: the ID of a goal,
+     *                            `ecommerceOrder`, or empty for none
      * @return int the ID of the experiment
      */
-    public function insertExperiment(int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare = 100, string $targetMatch = 'any', string $targetValue = ''): int
-    {
+    public function insertExperiment(
+        int $idSite,
+        string $name,
+        string $hypothesis,
+        string $description,
+        string $fromDate,
+        string $toDate,
+        array $variants,
+        int $trafficShare = 100,
+        string $targetMatch = 'any',
+        string $targetValue = '',
+        string $primaryGoal = ''
+    ): int {
         Piwik::checkUserHasAdminAccess($idSite);
 
-        return $this->experiments->insertExperiment($idSite, self::toFields($name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue));
+        return $this->experiments->insertExperiment($idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryGoal));
     }
 
     /**
      * @param array $variants one or more variants, each with `name`, `css` and `js`
      */
-    public function updateExperiment(int $id, int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare = 100, string $targetMatch = 'any', string $targetValue = ''): void
-    {
+    public function updateExperiment(
+        int $id,
+        int $idSite,
+        string $name,
+        string $hypothesis,
+        string $description,
+        string $fromDate,
+        string $toDate,
+        array $variants,
+        int $trafficShare = 100,
+        string $targetMatch = 'any',
+        string $targetValue = '',
+        string $primaryGoal = ''
+    ): void {
         Piwik::checkUserHasAdminAccess($idSite);
-        $this->experiments->updateExperiment($id, $idSite, self::toFields($name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue));
+        $this->experiments->updateExperiment($id, $idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryGoal));
     }
 
     /**
@@ -166,9 +192,10 @@ class API extends \Piwik\Plugin\API
      * @param array<int, mixed> $variants
      * @return array<string, mixed>
      */
-    private static function toFields(string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare, string $targetMatch, string $targetValue): array
+    private static function toFields(int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare, string $targetMatch, string $targetValue, string $primaryGoal): array
     {
         return [
+            'primary_goal' => self::toIdGoal($idSite, $primaryGoal),
             'name' => $name,
             'hypothesis' => $hypothesis,
             'description' => $description,
@@ -179,5 +206,23 @@ class API extends \Piwik\Plugin\API
             'target_match' => $targetMatch,
             'target_value' => $targetValue,
         ];
+    }
+
+    /**
+     * @return int|null the ID of the goal, 0 for ecommerce orders, null for none
+     */
+    private static function toIdGoal(int $idSite, string $primaryGoal): ?int
+    {
+        if ($primaryGoal === '') {
+            return null;
+        }
+        if ($primaryGoal === Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER) {
+            return Results::ECOMMERCE_ORDER;
+        }
+        if (ctype_digit($primaryGoal) && isset(GoalsApi::getInstance()->getGoals($idSite)[(int) $primaryGoal])) {
+            return (int) $primaryGoal;
+        }
+
+        throw new Exception(Piwik::translate('RebelABTesting_ErrorPrimaryGoal'));
     }
 }

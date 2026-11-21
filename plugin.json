@@ -19,8 +19,8 @@
         }
     ],
     "support": {
-        "issues": "https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/issues",
-        "source": "https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting"
+        "issues": "https://github.com/Digitalist-Open-Cloud/RebelABTestingissues",
+        "source": "https://github.com/Digitalist-Open-Cloud/RebelABTesting"
     },
     "homepage": "https://digitalist.cloud/matomo",
     "license": "GPL-3.0-or-later",

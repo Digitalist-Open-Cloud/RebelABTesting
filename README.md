@@ -31,6 +31,7 @@ access to the website.
 - **Share of visitors**: the percentage of visitors that take part. They are split evenly between
   the original and the variants. The others get the original and are not counted.
 - **Variants**: one to ten, each with CSS, JavaScript or both.
+- **Primary goal**: the goal the experiment is judged by. Choose it before the start.
 
 Several experiments can run at the same time. Keep them on different pages, or on different parts of
 a page, as two experiments that change the same thing disturb each other.
@@ -60,14 +61,23 @@ the experiment ran:
 - for each goal the visits that converted, the conversion rate, the difference to the original and
   the chance that the variant is better than the original.
 
-A variant is called better or worse when that chance is at least 95%. Below 30 visits or 5
-conversions per variant the page says there is not enough data.
-
-Decide before the start which goal counts. With several goals or variants, one of them reaches 95%
-by chance more often than one in twenty.
+A variant is called better or worse on the primary goal when that chance is at least 95%. Below 30
+visits or 5 conversions per variant the page says there is not enough data. The other goals are
+shown without a verdict: with several goals, one of them reaches 95% by chance more often than one
+in twenty. An experiment without a primary goal gets a verdict for every goal.
 
 The result is read from the log of visits. If Matomo deletes old logs while an experiment runs, the
 visits of the deleted days leave the result.
+
+## Preview
+
+The page of an experiment has a link for the original and for each variant, shown to admins of the
+website. A link opens the website with that variant, whatever the state of the experiment, so you
+can check a variant before the first day.
+
+- The variant stays for the browser tab. Add `#rabt-preview=off` to the address to end it.
+- A previewed visit is not counted.
+- The link carries a secret of the experiment. Anyone who has the link can see the variant.
 
 ## Reports and segments
 
@@ -88,7 +98,7 @@ about experiments that have ended or not started.
 
 | Method | Access |
 | --- | --- |
-| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue) | admin |
+| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryGoal) | admin |
 | `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | admin |
 | `RebelABTesting.stopExperiment` (id, idSite) | admin |
 | `RebelABTesting.deleteExperiment` (id, idSite) | admin |
@@ -100,7 +110,8 @@ about experiments that have ended or not started.
 | `RebelABTesting.getExperimentUniqueVisitorData` (idSite, period, date, segment), days only | view |
 
 `variants` is a list, for example `variants[0][name]=Green&variants[0][css]=...&variants[0][js]=...`.
-`targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`.
+`targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryGoal` is the ID of a
+goal, `ecommerceOrder` or empty.
 
 ## Personal data
 

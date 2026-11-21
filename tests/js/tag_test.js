@@ -181,3 +181,39 @@ Deno.test("nothing happens without the website of the container", async () => {
 
   assertEquals(env.fetchCalls, []);
 });
+
+Deno.test("a preview link shows its variant without keeping or sending anything", async () => {
+  const variants = [{ css: "a{}", js: "" }, { css: "b{}", js: "" }];
+  const env = makeEnv({ experiments: [experiment({ variants, match: "contains", value: "/elsewhere" })], hash: `#rabt-preview=7-3-${A}` });
+  await fireWith([0, 0.1], env);
+
+  assertEquals(env.appended.map((n) => n.textContent), ["b{}"]);
+  assertEquals(env.fetchCalls, [`https://m.example/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=1&preview=7-${A}`]);
+  assertEquals(env._paq, []);
+  assertEquals(env.localStorage.length, 0);
+});
+
+Deno.test("a preview lasts for the tab and is ended with off", async () => {
+  const env = makeEnv({ experiments: [experiment()], hash: `#rabt-preview=7-2-${A}` });
+  await fireWith([], env);
+  env.appended.length = 0;
+
+  env.window.location.hash = "";
+  await fireWith([], env);
+  assertEquals(env.appended.length, 2);
+  assertEquals(env._paq, []);
+
+  env.appended.length = 0;
+  env.window.location.hash = "#rabt-preview=off";
+  await fireWith([0, 0.1], env);
+  assertEquals(env.appended, []);
+  assertEquals(env._paq.length, 2);
+});
+
+Deno.test("the preview of the original changes nothing on the page", async () => {
+  const env = makeEnv({ experiments: [experiment()], hash: `#rabt-preview=7-1-${A}` });
+  await fireWith([0, 0.9], env);
+
+  assertEquals(env.appended, []);
+  assertEquals(env._paq, []);
+});

@@ -42,6 +42,8 @@ class Experiments
             `target_match` VARCHAR(20) NOT NULL DEFAULT 'any',
             `target_value` TEXT,
             `variants` MEDIUMTEXT NOT NULL,
+            `primary_goal` INT NULL,
+            `preview_token` CHAR(32) NOT NULL,
             PRIMARY KEY (`id`),
             UNIQUE KEY `unique_name` (`idsite`, `name`)
         ");
@@ -54,11 +56,13 @@ class Experiments
 
     /**
      * @param array<string, mixed> $experiment name, hypothesis, description, from_date, to_date,
-     *                                         traffic_share, target_match, target_value and variants
+     *                                         traffic_share, target_match, target_value, variants
+     *                                         and primary_goal
      */
     public function insertExperiment(int $idSite, array $experiment): int
     {
         $values = $this->getValidValues($experiment);
+        $values['preview_token'] = bin2hex(random_bytes(16));
 
         $this->write(
             'INSERT INTO `' . $this->table() . '` (idsite, `' . implode('`, `', array_keys($values)) . '`) VALUES (?' . str_repeat(',?', count($values)) . ')',
@@ -140,6 +144,7 @@ class Experiments
         $row['id'] = (int) $row['id'];
         $row['idsite'] = (int) $row['idsite'];
         $row['traffic_share'] = (int) $row['traffic_share'];
+        $row['primary_goal'] = $row['primary_goal'] === null ? null : (int) $row['primary_goal'];
         $row['target_value'] = (string) $row['target_value'];
         $row['variants'] = json_decode($row['variants'], true) ?: [];
         $row['status'] = self::getStatus($row, Date::now()->getTimestamp());
@@ -182,6 +187,7 @@ class Experiments
             'traffic_share' => (int) ($experiment['traffic_share'] ?? 100),
             'target_match' => (string) ($experiment['target_match'] ?? ExperimentValidator::MATCH_ANY),
             'target_value' => trim((string) ($experiment['target_value'] ?? '')),
+            'primary_goal' => isset($experiment['primary_goal']) ? (int) $experiment['primary_goal'] : null,
         ];
         $variants = ExperimentValidator::normalizeVariants($experiment['variants'] ?? null);
 

@@ -59,6 +59,20 @@
         </div>
     </div>
 
+    <h3 class="form-section-title">{{ 'RebelABTesting_FormPrimaryGoal'|translate }}</h3>
+    <div class="row">
+        <div class="col s12 m6 form-field">
+            {% set primaryGoal = experiment.primary_goal is null ? '' : (experiment.primary_goal == 0 ? 'ecommerceOrder' : experiment.primary_goal) %}
+            <label for="primary_goal">{{ 'RebelABTesting_FormPrimaryGoal'|translate }}</label>
+            <select name="primary_goal" id="primary_goal" class="browser-default">
+                {% for value, label in goals %}
+                <option value="{{ value }}"{% if (value ~ '') == (primaryGoal ~ '') %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <span class="form-hint">{{ 'RebelABTesting_FormPrimaryGoalHint'|translate }}</span>
+        </div>
+    </div>
+
     <h3 class="form-section-title">{{ 'RebelABTesting_FormVariants'|translate }}</h3>
     <p class="section-help">{{ 'RebelABTesting_FormVariantsHelp'|translate }}</p>
     <div class="rebelABTestingVariants" data-max="{{ maxVariants }}">

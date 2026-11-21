@@ -13,6 +13,16 @@
             <p><strong>{{ 'RebelABTesting_FormHypothesis'|translate }}:</strong> {{ experiment.hypothesis }}</p>
             {% endif %}
 
+            {% if previewLinks is not empty %}
+            <p>
+                <strong>{{ 'RebelABTesting_ResultPreview'|translate }}:</strong>
+                {% for name, link in previewLinks %}
+                <a href="{{ link }}" target="_blank" rel="noreferrer noopener">{{ name }}</a>{% if not loop.last %} &middot; {% endif %}
+                {% endfor %}
+                <span class="form-hint">{{ 'RebelABTesting_ResultPreviewHelp'|translate }}</span>
+            </p>
+            {% endif %}
+
             <h3 class="form-section-title">{{ 'RebelABTesting_ResultVisits'|translate }}</h3>
             <table class="rebelABTestingTable">
                 <thead>
@@ -32,7 +42,8 @@
             </table>
 
             {% for goal in result.goals %}
-            <h3 class="form-section-title">{{ goal.name }}</h3>
+            {% set judged = goal.is_primary or experiment.primary_goal is null %}
+            <h3 class="form-section-title">{% if goal.is_primary %}{{ 'RebelABTesting_ResultPrimaryGoal'|translate(goal.name) }}{% else %}{{ goal.name }}{% endif %}</h3>
             <table class="rebelABTestingTable">
                 <thead>
                     <tr>
@@ -41,7 +52,7 @@
                         <th>{{ 'RebelABTesting_ResultConversionRate'|translate }}</th>
                         <th>{{ 'RebelABTesting_ResultUplift'|translate }}</th>
                         <th>{{ 'RebelABTesting_ResultChance'|translate }}</th>
-                        <th>{{ 'RebelABTesting_ResultVerdict'|translate }}</th>
+                        {% if judged %}<th>{{ 'RebelABTesting_ResultVerdict'|translate }}</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -52,7 +63,7 @@
                         <td>{{ (variant.conversion_rate * 100)|number(2) }}%</td>
                         <td>{% if variant.uplift is not null %}{{ variant.uplift > 0 ? '+' : '' }}{{ (variant.uplift * 100)|number(1) }}%{% endif %}</td>
                         <td>{% if variant.chance_to_beat_original is not null %}{{ (variant.chance_to_beat_original * 100)|number(1) }}%{% endif %}</td>
-                        <td>{% if variant.verdict %}<span class="rebelABTestingVerdict rebelABTestingVerdict-{{ variant.verdict }}">{{ ('RebelABTesting_Verdict_' ~ variant.verdict)|translate }}</span>{% endif %}</td>
+                        {% if judged %}<td>{% if variant.verdict %}<span class="rebelABTestingVerdict rebelABTestingVerdict-{{ variant.verdict }}">{{ ('RebelABTesting_Verdict_' ~ variant.verdict)|translate }}</span>{% endif %}</td>{% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -61,7 +72,7 @@
             <div class="alert">{{ 'RebelABTesting_ResultNoConversions'|translate }}</div>
             {% endfor %}
 
-            <p class="section-help">{{ 'RebelABTesting_ResultHelp'|translate }}</p>
+            <p class="section-help">{{ (experiment.primary_goal is null ? 'RebelABTesting_ResultHelpNoPrimaryGoal' : 'RebelABTesting_ResultHelp')|translate }}</p>
             {% endif %}
         </div>
     </div>

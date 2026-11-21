@@ -130,7 +130,7 @@ class TrackingTest extends IntegrationTestCase
             [['variant' => 1, 'name' => 'Original', 'nb_visits' => 40], ['variant' => 2, 'name' => 'Green', 'nb_visits' => 40], ['variant' => 3, 'name' => 'Variant 2', 'nb_visits' => 10]],
             $result['variants']
         );
-        $this->assertSame(['Thanks'], array_column($result['goals'], 'name'));
+        $this->assertSame([['Thanks', false]], array_map(null, array_column($result['goals'], 'name'), array_column($result['goals'], 'is_primary')));
 
         [$original, $green, $second] = $result['goals'][0]['variants'];
         $this->assertSame([8, 0.2, null, null, null], [$original['nb_visits_converted'], $original['conversion_rate'], $original['uplift'], $original['chance_to_beat_original'], $original['verdict']]);
@@ -138,6 +138,24 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEqualsWithDelta(1.5, $green['uplift'], 0.0001);
         $this->assertGreaterThan(0.95, $green['chance_to_beat_original']);
         $this->assertSame([1, 'not_enough_data', null], [$second['nb_visits_converted'], $second['verdict'], $second['chance_to_beat_original']]);
+    }
+
+    public function testThePrimaryGoalComesFirstAlsoWithoutConversions()
+    {
+        $goals = GoalsApi::getInstance();
+        $goals->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
+        $idPrimary = $goals->addGoal(1, 'Signed up', 'url', 'welcome', 'contains');
+        $id = API::getInstance()->insertExperiment(1, 'judged', '', '', '2024-03-01', '2024-03-31', [['js' => '']], 100, 'any', '', (string) $idPrimary);
+        $this->trackVisit(1, [$id => 2], self::DAY, ['/', '/thanks']);
+
+        $result = API::getInstance()->getExperimentResult(1, $id);
+
+        $this->assertSame(
+            [['Signed up', true, 0], ['Thanks', false, 1]],
+            array_map(function (array $goal): array {
+                return [$goal['name'], $goal['is_primary'], $goal['variants'][1]['nb_visits_converted']];
+            }, $result['goals'])
+        );
     }
 
     public function testTheReportsCountVisitsAndConversionsPerVariant()

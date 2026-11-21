@@ -80,11 +80,19 @@
         "ResultChance": "Chans att vara bättre än originalet",
         "ResultVerdict": "Resultat",
         "ResultNoConversions": "Inget besök i experimentet har konverterat ett mål ännu.",
-        "ResultHelp": "En variant kallas bättre eller sämre när chansen är minst 95 %. Med flera varianter eller mål når någon av dem dit av en slump oftare, så bestäm i förväg vilket mål som räknas. Konverteringar räknas för hela besöket, även de före att besökaren såg varianten.",
+        "ResultHelp": "En variant kallas bättre eller sämre på det primära målet när chansen är minst 95 %. Övriga mål visas utan bedömning: med flera mål når något av dem 95 % av en slump oftare. Konverteringar räknas för hela besöket, även de före att besökaren såg varianten.",
         "Verdict_not_enough_data": "Inte tillräckligt med data ännu",
         "Verdict_better": "Bättre än originalet",
         "Verdict_worse": "Sämre än originalet",
         "Verdict_no_difference": "Ingen tydlig skillnad",
-        "NbConversions": "Konverteringar"
+        "NbConversions": "Konverteringar",
+        "ErrorPrimaryGoal": "Det primära målet är inte ett mål på den här webbplatsen.",
+        "FormPrimaryGoal": "Primärt mål",
+        "FormNoPrimaryGoal": "Inget",
+        "FormPrimaryGoalHint": "Målet som experimentet bedöms efter. Välj det före start: en variant som bara kallas bättre på det mål som råkar se bäst ut har ofta bara haft tur.",
+        "ResultPrimaryGoal": "Primärt mål: %s",
+        "ResultPreview": "Förhandsgranska",
+        "ResultPreviewHelp": "En länk visar sin variant i din webbläsare tills du stänger fliken, oavsett experimentets status. Besöket räknas inte. Alla som har länken kan se varianten.",
+        "ResultHelpNoPrimaryGoal": "En variant kallas bättre eller sämre när chansen är minst 95 %. Det här experimentet har inget primärt mål, så alla mål bedöms, och något av flera når 95 % av en slump oftare. Konverteringar räknas för hela besöket, även de före att besökaren såg varianten."
     }
 }
