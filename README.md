@@ -33,6 +33,28 @@ access to the website.
 - **Variants**: one to ten, each with CSS, JavaScript or both.
 - **Primary goal**: the goal the experiment is judged by. Choose it before the start.
 
+### How long to run
+
+The form works out the days an A/B test needs. Give it the visits a day on the pages of the
+experiment, the conversion rate of the primary goal today, and the smallest difference you want to
+find. Set the last day accordingly, and do not end the experiment earlier because the numbers look
+good: a test that is ended on its first good day often shows a difference that is not there.
+
+## Fake door
+
+A fake door is the other kind of experiment. It adds a button or a link to something that does not
+exist yet, to see how many visitors want it before you build it.
+
+- Give the text of the button or link, the element of the page it is put next to as a CSS selector,
+  and a CSS class of your website so that it looks like your other buttons.
+- A click replaces it with your message. Tell the visitor that this does not exist yet.
+- The result shows the visits that saw it, the visits that clicked it, and the range the true share
+  lies in.
+- A click is also tracked as a Matomo event with the category "Fake door", the action "Click" and
+  the ID of the experiment as its name.
+- Pages, share of visitors, the days and the preview work as for an A/B test. There is no original
+  group: every visitor in the experiment gets the door.
+
 Several experiments can run at the same time. Keep them on different pages, or on different parts of
 a page, as two experiments that change the same thing disturb each other.
 
@@ -57,7 +79,7 @@ A variant is applied when the tag fires, so let the tag fire as early as the con
 Each experiment has a page in the reporting menu, under **A/B Testing**. It shows, for all the time
 the experiment ran:
 
-- the visits per variant;
+- the visitors and the visits per variant;
 - for each goal the visits that converted, the conversion rate, the difference to the original and
   the chance that the variant is better than the original.
 
@@ -65,6 +87,10 @@ A variant is called better or worse on the primary goal when that chance is at l
 visits or 5 conversions per variant the page says there is not enough data. The other goals are
 shown without a verdict: with several goals, one of them reaches 95% by chance more often than one
 in twenty. An experiment without a primary goal gets a verdict for every goal.
+
+The page warns when the visitors are split between the groups far more unevenly than chance
+explains. Then visitors are not assigned or counted as they should be, for example because a variant
+breaks the page, and the result cannot be trusted.
 
 A conversion counts from the moment the visit is in the experiment. A goal reached earlier in the
 same visit is left out.
@@ -101,7 +127,7 @@ about experiments that have ended or not started.
 
 | Method | Access |
 | --- | --- |
-| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryGoal) | admin |
+| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryGoal, kind, door) | admin |
 | `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | admin |
 | `RebelABTesting.stopExperiment` (id, idSite) | admin |
 | `RebelABTesting.deleteExperiment` (id, idSite) | admin |
@@ -114,7 +140,9 @@ about experiments that have ended or not started.
 
 `variants` is a list, for example `variants[0][name]=Green&variants[0][css]=...&variants[0][js]=...`.
 `targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryGoal` is the ID of a
-goal, `ecommerceOrder` or empty.
+goal, `ecommerceOrder` or empty. `kind` is `ab` or `fake_door`, and `door` has `selector`, `position`
+(`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
+`message`.
 
 ## Personal data
 
@@ -129,6 +157,7 @@ From the root of Matomo:
 
 ```sh
 ./console tests:run RebelABTesting
+./console tests:run-ui --plugin=RebelABTesting
 deno test --allow-read plugins/RebelABTesting/tests/js
 ```
 

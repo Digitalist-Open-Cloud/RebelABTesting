@@ -23,11 +23,38 @@
             </p>
             {% endif %}
 
+            {% if experiment.kind == 'fake_door' %}
+            <h3 class="form-section-title">{{ 'RebelABTesting_Kind_fake_door'|translate }}: {{ experiment.door.label }}</h3>
+            <table class="rebelABTestingTable">
+                <thead>
+                    <tr>
+                        <th>{{ 'RebelABTesting_DoorResultVisits'|translate }}</th>
+                        <th>{{ 'RebelABTesting_DoorResultClicks'|translate }}</th>
+                        <th>{{ 'RebelABTesting_DoorResultRate'|translate }}</th>
+                        <th>{{ 'RebelABTesting_DoorResultRange'|translate }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ result.nb_visits|number }}</td>
+                        <td>{{ result.nb_clicks|number }}</td>
+                        <td>{{ (result.click_rate * 100)|number(1) }}%</td>
+                        <td>{{ (result.click_rate_range[0] * 100)|number(1) }}% &ndash; {{ (result.click_rate_range[1] * 100)|number(1) }}%</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="section-help">{{ 'RebelABTesting_DoorResultHelp'|translate }}</p>
+            {% else %}
+            {% if result.is_split_even is same as(false) %}
+            <div class="alert rebelABTestingSplitWarning">{{ 'RebelABTesting_ResultSplitUneven'|translate }}</div>
+            {% endif %}
+
             <h3 class="form-section-title">{{ 'RebelABTesting_ResultVisits'|translate }}</h3>
             <table class="rebelABTestingTable">
                 <thead>
                     <tr>
                         <th>{{ 'RebelABTesting_Variant'|translate }}</th>
+                        <th>{{ 'RebelABTesting_ResultVisitors'|translate }}</th>
                         <th>{{ 'RebelABTesting_NbVisits'|translate }}</th>
                     </tr>
                 </thead>
@@ -35,6 +62,7 @@
                     {% for variant in result.variants %}
                     <tr>
                         <td>{{ variant.name }}</td>
+                        <td>{{ variant.nb_visitors|number }}</td>
                         <td>{{ variant.nb_visits|number }}</td>
                     </tr>
                     {% endfor %}
@@ -73,6 +101,7 @@
             {% endfor %}
 
             <p class="section-help">{{ (experiment.primary_goal is null ? 'RebelABTesting_ResultHelpNoPrimaryGoal' : 'RebelABTesting_ResultHelp')|translate }}</p>
+            {% endif %}
             {% endif %}
         </div>
     </div>

@@ -71,6 +71,9 @@ class Controller extends \Piwik\Plugin\Controller
             'nonce' => Nonce::getNonce(self::NONCE),
             'matches' => ExperimentValidator::MATCHES,
             'maxVariants' => ExperimentValidator::MAX_VARIANTS,
+            'kinds' => ExperimentValidator::KINDS,
+            'doorPositions' => ExperimentValidator::DOOR_POSITIONS,
+            'doorElements' => ExperimentValidator::DOOR_ELEMENTS,
         ];
     }
 
@@ -153,7 +156,7 @@ class Controller extends \Piwik\Plugin\Controller
             'experiment' => $experiment,
             'result' => $result,
             'isAdmin' => $isAdmin,
-            'previewLinks' => $experiment && $isAdmin ? $this->getPreviewLinks($experiment, $result['variants']) : [],
+            'previewLinks' => $experiment && $isAdmin ? $this->getPreviewLinks($experiment, $result['variants'] ?? []) : [],
         ]);
     }
 
@@ -180,6 +183,8 @@ class Controller extends \Piwik\Plugin\Controller
             }
             $running[] = [
                 'id' => $experiment['id'],
+                'kind' => $experiment['kind'],
+                'door' => $experiment['door'],
                 'from_date' => $experiment['from_date'],
                 'to_date' => $experiment['to_date'],
                 'share' => $experiment['traffic_share'],
@@ -262,6 +267,8 @@ class Controller extends \Piwik\Plugin\Controller
             $post->getStringParameter('target_match', ExperimentValidator::MATCH_ANY),
             $post->getStringParameter('target_value', ''),
             $post->getStringParameter('primary_goal', ''),
+            $post->getStringParameter('kind', ExperimentValidator::KIND_AB),
+            $post->getArrayParameter('door', []),
         ];
     }
 
@@ -278,6 +285,10 @@ class Controller extends \Piwik\Plugin\Controller
         $page = in_array($experiment['target_match'], ['equals', 'starts_with'], true)
             ? $experiment['target_value']
             : Site::getMainUrlFor($experiment['idsite']);
+
+        if ($experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR) {
+            $variants = [['name' => Piwik::translate('RebelABTesting_Kind_fake_door'), 'variant' => 2]];
+        }
 
         $links = [];
         foreach ($variants as $variant) {

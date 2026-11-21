@@ -50,6 +50,11 @@ class API extends \Piwik\Plugin\API
      *                            equals, contains, starts_with or regexp
      * @param string $primaryGoal the goal the experiment is judged by: the ID of a goal,
      *                            `ecommerceOrder`, or empty for none
+     * @param string $kind `ab` for a test of variants, `fake_door` for a button to something that
+     *                     does not exist yet, to see how many visitors want it
+     * @param array $door the fake door: `selector` of the element it is put next to, `position`
+     *                    (after, before, append or prepend), `element` (button or link), `label`,
+     *                    `css_class` and the `message` shown after a click
      * @return int the ID of the experiment
      */
     public function insertExperiment(
@@ -63,11 +68,13 @@ class API extends \Piwik\Plugin\API
         int $trafficShare = 100,
         string $targetMatch = 'any',
         string $targetValue = '',
-        string $primaryGoal = ''
+        string $primaryGoal = '',
+        string $kind = 'ab',
+        array $door = []
     ): int {
         Piwik::checkUserHasAdminAccess($idSite);
 
-        return $this->experiments->insertExperiment($idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryGoal));
+        return $this->experiments->insertExperiment($idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryGoal, $kind, $door));
     }
 
     /**
@@ -85,10 +92,12 @@ class API extends \Piwik\Plugin\API
         int $trafficShare = 100,
         string $targetMatch = 'any',
         string $targetValue = '',
-        string $primaryGoal = ''
+        string $primaryGoal = '',
+        string $kind = 'ab',
+        array $door = []
     ): void {
         Piwik::checkUserHasAdminAccess($idSite);
-        $this->experiments->updateExperiment($id, $idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryGoal));
+        $this->experiments->updateExperiment($id, $idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryGoal, $kind, $door));
     }
 
     /**
@@ -126,13 +135,14 @@ class API extends \Piwik\Plugin\API
         Piwik::checkUserHasViewAccess($idSite);
 
         return array_map(function (array $experiment): array {
-            return array_intersect_key($experiment, array_flip(['id', 'idsite', 'name', 'from_date', 'to_date', 'status']));
+            return array_intersect_key($experiment, array_flip(['id', 'idsite', 'name', 'kind', 'from_date', 'to_date', 'status']));
         }, $this->experiments->getAllForSite($idSite));
     }
 
     /**
-     * Visits per variant, and for each goal the conversions, the conversion rate, the difference to
-     * the original and how likely the variant is to be better than the original.
+     * Visits and visitors per variant, whether the visitors are split evenly, and for each goal the
+     * conversions, the conversion rate, the difference to the original and how likely the variant is
+     * to be better than the original. For a fake door: the visits it was shown to and their clicks.
      *
      * @return array<string, mixed>
      */
@@ -190,11 +200,27 @@ class API extends \Piwik\Plugin\API
 
     /**
      * @param array<int, mixed> $variants
+     * @param array<string, mixed> $door
      * @return array<string, mixed>
      */
-    private static function toFields(int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare, string $targetMatch, string $targetValue, string $primaryGoal): array
-    {
+    private static function toFields(
+        int $idSite,
+        string $name,
+        string $hypothesis,
+        string $description,
+        string $fromDate,
+        string $toDate,
+        array $variants,
+        int $trafficShare,
+        string $targetMatch,
+        string $targetValue,
+        string $primaryGoal,
+        string $kind,
+        array $door
+    ): array {
         return [
+            'kind' => $kind,
+            'door' => $door,
             'primary_goal' => self::toIdGoal($idSite, $primaryGoal),
             'name' => $name,
             'hypothesis' => $hypothesis,

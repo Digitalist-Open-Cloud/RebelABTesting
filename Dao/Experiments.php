@@ -43,6 +43,8 @@ class Experiments
             `target_value` TEXT,
             `variants` MEDIUMTEXT NOT NULL,
             `primary_goal` INT NULL,
+            `kind` VARCHAR(20) NOT NULL DEFAULT 'ab',
+            `door` TEXT,
             `preview_token` CHAR(32) NOT NULL,
             PRIMARY KEY (`id`),
             UNIQUE KEY `unique_name` (`idsite`, `name`)
@@ -57,7 +59,7 @@ class Experiments
     /**
      * @param array<string, mixed> $experiment name, hypothesis, description, from_date, to_date,
      *                                         traffic_share, target_match, target_value, variants
-     *                                         and primary_goal
+     *                                         primary_goal, kind and door
      */
     public function insertExperiment(int $idSite, array $experiment): int
     {
@@ -136,6 +138,17 @@ class Experiments
     }
 
     /**
+     * The highest variant a visitor can have: 1 is the original, and a fake door only has the
+     * visitors who get the door, as variant 2.
+     *
+     * @param array<string, mixed> $experiment
+     */
+    public static function getMaxVariant(array $experiment): int
+    {
+        return $experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR ? 2 : count($experiment['variants']) + 1;
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */
@@ -147,6 +160,7 @@ class Experiments
         $row['primary_goal'] = $row['primary_goal'] === null ? null : (int) $row['primary_goal'];
         $row['target_value'] = (string) $row['target_value'];
         $row['variants'] = json_decode($row['variants'], true) ?: [];
+        $row['door'] = $row['door'] === null ? null : json_decode($row['door'], true);
         $row['status'] = self::getStatus($row, Date::now()->getTimestamp());
 
         return $row;
@@ -189,13 +203,17 @@ class Experiments
             'target_value' => trim((string) ($experiment['target_value'] ?? '')),
             'primary_goal' => isset($experiment['primary_goal']) ? (int) $experiment['primary_goal'] : null,
         ];
-        $variants = ExperimentValidator::normalizeVariants($experiment['variants'] ?? null);
+        $kind = (string) ($experiment['kind'] ?? ExperimentValidator::KIND_AB);
+        $isDoor = $kind === ExperimentValidator::KIND_FAKE_DOOR;
+        $variants = $isDoor ? [] : ExperimentValidator::normalizeVariants($experiment['variants'] ?? null);
+        $door = $isDoor ? ExperimentValidator::normalizeDoor($experiment['door'] ?? null) : null;
 
         $error = ExperimentValidator::validateName($values['name'])
             ?? ExperimentValidator::validateDates($values['from_date'], $values['to_date'])
             ?? ExperimentValidator::validateTrafficShare($values['traffic_share'])
             ?? ExperimentValidator::validateTarget($values['target_match'], $values['target_value'])
-            ?? ExperimentValidator::validateVariants($variants);
+            ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelABTesting_ErrorKind')
+            ?? ($door === null ? ExperimentValidator::validateVariants($variants) : ExperimentValidator::validateDoor($door));
 
         if ($error !== null) {
             throw new Exception(Piwik::translate($error));
@@ -205,6 +223,11 @@ class Experiments
             $values['target_value'] = '';
         }
         $values['variants'] = json_encode($variants);
+        $values['kind'] = $kind;
+        $values['door'] = $door === null ? null : json_encode($door);
+        if ($isDoor) {
+            $values['primary_goal'] = null;
+        }
 
         return $values;
     }

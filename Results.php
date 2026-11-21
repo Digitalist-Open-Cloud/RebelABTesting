@@ -14,6 +14,7 @@ use Piwik\Db;
 use Piwik\Piwik;
 use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
+use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 
 /**
  * How the variants of an experiment did, over all the time it ran.
@@ -26,22 +27,36 @@ class Results
     public const VERDICT_NO_DIFFERENCE = 'no_difference';
 
     private const CERTAIN = 0.95;
+    private const UNLIKELY_SPLIT = 0.001;
     public const ECOMMERCE_ORDER = 0;
 
     /**
      * @param array<string, mixed> $experiment
-     * @return array{variants: array<int, array<string, mixed>>, goals: array<int, array<string, mixed>>}
+     * @return array<string, mixed>
      */
     public function get(array $experiment): array
     {
         $bind = [$experiment['id'], $experiment['idsite']];
         $log = Common::prefixTable(LogExperiment::TABLE);
 
+        if ($experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR) {
+            $door = Db::fetchRow("SELECT COUNT(*) AS nb_visits, COALESCE(SUM(clicked), 0) AS nb_clicks FROM $log WHERE idexperiment = ? AND idsite = ?", $bind);
+            $visits = (int) $door['nb_visits'];
+            $clicks = (int) $door['nb_clicks'];
+
+            return [
+                'nb_visits' => $visits,
+                'nb_clicks' => $clicks,
+                'click_rate' => $visits > 0 ? $clicks / $visits : 0.0,
+                'click_rate_range' => Statistics::rateInterval($visits, $clicks),
+            ];
+        }
+
         // ponytail: reads the raw log, so visits whose log Matomo has deleted are gone from the result;
         // archive per experiment if tests run longer than the logs are kept
-        $visits = array_column(
-            Db::fetchAll("SELECT variant, COUNT(*) AS nb_visits FROM $log WHERE idexperiment = ? AND idsite = ? GROUP BY variant", $bind),
-            'nb_visits',
+        $perVariant = array_column(
+            Db::fetchAll("SELECT variant, COUNT(*) AS nb_visits, COUNT(DISTINCT assignment_id) AS nb_visitors FROM $log WHERE idexperiment = ? AND idsite = ? GROUP BY variant", $bind),
+            null,
             'variant'
         );
         $conversions = Db::fetchAll(
@@ -56,7 +71,12 @@ class Results
 
         $variants = [];
         foreach ($this->getVariantNames($experiment) as $number => $name) {
-            $variants[$number] = ['variant' => $number, 'name' => $name, 'nb_visits' => (int) ($visits[$number] ?? 0)];
+            $variants[$number] = [
+                'variant' => $number,
+                'name' => $name,
+                'nb_visits' => (int) ($perVariant[$number]['nb_visits'] ?? 0),
+                'nb_visitors' => (int) ($perVariant[$number]['nb_visitors'] ?? 0),
+            ];
         }
 
         $byGoal = [];
@@ -83,7 +103,14 @@ class Results
             ];
         }
 
-        return ['variants' => array_values($variants), 'goals' => $goals];
+        // Visitors are what is split, a visitor can come back for several visits.
+        $chanceOfSplit = Statistics::chanceOfSplit(array_column($variants, 'nb_visitors'));
+
+        return [
+            'variants' => array_values($variants),
+            'is_split_even' => $chanceOfSplit === null ? null : $chanceOfSplit >= self::UNLIKELY_SPLIT,
+            'goals' => $goals,
+        ];
     }
 
     /**

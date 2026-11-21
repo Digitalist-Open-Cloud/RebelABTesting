@@ -9,6 +9,7 @@
                         <tr>
                             <th>ID</th>
                             <th>{{ 'General_Name'|translate }}</th>
+                            <th>{{ 'RebelABTesting_FormKind'|translate }}</th>
                             <th>{{ 'RebelABTesting_ListStatus'|translate }}</th>
                             <th>{{ 'RebelABTesting_FormFromDate'|translate }}</th>
                             <th>{{ 'RebelABTesting_FormToDate'|translate }}</th>
@@ -20,6 +21,7 @@
                         <tr>
                             <td>{{ experiment.id }}</td>
                             <td>{{ experiment.name }}</td>
+                            <td>{{ ('RebelABTesting_Kind_' ~ experiment.kind)|translate }}</td>
                             <td><span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span></td>
                             <td>{{ experiment.from_date }}</td>
                             <td>{{ experiment.to_date }}</td>

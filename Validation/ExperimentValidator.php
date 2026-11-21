@@ -18,6 +18,12 @@ final class ExperimentValidator
     public const MATCHES = [self::MATCH_ANY, 'equals', 'contains', 'starts_with', 'regexp'];
     public const MAX_VARIANTS = 10;
 
+    public const KIND_AB = 'ab';
+    public const KIND_FAKE_DOOR = 'fake_door';
+    public const KINDS = [self::KIND_AB, self::KIND_FAKE_DOOR];
+    public const DOOR_POSITIONS = ['after', 'before', 'append', 'prepend'];
+    public const DOOR_ELEMENTS = ['button', 'link'];
+
     private const NAME_MAX_LENGTH = 255;
     private const TARGET_MAX_LENGTH = 1000;
 
@@ -65,6 +71,46 @@ final class ExperimentValidator
     public static function validateVariants(array $variants): ?string
     {
         return count($variants) < 1 || count($variants) > self::MAX_VARIANTS ? 'RebelABTesting_ErrorVariants' : null;
+    }
+
+    /**
+     * @param mixed $door what a request handed over
+     * @return array{selector: string, position: string, element: string, label: string, css_class: string, message: string}
+     */
+    public static function normalizeDoor($door): array
+    {
+        $door = is_array($door) ? $door : [];
+        $text = function (string $field) use ($door): string {
+            return trim(is_scalar($door[$field] ?? '') ? (string) ($door[$field] ?? '') : '');
+        };
+
+        return [
+            'selector' => $text('selector'),
+            'position' => $text('position') ?: self::DOOR_POSITIONS[0],
+            'element' => $text('element') ?: self::DOOR_ELEMENTS[0],
+            'label' => $text('label'),
+            'css_class' => $text('css_class'),
+            'message' => $text('message'),
+        ];
+    }
+
+    /**
+     * @param array<string, string> $door
+     */
+    public static function validateDoor(array $door): ?string
+    {
+        if (
+            $door['selector'] === '' || mb_strlen($door['selector']) > 500
+            || $door['label'] === '' || mb_strlen($door['label']) > 200
+            || $door['message'] === '' || mb_strlen($door['message']) > 500
+            || !in_array($door['position'], self::DOOR_POSITIONS, true)
+            || !in_array($door['element'], self::DOOR_ELEMENTS, true)
+            || !preg_match('/^[A-Za-z0-9_ -]{0,200}$/', $door['css_class'])
+        ) {
+            return 'RebelABTesting_ErrorDoor';
+        }
+
+        return null;
     }
 
     /**

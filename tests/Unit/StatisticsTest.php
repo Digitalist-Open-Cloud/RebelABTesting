@@ -34,6 +34,49 @@ final class StatisticsTest extends TestCase
     }
 
     /**
+     * @dataProvider getSplits
+     * @param int[] $visitors
+     */
+    public function testAnUnevenSplitIsUnlikely(array $visitors, float $chance): void
+    {
+        $this->assertEqualsWithDelta($chance, Statistics::chanceOfSplit($visitors), 0.0005);
+    }
+
+    public function getSplits(): array
+    {
+        // The chi-square values 3.841, 5.991, 7.815 and 9.488 are the 5% limits for 1 to 4 degrees of freedom.
+        return [
+            'even' => [[500, 500], 1.0],
+            'two groups at the limit' => [[1000 + 44, 1000 - 44], 0.049],
+            'three groups at the limit' => [[1000 + 55, 1000 - 55, 1000], 0.049],
+            'four groups at the limit' => [[1000 + 63, 1000 - 63, 1000, 1000], 0.047],
+            'five groups at the limit' => [[1000 + 69, 1000 - 69, 1000, 1000, 1000], 0.049],
+            'clearly broken' => [[1000, 800], 0.0000024],
+        ];
+    }
+
+    public function testNothingIsSaidAboutTheSplitOfFewVisitors(): void
+    {
+        $this->assertNull(Statistics::chanceOfSplit([29, 30]));
+        $this->assertNull(Statistics::chanceOfSplit([1000]));
+        $this->assertNull(Statistics::chanceOfSplit([]));
+    }
+
+    public function testTheRangeOfARateNarrowsWithMoreVisits(): void
+    {
+        // Wilson score interval of 10 out of 100.
+        [$low, $high] = Statistics::rateInterval(100, 10);
+        $this->assertEqualsWithDelta(0.0552, $low, 0.0005);
+        $this->assertEqualsWithDelta(0.1744, $high, 0.0005);
+
+        [$low, $high] = Statistics::rateInterval(10000, 1000);
+        $this->assertEqualsWithDelta(0.0943, $low, 0.0005);
+        $this->assertEqualsWithDelta(0.1060, $high, 0.0005);
+
+        $this->assertSame([0.0, 0.0], Statistics::rateInterval(0, 0));
+    }
+
+    /**
      * @dataProvider getTooLittleData
      */
     public function testNothingIsSaidWithTooLittleData(int $originalVisits, int $originalConverted, int $variantVisits, int $variantConverted): void

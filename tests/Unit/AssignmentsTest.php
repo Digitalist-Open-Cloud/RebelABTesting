@@ -43,6 +43,17 @@ final class AssignmentsTest extends TestCase
         ];
     }
 
+    public function testTheSignalOfAFakeDoorIsRead(): void
+    {
+        $this->assertSame(['idexperiment' => 7, 'signal' => 's'], Assignments::getDoorSignal(['rabtd' => '7-s']));
+        $this->assertSame(['idexperiment' => 12, 'signal' => 'c'], Assignments::getDoorSignal(['rabtd' => '12-c']));
+
+        foreach (['', '7', '7-x', '0-s', '7-s-c', ['7-s'], "7-s' OR 1"] as $value) {
+            $this->assertNull(Assignments::getDoorSignal(['rabtd' => $value]));
+        }
+        $this->assertNull(Assignments::getDoorSignal([]));
+    }
+
     public function testARequestWithoutTheParameterHasNoExperiments(): void
     {
         $this->assertSame([], Assignments::fromRequestParams(['idsite' => '1']));

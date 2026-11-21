@@ -10,7 +10,7 @@
 namespace Piwik\Plugins\RebelABTesting;
 
 /**
- * Compares the conversion rate of a variant with the one of the original.
+ * The statistics behind the result of an experiment.
  */
 final class Statistics
 {
@@ -36,6 +36,77 @@ final class Statistics
         $error = sqrt($original * (1 - $original) / $originalVisits + $variant * (1 - $variant) / $variantVisits);
 
         return self::normalDistribution(($variant - $original) / $error);
+    }
+
+    /**
+     * How likely a split at least this uneven is when every group has the same chance to get a
+     * visitor, from 0 to 1. A very small number means that visitors are not assigned or counted
+     * as they should be. Null when there are too few visitors to tell.
+     *
+     * @param int[] $visitorsPerGroup
+     */
+    public static function chanceOfSplit(array $visitorsPerGroup): ?float
+    {
+        $groups = count($visitorsPerGroup);
+        $expected = $groups > 0 ? array_sum($visitorsPerGroup) / $groups : 0;
+        if ($groups < 2 || $expected < self::MIN_VISITS) {
+            return null;
+        }
+
+        $chiSquare = 0;
+        foreach ($visitorsPerGroup as $visitors) {
+            $chiSquare += ($visitors - $expected) ** 2 / $expected;
+        }
+
+        return self::chiSquareTail($chiSquare, $groups - 1);
+    }
+
+    /**
+     * The range the true rate lies in with 95% confidence (Wilson score interval).
+     *
+     * @return array{0: float, 1: float}
+     */
+    public static function rateInterval(int $visits, int $successes): array
+    {
+        if ($visits === 0) {
+            return [0.0, 0.0];
+        }
+
+        $z = 1.959964;
+        $rate = $successes / $visits;
+        $centre = $rate + $z * $z / (2 * $visits);
+        $margin = $z * sqrt($rate * (1 - $rate) / $visits + $z * $z / (4 * $visits * $visits));
+        $divisor = 1 + $z * $z / $visits;
+
+        return [max(0.0, ($centre - $margin) / $divisor), min(1.0, ($centre + $margin) / $divisor)];
+    }
+
+    /**
+     * The share of a chi-square distribution above $x.
+     */
+    private static function chiSquareTail(float $x, int $degreesOfFreedom): float
+    {
+        $half = $x / 2;
+
+        if ($degreesOfFreedom % 2 === 0) {
+            $term = exp(-$half);
+            $sum = 0;
+            for ($i = 1; $i <= $degreesOfFreedom / 2; $i++) {
+                $sum += $term;
+                $term *= $half / $i;
+            }
+
+            return min(1.0, $sum);
+        }
+
+        $sum = 2 * (1 - self::normalDistribution(sqrt($x)));
+        $term = sqrt(2 * $x / M_PI) * exp(-$half);
+        for ($i = 1; $i <= ($degreesOfFreedom - 1) / 2; $i++) {
+            $sum += $term;
+            $term *= $half / ($i + 0.5);
+        }
+
+        return min(1.0, $sum);
     }
 
     /**

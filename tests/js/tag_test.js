@@ -217,3 +217,76 @@ Deno.test("the preview of the original changes nothing on the page", async () =>
   assertEquals(env.appended, []);
   assertEquals(env._paq, []);
 });
+
+const door = (over = {}) => experiment({
+  kind: "fake_door", variants: [],
+  door: { selector: "#menu", position: "append", element: "link", label: "Compare plans", css_class: "nav-link", message: "Coming soon" },
+  ...over,
+});
+
+Deno.test("a fake door is added to the page and told to Matomo once per visit", async () => {
+  const env = makeEnv({ experiments: [door()], elements: ["#menu"] });
+  await fireWith([0], env);
+
+  const [selector, position, element] = env.placed[0];
+  assertEquals([selector, position, element.tagName, element.textContent, element.className, element.href], ["#menu", "beforeend", "a", "Compare plans", "nav-link", "#"]);
+  const record = stored(env.localStorage, 7);
+  assertEquals(record.v, 2);
+  assertEquals(env._paq, [
+    ["appendToTrackingUrl", `rabt=7-2-${record.a}&rabtd=7-s`],
+    ["ping"],
+    ["appendToTrackingUrl", `rabt=7-2-${record.a}`],
+    ["appendToTrackingUrl", `rabt=7-2-${record.a}`],
+    ["ping"],
+  ]);
+
+  env._paq.length = 0;
+  await loadTag(env).fire();
+  assertEquals(env.placed.length, 2);
+  assertEquals(env._paq, [["appendToTrackingUrl", `rabt=7-2-${record.a}`]]);
+});
+
+Deno.test("a click on a fake door shows the message and is told to Matomo", async () => {
+  const env = makeEnv({ experiments: [door({ door: { selector: "#menu", position: "after", element: "button", label: "Export", css_class: "", message: "Not there yet" } })], elements: ["#menu"] });
+  await fireWith([0], env);
+  const element = env.placed[0][2];
+  const a = stored(env.localStorage, 7).a;
+  env._paq.length = 0;
+
+  element.click();
+
+  assertEquals([env.placed[0][1], element.tagName, element.type], ["afterend", "button", "button"]);
+  assertEquals([element.replacedWith.textContent, element.replacedWith.attributes.role], ["Not there yet", "status"]);
+  assertEquals(env._paq, [
+    ["appendToTrackingUrl", `rabt=7-2-${a}&rabtd=7-c`],
+    ["trackEvent", "Fake door", "Click", "7"],
+    ["appendToTrackingUrl", `rabt=7-2-${a}`],
+  ]);
+});
+
+Deno.test("a fake door is not shown or told on a page without its element", async () => {
+  for (const selector of ["#elsewhere", "("]) {
+    const env = makeEnv({ experiments: [door({ door: { ...door().door, selector } })], elements: ["#menu"] });
+    await fireWith([0], env);
+
+    assertEquals(env.placed, []);
+    assert(!env._paq.some((call) => String(call[1]).includes("rabtd")));
+  }
+});
+
+Deno.test("a visitor outside the share of a fake door does not get it", async () => {
+  const env = makeEnv({ experiments: [door({ share: 10 })], elements: ["#menu"] });
+  await fireWith([0.5], env);
+
+  assertEquals(env.placed, []);
+  assertEquals(env._paq, []);
+});
+
+Deno.test("the preview of a fake door shows it without telling Matomo", async () => {
+  const env = makeEnv({ experiments: [door()], elements: ["#menu"], hash: `#rabt-preview=7-2-${A}` });
+  await fireWith([0], env);
+  env.placed[0][2].click();
+
+  assertEquals(env.placed.length, 1);
+  assertEquals(env._paq, []);
+});

@@ -25,6 +25,11 @@ not take over data of SimpleABTesting.
   variants at once on later pages.
 - Matomo deletes the log of the plugin together with the visits, when old logs are deleted and when
   the data of a visitor is deleted.
+- The result warns when the visitors are split unevenly between the groups, which means that
+  assignment or tracking is broken.
+- The form works out how many days an A/B test needs.
+- Fake door: an experiment that adds a button or link to something that does not exist yet and
+  counts the visits that click it.
 - Swedish translation.
 
 ### Security

@@ -79,6 +79,8 @@ class ControllerTest extends IntegrationTestCase
         $this->assertSame(
             ['experiments' => [[
                 'id' => $this->idExperiment,
+                'kind' => 'ab',
+                'door' => null,
                 'from_date' => '2024-03-01',
                 'to_date' => '2024-03-31',
                 'share' => 50,
@@ -89,6 +91,40 @@ class ControllerTest extends IntegrationTestCase
             $this->getPublic(1)
         );
         $this->assertSame(['experiments' => []], $this->getPublic(3));
+    }
+
+    public function testTheTagGetsAFakeDoor()
+    {
+        $door = ['selector' => '#menu', 'position' => 'after', 'element' => 'button', 'label' => 'Export', 'css_class' => '', 'message' => 'Soon'];
+        $id = API::getInstance()->insertExperiment(2, 'door', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', '', 'fake_door', $door);
+
+        $this->assertSame(
+            ['id' => $id, 'kind' => 'fake_door', 'door' => $door, 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'share' => 100, 'match' => 'any', 'value' => '', 'variants' => []],
+            $this->getPublic(2)['experiments'][0]
+        );
+    }
+
+    public function testAFakeDoorIsAddedFromTheFormAndHasAPage()
+    {
+        $door = ['selector' => '#menu', 'position' => 'prepend', 'element' => 'link', 'label' => 'Compare plans', 'css_class' => 'nav-link', 'message' => 'Coming soon'];
+        $this->post(['idSite' => '2'], ['kind' => 'fake_door', 'door' => $door] + $this->getForm('Door'));
+        $this->redirects('addExperiment');
+
+        $experiment = (new Experiments())->getAllForSite(2)[0];
+        $this->assertSame(['fake_door', $door, []], [$experiment['kind'], $experiment['door'], $experiment['variants']]);
+
+        $_POST = [];
+        $_GET = ['idSite' => '2', 'idExperiment' => (string) $experiment['id']];
+        $html = (new Controller())->result();
+        $this->assertStringContainsString('Fake door: Compare plans', $html);
+        $this->assertStringContainsString('Visits that clicked it', $html);
+        $this->assertStringContainsString('#rabt-preview=' . $experiment['id'] . '-2-' . $experiment['preview_token'], $html);
+
+        $_GET = ['idSite' => '2', 'id' => (string) $experiment['id']];
+        $edit = (new Controller())->editExperimentForm();
+        $this->assertStringContainsString('<option value="fake_door" selected>', $edit);
+        $this->assertStringContainsString('name="door[label]" id="door_label" value="Compare plans"', $edit);
+        $this->assertStringContainsString('<option value="prepend" selected>', $edit);
     }
 
     public function testAPreviewLinkAlsoGetsAnExperimentThatIsNotRunning()
@@ -259,6 +295,9 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('action="?module=RebelABTesting&amp;action=addExperiment&amp;idSite=1&amp;period=week&amp;date=2024-03-05"', $create);
         $this->assertStringContainsString('name="from_date" id="from_date" value="2024-03-05"', $create);
         $this->assertStringContainsString('name="variants[0][css]"', $create);
+        $this->assertStringContainsString('<option value="ab" selected>A/B test</option>', $create);
+        $this->assertStringContainsString('data-result="Run for at least {days} days: {visits} visits in each of the {groups} groups.', $create);
+        $this->assertStringContainsString('name="door[selector]"', $create);
         $this->assertStringContainsString('<option value="" selected>None</option>', $create);
         $this->assertStringContainsString('>Thanks</option>', $create);
         $this->assertStringNotContainsString('Signed', $create);

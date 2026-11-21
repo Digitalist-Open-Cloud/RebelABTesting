@@ -40,6 +40,8 @@ class GetABTesting extends Widget
                 'target_match' => 'any',
                 'target_value' => '',
                 'primary_goal' => null,
+                'kind' => 'ab',
+                'door' => ['selector' => '', 'position' => 'after', 'element' => 'button', 'label' => '', 'css_class' => '', 'message' => ''],
                 'variants' => [['name' => '', 'css' => '', 'js' => '']],
             ],
             'actionUrl' => Controller::getActionUrl('addExperiment', $idSite),

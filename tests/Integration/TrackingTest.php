@@ -128,7 +128,9 @@ class TrackingTest extends IntegrationTestCase
 
         $this->assertSame(
             [['variant' => 1, 'name' => 'Original', 'nb_visits' => 40], ['variant' => 2, 'name' => 'Green', 'nb_visits' => 40], ['variant' => 3, 'name' => 'Variant 2', 'nb_visits' => 10]],
-            $result['variants']
+            array_map(function (array $variant): array {
+                return array_diff_key($variant, ['nb_visitors' => 0]);
+            }, $result['variants'])
         );
         $this->assertSame([['Thanks', false]], array_map(null, array_column($result['goals'], 'name'), array_column($result['goals'], 'is_primary')));
 
@@ -156,6 +158,63 @@ class TrackingTest extends IntegrationTestCase
                 return [$goal['name'], $goal['is_primary'], $goal['variants'][1]['nb_visits_converted']];
             }, $result['goals'])
         );
+    }
+
+    /**
+     * @dataProvider getSplits
+     */
+    public function testTheResultTellsWhetherTheVisitorsAreSplitEvenly(int $original, int $variant, ?bool $isEven)
+    {
+        $id = $this->addExperiment('split', 1);
+        foreach ([1 => $original, 2 => $variant] as $number => $visitors) {
+            for ($visitor = 0; $visitor < $visitors; $visitor++) {
+                $this->trackVisit(1, $id . '-' . $number . '-' . md5($number . '-' . $visitor));
+            }
+        }
+        // A visitor who comes back is still one visitor.
+        $this->trackVisit(1, $id . '-1-' . md5('1-0'), '2024-03-06');
+
+        $result = API::getInstance()->getExperimentResult(1, $id);
+
+        $this->assertSame($isEven, $result['is_split_even']);
+        $this->assertSame([$original, $original + 1], [$result['variants'][0]['nb_visitors'], $result['variants'][0]['nb_visits']]);
+    }
+
+    public function getSplits(): array
+    {
+        return [
+            'too few visitors to tell' => [20, 5, null],
+            'as even as chance makes it' => [50, 40, true],
+            'far from even' => [90, 30, false],
+        ];
+    }
+
+    public function testAFakeDoorCountsTheVisitsItWasShownToAndTheirClicks()
+    {
+        $door = ['selector' => '#menu', 'label' => 'Export', 'message' => 'Soon'];
+        $id = API::getInstance()->insertExperiment(1, 'door', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', '', 'fake_door', $door);
+        $assigned = $id . '-2-' . self::ASSIGNMENT;
+
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing'], 0, ['rabtd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing', '/pricing'], 0, [0 => ['rabtd' => $id . '-s'], 1 => ['rabtd' => $id . '-c'], 2 => ['rabtd' => $id . '-c']]);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $id . '-c']);
+        $this->trackVisit(1, $id . '-1-' . self::ASSIGNMENT, self::DAY, ['/'], 0, ['rabtd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $this->idExperiment . '-c']);
+
+        $result = API::getInstance()->getExperimentResult(1, $id);
+
+        $this->assertSame([4, 2, 0.5], [$result['nb_visits'], $result['nb_clicks'], $result['click_rate']]);
+        $this->assertLessThan(0.5, $result['click_rate_range'][0]);
+        $this->assertGreaterThan(0.5, $result['click_rate_range'][1]);
+    }
+
+    public function testASignalForAFakeDoorDoesNotClickAnABTest()
+    {
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/'], 0, ['rabtd' => $this->idExperiment . '-c']);
+
+        $this->assertSame('0', (string) Db::fetchOne('SELECT SUM(clicked) FROM ' . Common::prefixTable(LogExperiment::TABLE)));
     }
 
     public function testAConversionBeforeTheVisitWasInTheExperimentDoesNotCount()
@@ -254,8 +313,9 @@ class TrackingTest extends IntegrationTestCase
      * @param array<int, int>|string $experiments the variant by experiment, or the parameter as the browser would send it
      * @param string[] $paths
      * @param int $exposedFrom the page view from which the browser sends the experiments
+     * @param array<int|string, mixed> $extra more parameters, for every page view or by the number of the page view
      */
-    private function trackVisit(int $idSite, $experiments, string $day = self::DAY, array $paths = ['/'], int $exposedFrom = 0): void
+    private function trackVisit(int $idSite, $experiments, string $day = self::DAY, array $paths = ['/'], int $exposedFrom = 0, array $extra = []): void
     {
         if (is_array($experiments)) {
             $entries = [];
@@ -274,6 +334,9 @@ class TrackingTest extends IntegrationTestCase
         foreach ($paths as $minutes => $path) {
             if ($experiments !== '' && $minutes >= $exposedFrom) {
                 $tracker->setCustomTrackingParameter('rabt', $experiments);
+            }
+            foreach (isset($extra[0]) ? ($extra[$minutes] ?? []) : $extra as $name => $value) {
+                $tracker->setCustomTrackingParameter($name, $value);
             }
             $tracker->setForceVisitDateTime(date('Y-m-d H:i:s', strtotime($day . ' 10:00:00 UTC') + $minutes * 60));
             $tracker->setUrl('http://example.org' . $path);

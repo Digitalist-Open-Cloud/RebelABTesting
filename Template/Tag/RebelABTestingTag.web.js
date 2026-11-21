@@ -4,6 +4,11 @@
       var CACHE_PREFIX = "sabt-experiments:";
       var CACHE_SECONDS = 300;
       var PREVIEW_KEY = "sabt-preview";
+      var SHOWN_PREFIX = "sabt-shown:";
+      var VISIT_SECONDS = 1800;
+      var FAKE_DOOR = "fake_door";
+      var DOOR_VARIANT = 2;
+      var DOOR_POSITIONS = { before: "beforebegin", after: "afterend", prepend: "afterbegin", append: "beforeend" };
       var ORIGINAL = 1;
       var NOT_TAKING_PART = 0;
 
@@ -25,7 +30,12 @@
               var show = hide(hideTimeout);
               fetchExperiments(function (experiments) {
                   for (var i = 0; i < experiments.length; i++) {
-                      if (String(experiments[i].id) === preview[0]) apply(experiments[i].variants[preview[1] - ORIGINAL - 1]);
+                      if (String(experiments[i].id) !== preview[0]) continue;
+                      if (experiments[i].kind === FAKE_DOOR) {
+                          showDoor(experiments[i], false);
+                      } else {
+                          apply(experiments[i].variants[preview[1] - ORIGINAL - 1]);
+                      }
                   }
                   show();
               }, show, "&preview=" + preview[0] + "-" + preview[2]);
@@ -113,9 +123,13 @@
 
                   var assignment = getAssignment(experiment);
                   if (!assignment) return;
-                  isNew = isNew || assignment.isNew;
+                  isNew = isNew || (assignment.isNew && experiment.kind !== FAKE_DOOR);
 
-                  apply(experiment.variants[assignment.v - ORIGINAL - 1]);
+                  if (experiment.kind === FAKE_DOOR) {
+                      if (assignment.v === DOOR_VARIANT) showDoor(experiment, true);
+                  } else {
+                      apply(experiment.variants[assignment.v - ORIGINAL - 1]);
+                  }
               }
 
               var active = activeAssignments(today);
@@ -124,6 +138,64 @@
               _paq.push(["appendToTrackingUrl", "rabt=" + active]);
               // The page view may already be sent, without the experiment.
               if (isNew || waited) _paq.push(["ping"]);
+          }
+
+          // Adds the button or link of a fake door, once the element it belongs to is there.
+          // Showing it and clicking it are told to Matomo when the visitor is counted.
+          function showDoor(experiment, counted) {
+              var door = experiment.door;
+
+              function place() {
+                  var target;
+                  try { target = document.querySelector(door.selector); } catch (e) { return true; }
+                  if (!target) return false;
+
+                  var element = document.createElement(door.element === "link" ? "a" : "button");
+                  if (door.element === "link") element.href = "#"; else element.type = "button";
+                  element.textContent = door.label;
+                  if (door.css_class) element.className = door.css_class;
+                  element.addEventListener("click", function (event) {
+                      event.preventDefault();
+                      var message = document.createElement("span");
+                      message.setAttribute("role", "status");
+                      message.textContent = door.message;
+                      element.replaceWith(message);
+                      if (counted) tellAboutDoor(experiment.id, "c");
+                  });
+                  target.insertAdjacentElement(DOOR_POSITIONS[door.position] || "afterend", element);
+
+                  if (counted && !wasShownThisVisit(experiment.id)) tellAboutDoor(experiment.id, "s");
+                  return true;
+              }
+
+              if (!place() && document.readyState === "loading") {
+                  document.addEventListener("DOMContentLoaded", place);
+              }
+          }
+
+          // A visit is told once that the door was shown, not on each of its pages.
+          function wasShownThisVisit(id) {
+              var key = SHOWN_PREFIX + id;
+              try {
+                  var shown = Date.now() - Number(localStorage.getItem(key)) < VISIT_SECONDS * 1000;
+                  localStorage.setItem(key, String(Date.now()));
+                  return shown;
+              } catch (e) {
+                  return false;
+              }
+          }
+
+          function tellAboutDoor(id, what) {
+              var active = activeAssignments(new Date().toISOString().slice(0, 10));
+              _paq.push(["appendToTrackingUrl", "rabt=" + active + "&rabtd=" + id + "-" + what]);
+              _paq.push(what === "c" ? ["trackEvent", "Fake door", "Click", String(id)] : ["ping"]);
+              _paq.push(["appendToTrackingUrl", "rabt=" + active]);
+          }
+
+          // The highest variant a visitor can have. A fake door has no original: the visitors in
+          // the experiment all get the door.
+          function maxVariant(experiment) {
+              return experiment.kind === FAKE_DOOR ? DOOR_VARIANT : experiment.variants.length + ORIGINAL;
           }
 
           // The original has no variant to apply.
@@ -163,14 +235,13 @@
           function getAssignment(experiment) {
               var key = KEY_PREFIX + experiment.id;
               var record = read(key);
-              var isNew = !isValid(record) || record.v > experiment.variants.length + ORIGINAL;
+              var isNew = !isValid(record) || record.v > maxVariant(experiment);
 
               if (isNew) {
                   var takesPart = Math.random() * 100 < experiment.share;
-                  record = {
-                      v: takesPart ? ORIGINAL + Math.floor(Math.random() * (experiment.variants.length + 1)) : NOT_TAKING_PART,
-                      a: randomHex32()
-                  };
+                  var variant = experiment.kind === FAKE_DOOR
+                      ? DOOR_VARIANT : ORIGINAL + Math.floor(Math.random() * (experiment.variants.length + 1));
+                  record = { v: takesPart ? variant : NOT_TAKING_PART, a: randomHex32() };
               }
 
               try {

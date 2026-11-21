@@ -87,6 +87,38 @@ final class ExperimentValidatorTest extends TestCase
         $this->assertSame([], ExperimentValidator::normalizeVariants('not a list'));
     }
 
+    /**
+     * @dataProvider getDoors
+     */
+    public function testFakeDoor(array $change, ?string $error): void
+    {
+        $door = ExperimentValidator::normalizeDoor($change + ['selector' => ' #menu ', 'label' => 'Export', 'message' => 'Soon']);
+
+        $this->assertSame($error, ExperimentValidator::validateDoor($door));
+    }
+
+    public function getDoors(): array
+    {
+        return [
+            'the least' => [[], null],
+            'everything' => [['position' => 'prepend', 'element' => 'link', 'css_class' => 'btn btn-primary_2'], null],
+            'no element to put it next to' => [['selector' => ''], 'RebelABTesting_ErrorDoor'],
+            'no text' => [['label' => ' '], 'RebelABTesting_ErrorDoor'],
+            'no message' => [['message' => ''], 'RebelABTesting_ErrorDoor'],
+            'unknown position' => [['position' => 'above'], 'RebelABTesting_ErrorDoor'],
+            'unknown element' => [['element' => 'script'], 'RebelABTesting_ErrorDoor'],
+            'a class that is not a class' => [['css_class' => 'a" onclick="x()'], 'RebelABTesting_ErrorDoor'],
+        ];
+    }
+
+    public function testAFakeDoorIsAButtonAfterItsElementUnlessToldOtherwise(): void
+    {
+        $this->assertSame(
+            ['selector' => '#menu', 'position' => 'after', 'element' => 'button', 'label' => 'Export', 'css_class' => '', 'message' => 'Soon'],
+            ExperimentValidator::normalizeDoor(['selector' => ' #menu ', 'label' => 'Export', 'message' => 'Soon', 'onclick' => 'x()', 'position' => ['a']])
+        );
+    }
+
     public function testAnExperimentHasOneToTenVariants(): void
     {
         $variant = ['name' => '', 'css' => '', 'js' => ''];
