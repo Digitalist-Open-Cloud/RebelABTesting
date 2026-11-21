@@ -15,9 +15,11 @@ use Piwik\Date;
 use Piwik\Nonce;
 use Piwik\Notification;
 use Piwik\Piwik;
+use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 use Piwik\Request;
+use Piwik\Site;
 use Piwik\Url;
 use Piwik\ViewDataTable\Factory;
 
@@ -54,9 +56,18 @@ class Controller extends \Piwik\Plugin\Controller
     /**
      * @return array<string, mixed> what the form of an experiment needs besides the experiment
      */
-    public static function getFormVariables(): array
+    public static function getFormVariables(int $idSite): array
     {
+        $goals = ['' => Piwik::translate('RebelABTesting_FormNoPrimaryGoal')];
+        foreach (GoalsApi::getInstance()->getGoals($idSite) as $goal) {
+            $goals[$goal['idgoal']] = Common::unsanitizeInputValue($goal['name']);
+        }
+        if (Site::isEcommerceEnabledFor($idSite)) {
+            $goals[Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER] = Piwik::translate('General_EcommerceOrders');
+        }
+
         return [
+            'goals' => $goals,
             'nonce' => Nonce::getNonce(self::NONCE),
             'matches' => ExperimentValidator::MATCHES,
             'maxVariants' => ExperimentValidator::MAX_VARIANTS,
@@ -120,7 +131,7 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $idSite = self::checkAdminSite();
 
-        return $this->renderTemplate('edit', self::getFormVariables() + [
+        return $this->renderTemplate('edit', self::getFormVariables($idSite) + [
             'experiment' => API::getInstance()->getExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite),
             'actionUrl' => self::getActionUrl('updateExperiment', $idSite),
             'backUrl' => $this->getReportingUrl($idSite, self::LIST_PAGE),
@@ -135,10 +146,14 @@ class Controller extends \Piwik\Plugin\Controller
         $this->checkSitePermission();
         $experiment = (new Experiments())->getById(Request::fromRequest()->getIntegerParameter('idExperiment', 0), $this->idSite);
 
+        $result = $experiment ? (new Results())->get($experiment) : null;
+        $isAdmin = Piwik::isUserHasAdminAccess($this->idSite);
+
         return $this->renderTemplate('result', [
             'experiment' => $experiment,
-            'result' => $experiment ? (new Results())->get($experiment) : null,
-            'isAdmin' => Piwik::isUserHasAdminAccess($this->idSite),
+            'result' => $result,
+            'isAdmin' => $isAdmin,
+            'previewLinks' => $experiment && $isAdmin ? $this->getPreviewLinks($experiment, $result['variants']) : [],
         ]);
     }
 
@@ -152,10 +167,15 @@ class Controller extends \Piwik\Plugin\Controller
         Common::sendHeader('Content-Type: application/json; charset=utf-8');
         Common::sendHeader('Cache-Control: no-store');
 
+        $request = Request::fromRequest();
         $now = Date::now()->getTimestamp();
+        // A preview link carries the ID and the secret of an experiment, which may not be running.
+        $preview = explode('-', $request->getStringParameter('preview', '')) + ['', ''];
+
         $running = [];
-        foreach ((new Experiments())->getAllForSite(Request::fromRequest()->getIntegerParameter('idSite', 0)) as $experiment) {
-            if (Experiments::getStatus($experiment, $now) !== Experiments::STATUS_RUNNING) {
+        foreach ((new Experiments())->getAllForSite($request->getIntegerParameter('idSite', 0)) as $experiment) {
+            $isPreviewed = $preview[0] === (string) $experiment['id'] && hash_equals($experiment['preview_token'], $preview[1]);
+            if (!$isPreviewed && Experiments::getStatus($experiment, $now) !== Experiments::STATUS_RUNNING) {
                 continue;
             }
             $running[] = [
@@ -241,7 +261,30 @@ class Controller extends \Piwik\Plugin\Controller
             $post->getIntegerParameter('traffic_share', 100),
             $post->getStringParameter('target_match', ExperimentValidator::MATCH_ANY),
             $post->getStringParameter('target_value', ''),
+            $post->getStringParameter('primary_goal', ''),
         ];
+    }
+
+    /**
+     * Addresses that show a variant to the one who opens them, whatever the state of the
+     * experiment, without counting the visit.
+     *
+     * @param array<string, mixed> $experiment
+     * @param array<int, array<string, mixed>> $variants
+     * @return array<string, string> the address by the name of the variant
+     */
+    private function getPreviewLinks(array $experiment, array $variants): array
+    {
+        $page = in_array($experiment['target_match'], ['equals', 'starts_with'], true)
+            ? $experiment['target_value']
+            : Site::getMainUrlFor($experiment['idsite']);
+
+        $links = [];
+        foreach ($variants as $variant) {
+            $links[$variant['name']] = $page . '#rabt-preview=' . $experiment['id'] . '-' . $variant['variant'] . '-' . $experiment['preview_token'];
+        }
+
+        return $links;
     }
 
     private function notify(string $message, string $context): void

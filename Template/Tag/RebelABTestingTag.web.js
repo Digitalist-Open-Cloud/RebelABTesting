@@ -3,6 +3,7 @@
       var KEY_PREFIX = "sabt:";
       var CACHE_PREFIX = "sabt-experiments:";
       var CACHE_SECONDS = 300;
+      var PREVIEW_KEY = "sabt-preview";
       var ORIGINAL = 1;
       var NOT_TAKING_PART = 0;
 
@@ -16,6 +17,20 @@
           var cache;
 
           if (!origin || !idSite) return;
+
+          var preview = getPreview();
+          if (preview) {
+              // Shows the variant of the link, whatever the state of the experiment. Nothing is
+              // kept or sent, so the visit is not counted.
+              var show = hide(hideTimeout);
+              fetchExperiments(function (experiments) {
+                  for (var i = 0; i < experiments.length; i++) {
+                      if (String(experiments[i].id) === preview[0]) apply(experiments[i].variants[preview[1] - ORIGINAL - 1]);
+                  }
+                  show();
+              }, show, "&preview=" + preview[0] + "-" + preview[2]);
+              return;
+          }
 
           // Without localStorage a visitor cannot keep a variant: everyone gets the original and
           // nobody is counted.
@@ -48,8 +63,22 @@
               } catch (e) { /* the next page fetches again */ }
           }
 
-          function fetchExperiments(done, failed) {
-              var url = origin + "/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=" + encodeURIComponent(idSite);
+          // A preview link ends with #rabt-preview=<experiment>-<variant>-<secret>. It lasts for
+          // the tab, and #rabt-preview=off ends it.
+          function getPreview() {
+              var inAddress = /[#&]rabt-preview=([^&]*)/.exec(window.location.hash || "");
+              var value = inAddress && inAddress[1];
+              try {
+                  if (value) sessionStorage.setItem(PREVIEW_KEY, value);
+                  value = sessionStorage.getItem(PREVIEW_KEY);
+              } catch (e) { /* the link works for this page only */ }
+
+              var parts = /^(\d+)-(\d+)-([0-9a-f]{32})$/.exec(value || "");
+              return parts ? [parts[1], Number(parts[2]), parts[3]] : null;
+          }
+
+          function fetchExperiments(done, failed, extra) {
+              var url = origin + "/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=" + encodeURIComponent(idSite) + (extra || "");
               fetch(url, { method: "GET", credentials: "omit" })
                   .then(function (response) { return response.json(); })
                   .then(function (data) { done(data && Array.isArray(data.experiments) ? data.experiments : []); })
@@ -86,15 +115,7 @@
                   if (!assignment) return;
                   isNew = isNew || assignment.isNew;
 
-                  var variant = experiment.variants[assignment.v - ORIGINAL - 1];
-                  if (variant) {
-                      try {
-                          insert("style", variant.css);
-                          insert("script", variant.js);
-                      } catch (e) {
-                          console.error("Error in the variant of an experiment", e);
-                      }
-                  }
+                  apply(experiment.variants[assignment.v - ORIGINAL - 1]);
               }
 
               var active = activeAssignments(today);
@@ -103,6 +124,17 @@
               _paq.push(["appendToTrackingUrl", "rabt=" + active]);
               // The page view may already be sent, without the experiment.
               if (isNew || waited) _paq.push(["ping"]);
+          }
+
+          // The original has no variant to apply.
+          function apply(variant) {
+              if (!variant) return;
+              try {
+                  insert("style", variant.css);
+                  insert("script", variant.js);
+              } catch (e) {
+                  console.error("Error in the variant of an experiment", e);
+              }
           }
 
           function matches(experiment) {

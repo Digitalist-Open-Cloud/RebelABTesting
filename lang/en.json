@@ -80,11 +80,19 @@
         "ResultChance": "Chance to be better than the original",
         "ResultVerdict": "Result",
         "ResultNoConversions": "No visit in the experiment has converted a goal yet.",
-        "ResultHelp": "A variant is called better or worse when the chance is at least 95%. With several variants or goals, one of them will reach that by chance more often, so decide beforehand which goal counts. Conversions count for the whole visit, also those before the visitor saw the variant.",
+        "ResultHelp": "A variant is called better or worse on the primary goal when the chance is at least 95%. The other goals are shown without a verdict: with several goals, one of them reaches 95% by chance more often. A conversion counts from the moment the visit is in the experiment.",
         "Verdict_not_enough_data": "Not enough data yet",
         "Verdict_better": "Better than the original",
         "Verdict_worse": "Worse than the original",
         "Verdict_no_difference": "No clear difference",
-        "NbConversions": "Conversions"
+        "NbConversions": "Conversions",
+        "ErrorPrimaryGoal": "The primary goal is not a goal of this website.",
+        "FormPrimaryGoal": "Primary goal",
+        "FormNoPrimaryGoal": "None",
+        "FormPrimaryGoalHint": "The goal the experiment is judged by. Choose it before the start: a variant that is only called better on the goal that happens to look best has often just been lucky.",
+        "ResultPrimaryGoal": "Primary goal: %s",
+        "ResultPreview": "Preview",
+        "ResultPreviewHelp": "A link shows its variant in your browser until you close the tab, whatever the state of the experiment. The visit is not counted. Anyone with the link can see the variant.",
+        "ResultHelpNoPrimaryGoal": "A variant is called better or worse when the chance is at least 95%. This experiment has no primary goal, so every goal is judged, and one of several reaches 95% by chance more often. A conversion counts from the moment the visit is in the experiment."
     }
 }

@@ -5,6 +5,7 @@ namespace Piwik\Plugins\RebelABTesting\tests\Integration;
 use Exception;
 use Piwik\Date;
 use Piwik\NoAccessException;
+use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\API;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Tests\Framework\Fixture;
@@ -53,8 +54,13 @@ class ExperimentsTest extends IntegrationTestCase
     {
         $variants = [['name' => 'Green', 'css' => 'h1 > a { color: green; }', 'js' => self::JS], ['name' => '', 'css' => '', 'js' => 'b()']];
 
-        $id = $this->api->insertExperiment(1, 'Button, spring', 'We think "green" wins', 'About <the> button', '2024-03-01', '2024-03-31', $variants, 20, 'contains', ' /pricing ');
+        $idGoal = GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
 
+        $id = $this->api->insertExperiment(1, 'Button, spring', 'We think "green" wins', 'About <the> button', '2024-03-01', '2024-03-31', $variants, 20, 'contains', ' /pricing ', (string) $idGoal);
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertRegExpCompat('/^[0-9a-f]{32}$/', $experiment['preview_token']);
+        unset($experiment['preview_token']);
         $this->assertEquals([
             'id' => $id,
             'idsite' => 1,
@@ -68,8 +74,28 @@ class ExperimentsTest extends IntegrationTestCase
             'target_match' => 'contains',
             'target_value' => '/pricing',
             'variants' => $variants,
+            'primary_goal' => $idGoal,
             'status' => 'running',
-        ], $this->api->getExperiment($id, 1));
+        ], $experiment);
+    }
+
+    public function testThePrimaryGoalCanBeEcommerceOrdersOrNone()
+    {
+        $orders = $this->api->insertExperiment(1, 'orders', '', '', '2024-03-01', '2024-03-31', [self::VARIANT], 100, 'any', '', 'ecommerceOrder');
+        $none = $this->add(1, 'none', '2024-03-01', '2024-03-31');
+
+        $this->assertSame(0, $this->api->getExperiment($orders, 1)['primary_goal']);
+        $this->assertNull($this->api->getExperiment($none, 1)['primary_goal']);
+    }
+
+    public function testEachExperimentHasItsOwnSecretForPreviews()
+    {
+        $one = $this->api->getExperiment($this->add(1, 'one', '2024-03-01', '2024-03-31'), 1);
+        $two = $this->api->getExperiment($this->add(1, 'two', '2024-03-01', '2024-03-31'), 1);
+        $this->api->updateExperiment($one['id'], 1, 'renamed', '', '', '2024-03-01', '2024-03-31', [self::VARIANT]);
+
+        $this->assertNotSame($one['preview_token'], $two['preview_token']);
+        $this->assertSame($one['preview_token'], $this->api->getExperiment($one['id'], 1)['preview_token']);
     }
 
     public function testAnExperimentRunsForAllVisitorsOnAllPagesUnlessToldOtherwise()
@@ -137,12 +163,12 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAnInvalidExperimentIsRefused(array $change, string $message)
     {
         $this->add(1, 'running', '2024-03-01', '2024-03-31');
-        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => ''];
+        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => '', 'goal' => ''];
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage($message);
 
-        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value']);
+        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value'], $experiment['goal']);
     }
 
     public function getInvalidExperiments(): array
@@ -156,6 +182,8 @@ class ExperimentsTest extends IntegrationTestCase
             'no visitors' => [['share' => 0], 'between 1 and 100'],
             'unknown comparison' => [['match' => 'sounds_like', 'value' => 'x'], 'Unknown way'],
             'nothing to compare with' => [['match' => 'contains'], 'address to compare'],
+            'a goal the website does not have' => [['goal' => '99'], 'not a goal of this website'],
+            'a goal that is not a number' => [['goal' => '1 OR 1'], 'not a goal of this website'],
         ];
     }
 
@@ -244,6 +272,11 @@ class ExperimentsTest extends IntegrationTestCase
                 $this->addToAssertionCount(1);
             }
         }
+    }
+
+    private function assertRegExpCompat(string $pattern, string $value): void
+    {
+        $this->assertSame(1, preg_match($pattern, $value));
     }
 
     private function add(int $idSite, string $name, string $from, string $to): int

@@ -21,6 +21,7 @@ export function makeEnv(opts = {}) {
     appended: [],
     fetchCalls: [],
     localStorage: opts.localStorage ?? makeStorage(),
+    sessionStorage: opts.sessionStorage ?? makeStorage(),
     _paq: [],
     crypto: {
       getRandomValues(a) { for (let i = 0; i < a.length; i++) a[i] = (i * 17 + 3) & 255; return a; },
@@ -44,15 +45,15 @@ export function makeEnv(opts = {}) {
   env.window = {
     _paq: env._paq,
     localStorage: env.localStorage,
-    location: { href: opts.url ?? "https://shop.example/pricing" },
+    location: { href: opts.url ?? "https://shop.example/pricing", hash: opts.hash ?? "" },
   };
   return env;
 }
 
 export function loadTag(env, params = {}) {
   const src = Deno.readTextFileSync(new URL("Template/Tag/RebelABTestingTag.web.js", root));
-  const Tag = new Function("window", "document", "localStorage", "crypto", "fetch", "return " + src.trim().replace(/;$/, ""))(
-    env.window, env.document, env.localStorage, env.crypto, env.fetch);
+  const Tag = new Function("window", "document", "localStorage", "sessionStorage", "crypto", "fetch", "return " + src.trim().replace(/;$/, ""))(
+    env.window, env.document, env.localStorage, env.sessionStorage, env.crypto, env.fetch);
   const all = { matomoOrigin: "https://m.example", container: { idsite: 1 }, hideTimeout: 500, ...params };
   const tag = new Tag({ get: (name, fallback) => (name in all ? all[name] : fallback) }, {});
   return {

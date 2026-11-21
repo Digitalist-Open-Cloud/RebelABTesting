@@ -64,8 +64,7 @@ class Archiver extends MatomoArchiver
             $this->buildOneLevelTable($uniqueVisitorRows, 'variant', ['nb_unique_visitors'])->getSerialized()
         );
 
-        // A visit is taken once per variant before the join, or each of its requests would add
-        // its conversions again.
+        // Only conversions from the moment the visit was in the experiment count.
         $goalsQuery = "
             SELECT
                 v.experiment_name AS label,
@@ -73,14 +72,11 @@ class Archiver extends MatomoArchiver
                 c.idgoal AS idgoal,
                 COUNT(DISTINCT c.idvisit) AS nb_visits_converted,
                 COUNT(*) AS nb_conversions
-            FROM (
-                SELECT DISTINCT idsite, idvisit, experiment_name, variant
-                FROM " . Common::prefixTable(LogExperiment::TABLE) . "
-                WHERE idsite = ?
-                AND server_time BETWEEN ? AND ?
-            ) v
+            FROM " . Common::prefixTable(LogExperiment::TABLE) . " v
             INNER JOIN " . Common::prefixTable('log_conversion') . " c
-                ON c.idvisit = v.idvisit AND c.idsite = v.idsite
+                ON c.idvisit = v.idvisit AND c.idsite = v.idsite AND c.server_time >= v.server_time
+            WHERE v.idsite = ?
+            AND v.server_time BETWEEN ? AND ?
             GROUP BY v.experiment_name, v.variant, c.idgoal
         ";
         $goalRows = Db::fetchAll($goalsQuery, [$idSite, $dateStart, $dateEnd]);

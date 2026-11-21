@@ -7,6 +7,7 @@ use Piwik\Date;
 use Piwik\NoAccessException;
 use Piwik\Nonce;
 use Piwik\Plugin\WidgetsProvider;
+use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\API;
 use Piwik\Plugins\RebelABTesting\Controller;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
@@ -30,6 +31,11 @@ class ControllerTest extends IntegrationTestCase
      */
     private $idExperiment;
 
+    /**
+     * @var int
+     */
+    private $idGoal;
+
     public function setUp(): void
     {
         parent::setUp();
@@ -39,6 +45,8 @@ class ControllerTest extends IntegrationTestCase
         Fixture::createWebsite('2024-01-01 00:00:00');
         FakeAccess::clearAccess(true);
         Date::$now = strtotime('2024-03-05 12:00:00 UTC');
+        $this->idGoal = GoalsApi::getInstance()->addGoal(2, 'Signed <up>', 'url', 'thanks', 'contains');
+        GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
         $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', 'A secret plan', 'Internal', '2024-03-01', '2024-03-31', [['name' => 'Green', 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing');
         $_GET = $_POST = [];
         $_SERVER['REQUEST_METHOD'] = 'GET';
@@ -83,6 +91,24 @@ class ControllerTest extends IntegrationTestCase
         $this->assertSame(['experiments' => []], $this->getPublic(3));
     }
 
+    public function testAPreviewLinkAlsoGetsAnExperimentThatIsNotRunning()
+    {
+        $api = API::getInstance();
+        $planned = $api->getExperiment($api->insertExperiment(1, 'planned', '', '', '2024-04-01', '2024-04-30', [['js' => 'later()']]), 1);
+        FakeAccess::clearAccess(false);
+
+        $ids = function (string $preview): array {
+            $_GET = ['idSite' => '1', 'preview' => $preview];
+
+            return array_column(json_decode((new Controller())->getExperimentsPublic(), true)['experiments'], 'id');
+        };
+
+        $this->assertSame([$this->idExperiment, $planned['id']], $ids($planned['id'] . '-' . $planned['preview_token']));
+        $this->assertSame([$this->idExperiment], $ids($planned['id'] . '-' . str_repeat('0', 32)));
+        $this->assertSame([$this->idExperiment], $ids($planned['id'] . '-'));
+        $this->assertSame([$this->idExperiment], $ids('99-' . $planned['preview_token']));
+    }
+
     public function testAnExperimentIsAddedFromTheForm()
     {
         $this->post(['idSite' => '2'], $this->getForm('Form test'));
@@ -95,7 +121,7 @@ class ControllerTest extends IntegrationTestCase
         }
 
         $experiment = (new Experiments())->getAllForSite(2)[0];
-        $this->assertSame(['Form test', 25, 'starts_with', 'https://example.org/shop'], [$experiment['name'], $experiment['traffic_share'], $experiment['target_match'], $experiment['target_value']]);
+        $this->assertSame(['Form test', 25, 'starts_with', 'https://example.org/shop', $this->idGoal], [$experiment['name'], $experiment['traffic_share'], $experiment['target_match'], $experiment['target_value'], $experiment['primary_goal']]);
         $this->assertSame(
             [['name' => 'One', 'css' => '', 'js' => "// two\nlines('<b>')"], ['name' => '', 'css' => 'b{}', 'js' => '']],
             $experiment['variants']
@@ -233,6 +259,9 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('action="?module=RebelABTesting&amp;action=addExperiment&amp;idSite=1&amp;period=week&amp;date=2024-03-05"', $create);
         $this->assertStringContainsString('name="from_date" id="from_date" value="2024-03-05"', $create);
         $this->assertStringContainsString('name="variants[0][css]"', $create);
+        $this->assertStringContainsString('<option value="" selected>None</option>', $create);
+        $this->assertStringContainsString('>Thanks</option>', $create);
+        $this->assertStringNotContainsString('Signed', $create);
 
         $edit = (new Controller())->editExperimentForm();
         $this->assertStringContainsString($nonce, $edit);
@@ -269,6 +298,19 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('Original', $html);
         $this->assertStringContainsString('Green', $html);
         $this->assertStringNotContainsString('A secret plan', $html);
+        $this->assertStringNotContainsString('rabt-preview', $html);
+    }
+
+    public function testAnAdminGetsAPreviewLinkForEachVariant()
+    {
+        $experiment = API::getInstance()->getExperiment($this->idExperiment, 1);
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        FakeAccess::clearAccess(false, [1]);
+
+        $html = (new Controller())->result();
+
+        $this->assertStringContainsString('#rabt-preview=' . $this->idExperiment . '-1-' . $experiment['preview_token'] . '"', $html);
+        $this->assertStringContainsString('#rabt-preview=' . $this->idExperiment . '-2-' . $experiment['preview_token'] . '"', $html);
     }
 
     public function testThePageOfAnExperimentNeedsAccessToItsWebsite()
@@ -306,6 +348,7 @@ class ControllerTest extends IntegrationTestCase
             'traffic_share' => '25',
             'target_match' => 'starts_with',
             'target_value' => 'https://example.org/shop',
+            'primary_goal' => (string) $this->idGoal,
             'variants' => [
                 ['name' => 'One', 'css' => '', 'js' => "// two\nlines('<b>')"],
                 ['name' => '', 'css' => 'b{}', 'js' => ''],

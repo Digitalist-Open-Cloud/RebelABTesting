@@ -29,7 +29,7 @@ class GetABTesting extends Widget
     {
         $idSite = Controller::checkAdminSite();
 
-        return $this->renderTemplate('index', Controller::getFormVariables() + [
+        return $this->renderTemplate('index', Controller::getFormVariables($idSite) + [
             'experiment' => [
                 'name' => '',
                 'hypothesis' => '',
@@ -39,6 +39,7 @@ class GetABTesting extends Widget
                 'traffic_share' => 100,
                 'target_match' => 'any',
                 'target_value' => '',
+                'primary_goal' => null,
                 'variants' => [['name' => '', 'css' => '', 'js' => '']],
             ],
             'actionUrl' => Controller::getActionUrl('addExperiment', $idSite),

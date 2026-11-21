@@ -26,7 +26,7 @@ class Results
     public const VERDICT_NO_DIFFERENCE = 'no_difference';
 
     private const CERTAIN = 0.95;
-    private const ECOMMERCE_ORDER = 0;
+    public const ECOMMERCE_ORDER = 0;
 
     /**
      * @param array<string, mixed> $experiment
@@ -47,7 +47,8 @@ class Results
         $conversions = Db::fetchAll(
             "SELECT l.variant, c.idgoal, COUNT(DISTINCT c.idvisit) AS nb_visits_converted, COUNT(*) AS nb_conversions
                FROM $log l
-               INNER JOIN " . Common::prefixTable('log_conversion') . " c ON c.idvisit = l.idvisit AND c.idsite = l.idsite
+               INNER JOIN " . Common::prefixTable('log_conversion') . " c
+                 ON c.idvisit = l.idvisit AND c.idsite = l.idsite AND c.server_time >= l.server_time
               WHERE l.idexperiment = ? AND l.idsite = ? AND c.idgoal >= " . self::ECOMMERCE_ORDER . "
               GROUP BY l.variant, c.idgoal",
             $bind
@@ -63,12 +64,21 @@ class Results
             $byGoal[(int) $row['idgoal']][(int) $row['variant']] = $row;
         }
         ksort($byGoal);
+        $primary = $experiment['primary_goal'];
+        if ($primary !== null) {
+            // The goal the experiment is judged by comes first, also before it has conversions.
+            $byGoal = [$primary => $byGoal[$primary] ?? []] + $byGoal;
+        }
+
+        $names = array_column(GoalsApi::getInstance()->getGoals($experiment['idsite']), 'name', 'idgoal');
+        $names[self::ECOMMERCE_ORDER] = Piwik::translate('General_EcommerceOrders');
 
         $goals = [];
         foreach ($byGoal as $idGoal => $rows) {
             $goals[] = [
                 'idgoal' => $idGoal,
-                'name' => $this->getGoalName((int) $experiment['idsite'], $idGoal),
+                'name' => Common::unsanitizeInputValue($names[$idGoal] ?? Piwik::translate('General_Unknown')),
+                'is_primary' => $idGoal === $primary,
                 'variants' => $this->compare($variants, $rows),
             ];
         }
@@ -134,17 +144,5 @@ class Results
         }
 
         return $names;
-    }
-
-    private function getGoalName(int $idSite, int $idGoal): string
-    {
-        if ($idGoal === self::ECOMMERCE_ORDER) {
-            return Piwik::translate('General_EcommerceOrders');
-        }
-
-        static $goals = [];
-        $goals[$idSite] = $goals[$idSite] ?? GoalsApi::getInstance()->getGoals($idSite);
-
-        return Common::unsanitizeInputValue($goals[$idSite][$idGoal]['name'] ?? Piwik::translate('General_Unknown'));
     }
 }
