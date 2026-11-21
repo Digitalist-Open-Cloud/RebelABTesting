@@ -47,7 +47,8 @@ class Results
         $conversions = Db::fetchAll(
             "SELECT l.variant, c.idgoal, COUNT(DISTINCT c.idvisit) AS nb_visits_converted, COUNT(*) AS nb_conversions
                FROM $log l
-               INNER JOIN " . Common::prefixTable('log_conversion') . " c ON c.idvisit = l.idvisit AND c.idsite = l.idsite
+               INNER JOIN " . Common::prefixTable('log_conversion') . " c
+                 ON c.idvisit = l.idvisit AND c.idsite = l.idsite AND c.server_time >= l.server_time
               WHERE l.idexperiment = ? AND l.idsite = ? AND c.idgoal >= " . self::ECOMMERCE_ORDER . "
               GROUP BY l.variant, c.idgoal",
             $bind

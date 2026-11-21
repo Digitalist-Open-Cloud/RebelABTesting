@@ -66,6 +66,9 @@ visits or 5 conversions per variant the page says there is not enough data. The 
 shown without a verdict: with several goals, one of them reaches 95% by chance more often than one
 in twenty. An experiment without a primary goal gets a verdict for every goal.
 
+A conversion counts from the moment the visit is in the experiment. A goal reached earlier in the
+same visit is left out.
+
 The result is read from the log of visits. If Matomo deletes old logs while an experiment runs, the
 visits of the deleted days leave the result.
 

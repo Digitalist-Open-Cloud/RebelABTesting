@@ -13,6 +13,8 @@ not take over data of SimpleABTesting.
 - An experiment can have up to ten variants.
 - An experiment can be limited to pages by their address, and to a share of the visitors.
 - An experiment can be stopped before its last day.
+- A conversion counts for an experiment from the moment the visit is in it, not when it happened
+  earlier in the same visit.
 - An experiment can have a primary goal, which it is judged by. The other goals are shown without
   a verdict.
 - Admins get a preview link for each variant, which shows it before the experiment starts and

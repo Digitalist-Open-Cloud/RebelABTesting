@@ -158,6 +158,26 @@ class TrackingTest extends IntegrationTestCase
         );
     }
 
+    public function testAConversionBeforeTheVisitWasInTheExperimentDoesNotCount()
+    {
+        GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/thanks', '/pricing'], 1);
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/pricing', '/thanks']);
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/thanks']);
+
+        $api = API::getInstance();
+        $result = $api->getExperimentResult(1, $this->idExperiment);
+
+        $this->assertSame(3, $result['variants'][1]['nb_visits']);
+        $this->assertSame(2, $result['goals'][0]['variants'][1]['nb_visits_converted']);
+        $this->assertSame(
+            ['button' => ['nb_visits_converted' => 2, 'variants' => ['2' => 2]]],
+            $this->flatten($api->getExperimentGoalData(1, 'day', self::DAY), 'nb_visits_converted', function ($idSubtable) use ($api) {
+                return $api->getExperimentGoalData(1, 'day', self::DAY, null, $idSubtable);
+            })
+        );
+    }
+
     public function testTheReportsCountVisitsAndConversionsPerVariant()
     {
         GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
@@ -233,8 +253,9 @@ class TrackingTest extends IntegrationTestCase
     /**
      * @param array<int, int>|string $experiments the variant by experiment, or the parameter as the browser would send it
      * @param string[] $paths
+     * @param int $exposedFrom the page view from which the browser sends the experiments
      */
-    private function trackVisit(int $idSite, $experiments, string $day = self::DAY, array $paths = ['/']): void
+    private function trackVisit(int $idSite, $experiments, string $day = self::DAY, array $paths = ['/'], int $exposedFrom = 0): void
     {
         if (is_array($experiments)) {
             $entries = [];
@@ -249,11 +270,11 @@ class TrackingTest extends IntegrationTestCase
         $tracker->setNewVisitorId();
         // Matomo takes requests from one address for one visit.
         $tracker->setIp('10.0.' . intdiv($this->visits, 250) . '.' . (1 + $this->visits++ % 250));
-        if ($experiments !== '') {
-            $tracker->setCustomTrackingParameter('rabt', $experiments);
-        }
 
         foreach ($paths as $minutes => $path) {
+            if ($experiments !== '' && $minutes >= $exposedFrom) {
+                $tracker->setCustomTrackingParameter('rabt', $experiments);
+            }
             $tracker->setForceVisitDateTime(date('Y-m-d H:i:s', strtotime($day . ' 10:00:00 UTC') + $minutes * 60));
             $tracker->setUrl('http://example.org' . $path);
             Fixture::checkResponse($tracker->doTrackPageView('Page'));
