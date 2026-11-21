@@ -2,7 +2,7 @@
   var KEY_PREFIX = 'sabt:';
 
   // Reads the visitor's active A/B assignment from localStorage (written by
-  // the SimpleABTesting tag). Returns null when there is none, or when
+  // the RebelABTesting tag). Returns null when there is none, or when
   // localStorage is unavailable.
   function getActiveAssignment() {
       try {
@@ -49,7 +49,7 @@
       for (var i = 0; i < HOOKS.length; i++) {
           plugin[HOOKS[i]] = trackingParams;
       }
-      Matomo.addPlugin('SimpleABTesting', plugin);
+      Matomo.addPlugin('RebelABTesting', plugin);
   }
 
   // If Matomo object exists, initialize the plugin

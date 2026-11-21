@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+The plugin is renamed from SimpleABTesting to RebelABTesting. See "Coming from SimpleABTesting" in
+the README.
+
+### Security
+
+- The lists and forms of experiments need admin access to the website. Before, a user with view
+  access to any website could read the experiments of every website.
+- The address the tag reads an experiment from only answers for an experiment that is running.
+- After a change, the browser is sent to a page of Matomo. The address is no longer taken from the
+  request, and neither is the message that is shown.
+- A tracking request is only logged for a running experiment of its website, under the name the
+  experiment has in Matomo. Before, a request could add rows with made-up names to the reports.
+- The first and the last day of an experiment have to be dates, in that order.
+- The name of an experiment is unique within its website. Before it was unique across all websites,
+  so the error told a user that a name was in use on a website they have no access to.
+
+### Fixed
+
+- Users with view access can open the reports.
+- JavaScript and CSS of several lines keep their line breaks when stored through the API.
+- Experiments can be stored on MariaDB versions that have the function `TO_DATE`.
+- The segments for the variant and the experiment work. Their columns on the visit were never
+  created; they are now `abtest_variant` and `abtest_idexperiment`.
+
+### Changed
+
+- The database tables are `rebel_ab_testing_experiments` and `rebel_ab_testing_log`.
+- The plugin needs PHP 8.2 or newer.
+- `insertExperiment` returns the ID of the experiment.
+- The API hands out and takes texts as they were written, without HTML encoding.
+- The menu has its own icon, and the icon font is removed.
+- The segments for the experiment name and category are removed.
+
 ## [0.1.99] - 2026-11-10
 
 ### Fixed

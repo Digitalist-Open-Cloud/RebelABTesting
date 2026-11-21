@@ -1,19 +1,8 @@
-{% block content %}
-<div class="simpleABTestingPlugin">
-<h1>Simple A/B Testing</h1>
-{% if message is not empty %}
-<div class="alert">
-    {{ message }}
-</div>
-{% endif %}
-
+<div class="rebelABTestingPlugin">
     <div class="card">
         <div class="card-content">
-            <h2>Insert experiment with Matomo Tag Manager</h2>
-            <p>To insert an experiment, you need to use Matomo Tag Manager.
-            </p>
-
+            <h2>{{ 'RebelABTesting_InsertExperiment'|translate }}</h2>
+            <p>{{ 'RebelABTesting_InsertExperimentHelp'|translate }}</p>
         </div>
     </div>
 </div>
-{% endblock %}

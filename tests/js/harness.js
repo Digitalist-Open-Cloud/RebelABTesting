@@ -54,7 +54,7 @@ function evalSource(rel, env, extraArgs = {}) {
 }
 
 export function loadTag(params, env) {
-  const Ctor = evalSource("Template/Tag/SimpleABTestingTag.web.js", env);
+  const Ctor = evalSource("Template/Tag/RebelABTestingTag.web.js", env);
   const tag = new Ctor({ get: (n) => params[n] }, {});
   return {
     env,

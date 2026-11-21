@@ -1,15 +1,10 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting;
+namespace Piwik\Plugins\RebelABTesting;
 
 /**
- * Turns flat Db::fetchAll() rows into a nested tree, keyed by `label` and
- * then by each identity column in turn, with only the metric columns as
- * leaf values. Deliberately plain arrays, not Matomo\DataTable — this class
- * has no Matomo dependency at all, so the one property that matters (two
- * different identity values, e.g. two variants of the same experiment,
- * never collapse into one entry) is directly unit-testable. Archiver.php
- * converts the result into real DataTable/Row objects with subtables.
+ * Groups rows of a query by their label and then by one or two identity columns, such as the
+ * variant and the goal. Only the metric columns are kept as values.
  */
 final class RowGrouper
 {

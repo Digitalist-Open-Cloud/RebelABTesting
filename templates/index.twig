@@ -1,37 +1,27 @@
-{% block content %}
-<div class="simpleABTestingPlugin">
-<h1>Simple A/B Testing</h1>
-{% if message is not empty %}
-<div class="alert">
-    {{ message }}
-</div>
-{% endif %}
-
+<div class="rebelABTestingPlugin">
     <div class="card">
         <div class="card-content">
-            <h2>Create a new experiment</h2>
-
+            <h2>{{ 'RebelABTesting_CreateNewExperiment'|translate }}</h2>
             <form method="post" action="{{ actionUrl }}">
-                <input type="hidden" name="redirect_url" value="{{ currentUrl }}">
-                <input type="hidden" name="nonce" value="{{ nonce }}" >
+                <input type="hidden" name="nonce" value="{{ nonce }}">
 
                 <h3 class="form-section-title">Basic info</h3>
                 <div class="row">
                     <div class="col s12 m6 form-field">
                         <label for="name">Experiment Name</label>
-                        <input type="text" name="name" id="name" required>
-                        <span class="form-hint">Only alphanumeric characters, no spaces &mdash; always use a new name to avoid cookie conflicts.</span>
+                        <input type="text" name="name" id="name" value="" required>
+                        <span class="form-hint">Letters, digits, - and _ only. Use a new name for every experiment.</span>
                     </div>
                     <div class="col s12 m6 form-field">
                         <label for="hypothesis">Hypothesis</label>
-                        <input type="text" name="hypothesis" id="hypothesis">
-                        <span class="form-hint">Describe what you expect and why &mdash; e.g.: &ldquo;Green CTA button increases clicks.&rdquo; &ldquo;Shorter signup form increases completions.&rdquo; &ldquo;Price shown above the fold increases add-to-cart rate.&rdquo;</span>
+                        <input type="text" name="hypothesis" id="hypothesis" value="">
+                        <span class="form-hint">What you expect and why, for example &ldquo;A green button gets more clicks.&rdquo;</span>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col s12 m6 form-field">
                         <label for="description">Description</label>
-                        <input type="text" name="description" id="description">
+                        <input type="text" name="description" id="description" value="">
                     </div>
                 </div>
 
@@ -39,43 +29,30 @@
                 <div class="row">
                     <div class="col s12 m6 form-field">
                         <label for="from_date">From Date</label>
-                        <input type="date" name="from_date" id="from_date" value="{{ formattedToday }}" required>
+                        <input type="date" name="from_date" id="from_date" value="{{ fromDate }}" required>
                         <span class="form-hint">Starts at 00:00 UTC.</span>
                     </div>
                     <div class="col s12 m6 form-field">
                         <label for="to_date">To Date</label>
-                        <input type="date" name="to_date" id="to_date" value="{{ formattedOneMonthLater }}" required>
+                        <input type="date" name="to_date" id="to_date" value="{{ toDate }}" required>
                         <span class="form-hint">Ends at 23:59 UTC.</span>
                     </div>
                 </div>
 
                 <h3 class="form-section-title">Variant code</h3>
-                <p class="section-help">Fill in CSS insert and/or Custom JS below &mdash; you don't need both. Use CSS for visual changes (colors, spacing, hiding elements) and JS for behavior or text changes.</p>
+                <p class="section-help">Fill in CSS, JavaScript or both. Use CSS for how the page looks and JavaScript for what it does or says.</p>
                 <div class="row">
                     <div class="col s12 code-field">
-                        <label for="css_insert">CSS insert (variant 1)</label>
+                        <label for="css_insert">CSS for the variant</label>
                         <textarea name="css_insert" id="css_insert" class="code-textarea"></textarea>
-                        <div class="form-hint">
-                            Add CSS rules to change how variant 1 looks. Examples:
-                            <ul class="hint-examples">
-                                <li><code>.h1 { display: none; }</code> &mdash; hide the H1</li>
-                                <li><code>.btn { background-color: #ff5722; color: #fff; }</code> &mdash; change button color</li>
-                                <li><code>a { color: #e91e63; }</code> &mdash; change link color</li>
-                            </ul>
-                        </div>
+                        <span class="form-hint">For example <code>.btn { background-color: #ff5722; }</code></span>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col s12 code-field">
-                        <label for="js_insert">Custom JS (variant 1)</label>
+                        <label for="js_insert">JavaScript for the variant</label>
                         <textarea name="js_insert" id="js_insert" class="code-textarea"></textarea>
-                        <div class="form-hint">
-                            Add JavaScript to change behavior or text in variant 1. Examples:
-                            <ul class="hint-examples">
-                                <li><code>document.querySelector('h1').style.display = 'none';</code> &mdash; hide the H1</li>
-                                <li><code>document.querySelector('.hero-title').textContent = 'New headline text';</code> &mdash; rewrite an element's text</li>
-                            </ul>
-                        </div>
+                        <span class="form-hint">For example <code>document.querySelector('h1').textContent = 'New headline';</code></span>
                     </div>
                 </div>
 
@@ -86,4 +63,3 @@
         </div>
     </div>
 </div>
-{% endblock %}

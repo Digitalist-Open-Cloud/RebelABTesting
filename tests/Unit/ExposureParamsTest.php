@@ -1,10 +1,14 @@
 <?php
 
-namespace Piwik\Plugins\SimpleABTesting\Tests\Unit;
+namespace Piwik\Plugins\RebelABTesting\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Piwik\Plugins\SimpleABTesting\Tracker\ExposureParams;
+use Piwik\Plugins\RebelABTesting\Tracker\ExposureParams;
 
+/**
+ * @group RebelABTesting
+ * @group Plugins
+ */
 final class ExposureParamsTest extends TestCase
 {
     public function testFullTagRequest(): void
@@ -33,28 +37,18 @@ final class ExposureParamsTest extends TestCase
         $this->assertNull($r['variant']);
         $this->assertNull($r['idexperiment']);
         $this->assertNull($r['assignment_id']);
-        $this->assertSame('Unknown', $r['experiment_name']);
+        $this->assertSame(ExposureParams::UNKNOWN_NAME, $r['experiment_name']);
+    }
+
+    public function testALongNameIsCutToWhatTheColumnHolds(): void
+    {
+        $r = ExposureParams::fromRequestParams(['sabt' => '1', 'sabn' => str_repeat('ä', 300)]);
+        $this->assertSame(255, mb_strlen($r['experiment_name']));
     }
 
     public function testNoSabtMeansNoRow(): void
     {
         $this->assertNull(ExposureParams::fromRequestParams([]));
-    }
-
-    public function testResolveKeepsSabiThatExistsForSite(): void
-    {
-        $this->assertSame(7, ExposureParams::resolveExperimentId(7, 'x', fn($id) => true, fn($n) => 99));
-    }
-
-    public function testResolveFallsBackToNameWhenSabiBelongsToOtherSite(): void
-    {
-        $this->assertSame(5, ExposureParams::resolveExperimentId(7, 'x', fn($id) => false, fn($n) => 5));
-    }
-
-    public function testResolveReturnsNullWhenBothUnknown(): void
-    {
-        $this->assertNull(ExposureParams::resolveExperimentId(7, 'x', fn($id) => false, fn($n) => null));
-        $this->assertNull(ExposureParams::resolveExperimentId(null, 'Unknown', fn($id) => true, fn($n) => 5));
     }
 
     public function testScheduleIncludesBothEndDaysInUtc(): void
@@ -67,8 +61,6 @@ final class ExposureParamsTest extends TestCase
 
     public function testScheduleExcludesRequestsAfterConcludeOrBeforeStart(): void
     {
-        // Concluded: to_date moved to yesterday, a returning visitor's stored
-        // assignment still sends the old id today.
         $row = ['from_date' => '2026-10-10', 'to_date' => '2026-10-16'];
         $this->assertFalse(ExposureParams::isWithinSchedule(gmmktime(0, 0, 0, 10, 17, 2026), $row));
         $this->assertFalse(ExposureParams::isWithinSchedule(gmmktime(23, 59, 59, 10, 9, 2026), $row));
@@ -77,14 +69,5 @@ final class ExposureParamsTest extends TestCase
     public function testScheduleWithoutRowIsOutside(): void
     {
         $this->assertFalse(ExposureParams::isWithinSchedule(gmmktime(12, 0, 0, 10, 13, 2026), null));
-    }
-
-    public function testRecordLogsDropsTheIdOutsideTheSchedule(): void
-    {
-        $src = file_get_contents(__DIR__ . '/../../Tracker/RequestProcessor.php');
-        $this->assertMatchesRegularExpression(
-            '/!ExposureParams::isWithinSchedule\(\(int\) \$request->getCurrentTimestamp\(\), \$rowFor\(\$idExperiment\)\)\) \{\s*\$idExperiment = null;/',
-            $src
-        );
     }
 }

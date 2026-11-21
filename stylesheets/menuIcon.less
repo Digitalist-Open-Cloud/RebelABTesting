@@ -1,0 +1,14 @@
+// The "A/B Testing" icon of the reporting menu: one path that splits in two, drawn as a mask so it
+// takes the text colour like the icon font does.
+.rebelABTestingIcon::before {
+  @_icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='3'/%3E%3Cpath d='M7 12h3l3-4h4M10 12l3 4h4'/%3E%3C/svg%3E";
+
+  content: '';
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask: url(@_icon) center / contain no-repeat;
+  mask: url(@_icon) center / contain no-repeat;
+}

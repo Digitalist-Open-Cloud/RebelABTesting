@@ -44,7 +44,7 @@
           });
 
           function fetchExperiment(origin, id, idSite, callback) {
-              var url = origin + "/index.php?module=SimpleABTesting&action=getExperimentPublic&format=json"
+              var url = origin + "/index.php?module=RebelABTesting&action=getExperimentPublic&format=json"
                   + "&idSite=" + encodeURIComponent(idSite) + "&id=" + encodeURIComponent(id);
               try {
                   if (window.fetch) {
