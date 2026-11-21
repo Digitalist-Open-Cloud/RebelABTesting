@@ -1,111 +1,183 @@
-import { assertEquals, assert, assertMatch } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1";
 import { loadTag, makeEnv, makeStorage, today } from "./harness.js";
 
-const live = (over = {}) => ({
-  found: true, name: "Rubrik test", from_date: today(-5), to_date: today(5),
-  css_insert: "h1{color:red}", js_insert: "window.x=1", ...over,
+const A = "0123456789abcdef0123456789abcdef";
+const experiment = (over = {}) => ({
+  id: 7, from_date: today(-5), to_date: today(5), share: 100, match: "any", value: "",
+  variants: [{ css: "h1{color:red}", js: "window.x=1" }], ...over,
 });
-const P = { experiment: "7,1", matomoOrigin: "https://m.example" };
+const stored = (storage, id) => JSON.parse(storage.getItem("sabt:" + id));
 
-Deno.test("ny besökare får variant, id och ping", async () => {
-  const env = makeEnv({ fetchData: live() });
-  const orig = Math.random; Math.random = () => 0.9;
-  try { await loadTag(P, env).fire(); } finally { Math.random = orig; }
-  assertEquals(env._paq.length, 2);
-  assertEquals(env._paq[0][0], "appendToTrackingUrl");
-  assertMatch(env._paq[0][1], /^sabt=2&sabi=7&sabn=Rubrik%20test&saba=[0-9a-f]{32}$/);
-  assertEquals(env._paq[1], ["ping"]);
-  const rec = JSON.parse(env.localStorage.getItem("sabt:7"));
-  assertEquals(rec.v, "2");
-  assertMatch(rec.a, /^[0-9a-f]{32}$/);
-  assertEquals(rec.exp, today(5));
-  assertEquals(env._paq[0][1].split("saba=")[1], rec.a);
-});
+// Math.random() answers with these values in turn: first for taking part, then for the variant.
+async function fireWith(randoms, env, params) {
+  const original = Math.random;
+  Math.random = () => randoms.shift() ?? 0;
+  try { await loadTag(env, params).fire(); } finally { Math.random = original; }
+}
 
-Deno.test("återkommande behåller variant och id", async () => {
-  const a = "0123456789abcdef0123456789abcdef";
-  const ls = makeStorage({ "sabt:7": JSON.stringify({ v: "2", a, exp: today(5) }) });
-  const env = makeEnv({ fetchData: live(), localStorage: ls });
-  await loadTag(P, env).fire();
-  assert(env._paq[0][1].endsWith("saba=" + a));
-  assert(env._paq[0][1].startsWith("sabt=2&"));
-  assertEquals(env.appended.length, 2);
+Deno.test("a new visitor gets a variant, which is applied, kept and sent", async () => {
+  const env = makeEnv({ experiments: [experiment()] });
+  await fireWith([0, 0.9], env);
+
+  const record = stored(env.localStorage, 7);
+  assertEquals(record.v, 2);
+  assertEquals(record.exp, today(5));
+  assertMatch(record.a, /^[0-9a-f]{32}$/);
+  assertEquals(env.appended.map((n) => [n.tagName, n.textContent]), [["style", "h1{color:red}"], ["script", "window.x=1"]]);
+  assertEquals(env._paq, [["appendToTrackingUrl", `rabt=7-2-${record.a}`], ["ping"]]);
+  assertEquals(env.fetchCalls, ["https://m.example/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=1"]);
 });
 
-Deno.test("förlängt test behåller variant", async () => {
-  const a = "fedcba9876543210fedcba9876543210";
-  const ls = makeStorage({ "sabt:7": JSON.stringify({ v: "1", a, exp: today(-1) }) });
-  const env = makeEnv({ fetchData: live({ to_date: today(10) }), localStorage: ls });
-  await loadTag(P, env).fire();
-  const rec = JSON.parse(ls.getItem("sabt:7"));
-  assertEquals(rec, { v: "1", a, exp: today(10) });
-  assert(env._paq[0][1].startsWith("sabt=1&sabi=7"));
+Deno.test("the original changes nothing on the page and is counted", async () => {
+  const env = makeEnv({ experiments: [experiment()] });
+  await fireWith([0, 0.1], env);
+
+  assertEquals(stored(env.localStorage, 7).v, 1);
+  assertEquals(env.appended, []);
+  assertEquals(env._paq[0][1].slice(0, 9), "rabt=7-1-");
 });
 
-Deno.test("utgången post för annat test städas", async () => {
-  const ls = makeStorage({
-    "sabt:3": JSON.stringify({ v: "1", a: "a".repeat(32), exp: today(-2) }),
-    "other": "x",
-  });
-  const env = makeEnv({ fetchData: live(), localStorage: ls });
-  await loadTag(P, env).fire();
-  assertEquals(ls.getItem("sabt:3"), null);
-  assertEquals(ls.getItem("other"), "x");
-  assert(ls.getItem("sabt:7") !== null);
-});
-
-Deno.test("blockerad localStorage", async () => {
-  for (const opts of [{ throwOnGet: true }, { throwOnSet: true }]) {
-    const env = makeEnv({ fetchData: live(), localStorage: makeStorage({}, opts) });
-    await loadTag(P, env).fire();
-    assertEquals(env._paq.length, 0);
-    assertEquals(env.appended.length, 0);
+Deno.test("each of several variants can be drawn", async () => {
+  const variants = [{ css: "a{}", js: "" }, { css: "b{}", js: "" }];
+  for (const [random, v, css] of [[0.1, 1, []], [0.5, 2, ["a{}"]], [0.9, 3, ["b{}"]]]) {
+    const env = makeEnv({ experiments: [experiment({ variants })] });
+    await fireWith([0, random], env);
+    assertEquals(stored(env.localStorage, 7).v, v);
+    assertEquals(env.appended.map((n) => n.textContent), css);
   }
 });
 
-Deno.test("originalet pingar också", async () => {
-  const env = makeEnv({ fetchData: live() });
-  const orig = Math.random; Math.random = () => 0.1;
-  try { await loadTag(P, env).fire(); } finally { Math.random = orig; }
-  assert(env._paq[0][1].startsWith("sabt=1&"));
-  assertEquals(env._paq[1], ["ping"]);
-  assertEquals(env.appended.length, 0);
+Deno.test("a visitor outside the share of the experiment gets the original and is not counted", async () => {
+  const env = makeEnv({ experiments: [experiment({ share: 10 })] });
+  await fireWith([0.5, 0.9], env);
+
+  assertEquals(stored(env.localStorage, 7).v, 0);
+  assertEquals(env.appended, []);
+  assertEquals(env._paq, []);
 });
 
-Deno.test("utanför datum", async () => {
-  const env = makeEnv({ fetchData: live({ from_date: today(2), to_date: today(9) }) });
-  await loadTag(P, env).fire();
-  assertEquals(env._paq.length, 0);
-  assertEquals(env.localStorage.length, 0);
+Deno.test("a returning visitor keeps the variant, also when the experiment was prolonged", async () => {
+  const storage = makeStorage({ "sabt:7": JSON.stringify({ v: 2, a: A, exp: today(1) }) });
+  const env = makeEnv({ experiments: [experiment({ to_date: today(10) })], localStorage: storage });
+  await fireWith([0, 0.1], env);
+
+  assertEquals(stored(storage, 7), { v: 2, a: A, exp: today(10) });
+  assertEquals(env._paq[0], ["appendToTrackingUrl", `rabt=7-2-${A}`]);
+  assertEquals(env.appended.length, 2);
 });
 
-Deno.test("ingen cookie", async () => {
-  const env = makeEnv({ fetchData: live() });
-  await loadTag(P, env).fire();
-  assertEquals(env.cookieWrites, []);
+Deno.test("experiments run side by side, each on its own pages", async () => {
+  const experiments = [
+    experiment({ id: 1, match: "contains", value: "/pricing", variants: [{ css: "one{}", js: "" }] }),
+    experiment({ id: 2, match: "starts_with", value: "https://shop.example/cart", variants: [{ css: "two{}", js: "" }] }),
+    experiment({ id: 3, match: "regexp", value: "/pric(e|ing)$", variants: [{ css: "three{}", js: "" }] }),
+    experiment({ id: 4, match: "equals", value: "https://shop.example/", variants: [{ css: "four{}", js: "" }] }),
+    experiment({ id: 5, match: "regexp", value: "(", variants: [{ css: "five{}", js: "" }] }),
+  ];
+  const env = makeEnv({ experiments });
+  await fireWith([0, 0.9, 0, 0.9], env);
+
+  assertEquals(env.appended.map((n) => n.textContent), ["one{}", "three{}"]);
+  assertMatch(env._paq[0][1], /^rabt=1-2-[0-9a-f]{32},3-2-[0-9a-f]{32}$/);
+  assertEquals(stored(env.localStorage, 2), null);
 });
 
-Deno.test("legacy-vägen använder localStorage", async () => {
-  const env = makeEnv();
-  const csv = ["9", "Gammal", today(-1), today(3), encodeURIComponent("a{}"), encodeURIComponent("1"), ""].join(",");
-  const orig = Math.random; Math.random = () => 0.9;
-  try { await loadTag({ experiment: csv }, env).fire(); } finally { Math.random = orig; }
-  assertMatch(env._paq[0][1], /^sabt=2&sabi=9&sabn=Gammal&saba=[0-9a-f]{32}$/);
-  assertEquals(env._paq[1], ["ping"]);
-  assertEquals(JSON.parse(env.localStorage.getItem("sabt:9")).exp, today(3));
-  assertEquals(env.cookieWrites, []);
+Deno.test("an experiment of another page is still sent with the requests of this page", async () => {
+  const storage = makeStorage({ "sabt:9": JSON.stringify({ v: 2, a: A, exp: today(3) }) });
+  const env = makeEnv({ experiments: [experiment({ id: 9, match: "contains", value: "/checkout" })], localStorage: storage });
+  await fireWith([], env);
+
+  assertEquals(env.appended, []);
+  assertEquals(env._paq[0], ["appendToTrackingUrl", `rabt=9-2-${A}`]);
 });
 
-Deno.test("andra testers poster tas bort, även giltiga (ett test per sajt)", async () => {
-  const ls = makeStorage({
-    "sabt:3": JSON.stringify({ v: "2", a: "b".repeat(32), exp: today(30) }),
-    "sabt:4": "inte json",
+Deno.test("an experiment outside its days is not run", async () => {
+  const env = makeEnv({ experiments: [experiment({ from_date: today(2), to_date: today(9) })] });
+  await fireWith([0, 0.9], env);
+
+  assertEquals(env._paq, []);
+  assertEquals(env.localStorage.getItem("sabt:7"), null);
+});
+
+Deno.test("assignments of experiments that have ended are removed", async () => {
+  const storage = makeStorage({
+    "sabt:3": JSON.stringify({ v: 1, a: A, exp: today(-2) }),
+    "sabt:4": "not json",
     "other": "x",
   });
-  const env = makeEnv({ fetchData: live(), localStorage: ls });
-  await loadTag(P, env).fire();
-  assertEquals(ls.getItem("sabt:3"), null);
-  assertEquals(ls.getItem("sabt:4"), null);
-  assertEquals(ls.getItem("other"), "x");
-  assert(ls.getItem("sabt:7") !== null);
+  await fireWith([0, 0.9], makeEnv({ experiments: [experiment()], localStorage: storage }));
+
+  assertEquals(storage.getItem("sabt:3"), null);
+  assertEquals(storage.getItem("sabt:4"), null);
+  assertEquals(storage.getItem("other"), "x");
+});
+
+Deno.test("the page is hidden while the experiments are fetched, and shown afterwards", async () => {
+  const env = makeEnv({ experiments: [experiment()] });
+  const hidden = [];
+  const fetch = env.fetch;
+  env.fetch = (url) => { hidden.push(env.appended.map((n) => n.textContent)); return fetch(url); };
+  await fireWith([0, 0.1], env);
+
+  assertEquals(hidden, [["html{opacity:0 !important}"]]);
+  assertEquals(env.appended, []);
+});
+
+Deno.test("the page is shown again when Matomo does not answer", async () => {
+  const env = makeEnv({ fetchFails: true });
+  await fireWith([], env);
+
+  assertEquals(env.appended, []);
+  assertEquals(env._paq, []);
+});
+
+Deno.test("the page is never hidden with a timeout of 0", async () => {
+  const env = makeEnv({ experiments: [experiment()] });
+  let hidden = null;
+  const fetch = env.fetch;
+  env.fetch = (url) => { hidden = env.appended.length; return fetch(url); };
+  await fireWith([0, 0.1], env, { hideTimeout: 0 });
+
+  assertEquals(hidden, 0);
+});
+
+Deno.test("on the next page the experiments are run at once, without fetching or hiding", async () => {
+  const env = makeEnv({ experiments: [experiment()] });
+  await fireWith([0, 0.9], env);
+  env.appended.length = 0;
+  env._paq.length = 0;
+  env.fetchCalls.length = 0;
+
+  const tag = loadTag(env);
+  tag.fire();
+  assertEquals(env.appended.map((n) => n.tagName), ["style", "script"]);
+  assertEquals(env._paq.length, 1);
+  assertEquals(env.fetchCalls, []);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
+Deno.test("experiments kept for more than five minutes are fetched again for the next page", async () => {
+  const cache = JSON.stringify({ t: Date.now() - 301000, e: [] });
+  const env = makeEnv({ experiments: [experiment()], localStorage: makeStorage({ "sabt-experiments:1": cache }) });
+  await fireWith([0, 0.9], env);
+
+  assertEquals(env.appended, []);
+  assertEquals(env.fetchCalls.length, 1);
+  assertEquals(JSON.parse(env.localStorage.getItem("sabt-experiments:1")).e.length, 1);
+});
+
+Deno.test("nothing happens without localStorage", async () => {
+  for (const opts of [{ throwOnGet: true }, { throwOnSet: true }]) {
+    const env = makeEnv({ experiments: [experiment()], localStorage: makeStorage({}, opts) });
+    await fireWith([0, 0.9], env);
+    assertEquals(env._paq, []);
+    assert(env.appended.length === 0);
+  }
+});
+
+Deno.test("nothing happens without the website of the container", async () => {
+  const env = makeEnv({ experiments: [experiment()] });
+  await fireWith([0, 0.9], env, { container: {} });
+
+  assertEquals(env.fetchCalls, []);
 });

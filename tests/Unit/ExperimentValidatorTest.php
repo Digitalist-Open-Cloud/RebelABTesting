@@ -11,8 +11,6 @@ use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
  */
 final class ExperimentValidatorTest extends TestCase
 {
-    private const JANUARY = [['from_date' => '2026-01-01', 'to_date' => '2026-01-15']];
-
     /**
      * @dataProvider getNames
      */
@@ -24,12 +22,11 @@ final class ExperimentValidatorTest extends TestCase
     public function getNames(): array
     {
         return [
-            'ordinary' => ['spring-sale-v2', null],
+            'ordinary' => ['Spring sale, v2', null],
             'as long as the column' => [str_repeat('a', 255), null],
             'empty' => ['', 'RebelABTesting_ErrorNameEmpty'],
             'only spaces' => ['   ', 'RebelABTesting_ErrorNameEmpty'],
             'too long' => [str_repeat('a', 256), 'RebelABTesting_ErrorNameTooLong'],
-            'with a comma' => ['spring sale, v2', 'RebelABTesting_ErrorNameComma'],
         ];
     }
 
@@ -55,26 +52,48 @@ final class ExperimentValidatorTest extends TestCase
     }
 
     /**
-     * @dataProvider getPeriods
+     * @dataProvider getTargets
      */
-    public function testOverlap(string $from, string $to, bool $overlaps): void
+    public function testTarget(string $match, string $value, ?string $error): void
     {
-        $this->assertSame($overlaps, ExperimentValidator::hasOverlap(self::JANUARY, $from, $to));
+        $this->assertSame($error, ExperimentValidator::validateTarget($match, $value));
     }
 
-    public function getPeriods(): array
+    public function getTargets(): array
     {
         return [
-            'a later month' => ['2026-02-01', '2026-02-15', false],
-            'the day after the last day' => ['2026-01-16', '2026-01-31', false],
-            'starts on the last day' => ['2026-01-15', '2026-01-31', true],
-            'starts during' => ['2026-01-10', '2026-01-20', true],
-            'contains' => ['2025-12-01', '2026-02-20', true],
+            'all pages' => ['any', '', null],
+            'pages of a part' => ['contains', '/pricing', null],
+            'unknown comparison' => ['sounds_like', '/pricing', 'RebelABTesting_ErrorTargetMatch'],
+            'nothing to compare with' => ['equals', '', 'RebelABTesting_ErrorTargetValue'],
+            'too long' => ['contains', str_repeat('a', 1001), 'RebelABTesting_ErrorTargetValue'],
         ];
     }
 
-    public function testNothingOverlapsWithoutOtherExperiments(): void
+    public function testTrafficShareIsAPercentage(): void
     {
-        $this->assertFalse(ExperimentValidator::hasOverlap([], '2026-01-01', '2026-01-31'));
+        $this->assertNull(ExperimentValidator::validateTrafficShare(1));
+        $this->assertNull(ExperimentValidator::validateTrafficShare(100));
+        $this->assertSame('RebelABTesting_ErrorTrafficShare', ExperimentValidator::validateTrafficShare(0));
+        $this->assertSame('RebelABTesting_ErrorTrafficShare', ExperimentValidator::validateTrafficShare(101));
+    }
+
+    public function testVariantsKeepOnlyNameCssAndJavaScript(): void
+    {
+        $this->assertSame(
+            [['name' => 'Green', 'css' => 'a{}', 'js' => ''], ['name' => '', 'css' => '', 'js' => 'x()']],
+            ExperimentValidator::normalizeVariants([['name' => ' Green ', 'css' => 'a{}', 'weight' => 9], 'text', ['js' => 'x()']])
+        );
+        $this->assertSame([], ExperimentValidator::normalizeVariants('not a list'));
+    }
+
+    public function testAnExperimentHasOneToTenVariants(): void
+    {
+        $variant = ['name' => '', 'css' => '', 'js' => ''];
+
+        $this->assertNull(ExperimentValidator::validateVariants([$variant]));
+        $this->assertNull(ExperimentValidator::validateVariants(array_fill(0, 10, $variant)));
+        $this->assertSame('RebelABTesting_ErrorVariants', ExperimentValidator::validateVariants([]));
+        $this->assertSame('RebelABTesting_ErrorVariants', ExperimentValidator::validateVariants(array_fill(0, 11, $variant)));
     }
 }

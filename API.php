@@ -9,24 +9,21 @@
 
 namespace Piwik\Plugins\RebelABTesting;
 
+use Exception;
 use Piwik\Archive;
-use Piwik\Common;
 use Piwik\DataTable;
-use Piwik\Db;
-use Piwik\Period\Factory as PeriodFactory;
 use Piwik\Piwik;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
 
 /**
- * Experiments, which show a variant of a page to half of the visitors, and their reports.
+ * Experiments, which show variants of a page to a share of the visitors, and how the variants did.
  *
  * @method static \Piwik\Plugins\RebelABTesting\API getInstance()
  */
 class API extends \Piwik\Plugin\API
 {
     /**
-     * The CSS and JavaScript of an experiment have to arrive as they were written.
+     * The CSS and JavaScript of a variant have to arrive as they were written.
      */
     protected $autoSanitizeInputParams = false;
 
@@ -41,25 +38,40 @@ class API extends \Piwik\Plugin\API
     }
 
     /**
-     * Adds an experiment. Only one experiment can run on a website at a time.
+     * Adds an experiment.
      *
      * @param string $fromDate the first day, as YYYY-MM-DD in UTC
      * @param string $toDate the last day, as YYYY-MM-DD in UTC
-     * @param string $cssInsert CSS added to the page for the variant
-     * @param string $customJs JavaScript run on the page for the variant
+     * @param array $variants one or more variants, each with `name`, `css` and `js`
+     * @param int $trafficShare the percentage of visitors that take part, split evenly between the
+     *                          original and the variants
+     * @param string $targetMatch how the address of a page is compared with $targetValue: any,
+     *                            equals, contains, starts_with or regexp
      * @return int the ID of the experiment
      */
-    public function insertExperiment(int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, string $cssInsert, string $customJs): int
+    public function insertExperiment(int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare = 100, string $targetMatch = 'any', string $targetValue = ''): int
     {
         Piwik::checkUserHasAdminAccess($idSite);
 
-        return $this->experiments->insertExperiment($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $cssInsert, $customJs);
+        return $this->experiments->insertExperiment($idSite, self::toFields($name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue));
     }
 
-    public function updateExperiment(int $id, int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, string $cssInsert, string $customJs): void
+    /**
+     * @param array $variants one or more variants, each with `name`, `css` and `js`
+     */
+    public function updateExperiment(int $id, int $idSite, string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare = 100, string $targetMatch = 'any', string $targetValue = ''): void
     {
         Piwik::checkUserHasAdminAccess($idSite);
-        $this->experiments->updateExperiment($id, $idSite, $name, $hypothesis, $description, $fromDate, $toDate, $cssInsert, $customJs);
+        $this->experiments->updateExperiment($id, $idSite, self::toFields($name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue));
+    }
+
+    /**
+     * Ends an experiment now.
+     */
+    public function stopExperiment(int $id, int $idSite): void
+    {
+        Piwik::checkUserHasAdminAccess($idSite);
+        $this->experiments->stopExperiment($id, $idSite);
     }
 
     public function deleteExperiment(int $id, int $idSite): void
@@ -79,62 +91,35 @@ class API extends \Piwik\Plugin\API
     }
 
     /**
-     * What the tag on the website gets to know about an experiment.
-     *
-     * @return array<string, mixed>|null
-     */
-    public function getExperimentPublic(int $id, int $idSite): ?array
-    {
-        Piwik::checkUserHasViewAccess($idSite);
-        $row = $this->experiments->getById($id, $idSite);
-
-        return $row ? self::publicFields($row) : null;
-    }
-
-    /**
-     * @ignore
-     * @param array<string, mixed> $row
-     * @return array<string, mixed>
-     */
-    public static function publicFields(array $row): array
-    {
-        return [
-            'found' => true,
-            'name' => $row['name'],
-            'from_date' => $row['from_date'],
-            'to_date' => $row['to_date'],
-            'css_insert' => $row['css_insert'],
-            'js_insert' => $row['js_insert'],
-        ];
-    }
-
-    /**
-     * Visits and visitors per experiment and variant, read from the log and not from the archive.
+     * The experiments of a website, without what their variants do.
      *
      * @return array<int, array<string, mixed>>
      */
-    public function getExperimentReportData(int $idSite, string $period, string $date): array
+    public function getExperiments(int $idSite): array
     {
         Piwik::checkUserHasViewAccess($idSite);
-        $periodObj = PeriodFactory::build($period, $date);
 
-        $sql = '
-            SELECT
-                experiment_name AS `experiment_name`,
-                variant AS `variant`,
-                COUNT(DISTINCT idvisitor) AS `nb_unique_visitors`,
-                COUNT(DISTINCT idvisit) AS `nb_visits`
-            FROM ' . Common::prefixTable(LogExperiment::TABLE) . '
-            WHERE idsite = ?
-            AND server_time BETWEEN ? AND ?
-            GROUP BY experiment_name, variant
-        ';
+        return array_map(function (array $experiment): array {
+            return array_intersect_key($experiment, array_flip(['id', 'idsite', 'name', 'from_date', 'to_date', 'status']));
+        }, $this->experiments->getAllForSite($idSite));
+    }
 
-        return Db::fetchAll($sql, [
-            $idSite,
-            $periodObj->getDateStart()->toString('Y-m-d 00:00:00'),
-            $periodObj->getDateEnd()->toString('Y-m-d 23:59:59'),
-        ]);
+    /**
+     * Visits per variant, and for each goal the conversions, the conversion rate, the difference to
+     * the original and how likely the variant is to be better than the original.
+     *
+     * @return array<string, mixed>
+     */
+    public function getExperimentResult(int $idSite, int $id): array
+    {
+        Piwik::checkUserHasViewAccess($idSite);
+
+        $experiment = $this->experiments->getById($id, $idSite);
+        if ($experiment === null) {
+            throw new Exception(Piwik::translate('RebelABTesting_ExperimentNotFound'));
+        }
+
+        return (new Results())->get($experiment);
     }
 
     /**
@@ -175,5 +160,24 @@ class API extends \Piwik\Plugin\API
         Piwik::checkUserHasViewAccess($idSite);
 
         return Archive::createDataTableFromArchive(Archiver::RECORD_NAME_UNIQUE_VISITORS, $idSite, $period, $date, $segment);
+    }
+
+    /**
+     * @param array<int, mixed> $variants
+     * @return array<string, mixed>
+     */
+    private static function toFields(string $name, string $hypothesis, string $description, string $fromDate, string $toDate, array $variants, int $trafficShare, string $targetMatch, string $targetValue): array
+    {
+        return [
+            'name' => $name,
+            'hypothesis' => $hypothesis,
+            'description' => $description,
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+            'variants' => $variants,
+            'traffic_share' => $trafficShare,
+            'target_match' => $targetMatch,
+            'target_value' => $targetValue,
+        ];
     }
 }

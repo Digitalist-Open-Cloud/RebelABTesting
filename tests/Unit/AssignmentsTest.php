@@ -1,0 +1,60 @@
+<?php
+
+namespace Piwik\Plugins\RebelABTesting\Tests\Unit;
+
+use PHPUnit\Framework\TestCase;
+use Piwik\Plugins\RebelABTesting\Tracker\Assignments;
+
+/**
+ * @group RebelABTesting
+ * @group Plugins
+ */
+final class AssignmentsTest extends TestCase
+{
+    private const A = '0123456789abcdef0123456789abcdef';
+
+    public function testTheExperimentsOfARequestAreRead(): void
+    {
+        $this->assertSame(
+            [7 => ['variant' => 2, 'assignment_id' => self::A], 12 => ['variant' => 1, 'assignment_id' => self::A]],
+            Assignments::fromRequestParams(['rabt' => '7-2-' . self::A . ',12-1-' . self::A])
+        );
+    }
+
+    /**
+     * @dataProvider getValuesThatAreNotWellFormed
+     * @param mixed $value
+     */
+    public function testWhatIsNotWellFormedIsLeftOut($value): void
+    {
+        $this->assertSame([], Assignments::fromRequestParams(['rabt' => $value]));
+    }
+
+    public function getValuesThatAreNotWellFormed(): array
+    {
+        return [
+            'empty' => [''],
+            'a list' => [['7-2-' . self::A]],
+            'no variant' => ['7-0-' . self::A],
+            'an ID that is not a number' => ["7' OR 1-2-" . self::A],
+            'an assignment that is not hex' => ['7-2-' . str_repeat('z', 32)],
+            'an assignment that is too short' => ['7-2-abc'],
+            'a variant with three digits' => ['7-100-' . self::A],
+        ];
+    }
+
+    public function testARequestWithoutTheParameterHasNoExperiments(): void
+    {
+        $this->assertSame([], Assignments::fromRequestParams(['idsite' => '1']));
+    }
+
+    public function testOnlyTheFirstTenExperimentsAreRead(): void
+    {
+        $entries = [];
+        for ($id = 1; $id <= 12; $id++) {
+            $entries[] = $id . '-1-' . self::A;
+        }
+
+        $this->assertSame(range(1, 10), array_keys(Assignments::fromRequestParams(['rabt' => implode(',', $entries)])));
+    }
+}

@@ -6,11 +6,14 @@ use Exception;
 use Piwik\Date;
 use Piwik\NoAccessException;
 use Piwik\Nonce;
+use Piwik\Plugin\WidgetsProvider;
 use Piwik\Plugins\RebelABTesting\API;
 use Piwik\Plugins\RebelABTesting\Controller;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Widgets\GetABTesting;
 use Piwik\Plugins\RebelABTesting\Widgets\GetExperiments;
+use Piwik\Plugins\RebelABTesting\Widgets\GetInsertExperiment;
+use Piwik\Container\StaticContainer;
 use Piwik\Tests\Framework\Fixture;
 use Piwik\Tests\Framework\Mock\FakeAccess;
 use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
@@ -35,8 +38,8 @@ class ControllerTest extends IntegrationTestCase
         Fixture::createWebsite('2024-01-01 00:00:00');
         Fixture::createWebsite('2024-01-01 00:00:00');
         FakeAccess::clearAccess(true);
-        $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', 'A secret plan', 'Internal', '2024-03-01', '2024-03-31', 'h1{}', "a('<b>')");
         Date::$now = strtotime('2024-03-05 12:00:00 UTC');
+        $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', 'A secret plan', 'Internal', '2024-03-01', '2024-03-31', [['name' => 'Green', 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing');
         $_GET = $_POST = [];
         $_SERVER['REQUEST_METHOD'] = 'GET';
     }
@@ -55,44 +58,34 @@ class ControllerTest extends IntegrationTestCase
         return ['Piwik\Access' => new FakeAccess()];
     }
 
-    public function testTheTagGetsARunningExperimentWithoutBeingLoggedIn()
+    public function testTheTagGetsTheRunningExperimentsOfAWebsiteWithoutBeingLoggedIn()
     {
+        $api = API::getInstance();
+        $api->insertExperiment(1, 'planned', '', '', '2024-04-01', '2024-04-30', [['js' => 'later()']]);
+        $api->insertExperiment(1, 'ended', '', '', '2024-02-01', '2024-02-29', [['js' => 'before()']]);
+        $api->stopExperiment($api->insertExperiment(1, 'stopped', '', '', '2024-03-01', '2024-03-31', [['js' => 'stopped()']]), 1);
+        $api->insertExperiment(2, 'other website', '', '', '2024-03-01', '2024-03-31', [['js' => 'other()']]);
         FakeAccess::clearAccess(false);
         FakeAccess::$identity = 'anonymous';
 
         $this->assertSame(
-            ['found' => true, 'name' => 'button', 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'css_insert' => 'h1{}', 'js_insert' => "a('<b>')"],
-            $this->getPublic($this->idExperiment, 1)
+            ['experiments' => [[
+                'id' => $this->idExperiment,
+                'from_date' => '2024-03-01',
+                'to_date' => '2024-03-31',
+                'share' => 50,
+                'match' => 'contains',
+                'value' => '/pricing',
+                'variants' => [['css' => 'h1{}', 'js' => "a('<b>')"]],
+            ]]],
+            $this->getPublic(1)
         );
-    }
-
-    /**
-     * @dataProvider getTimesOutsideTheExperiment
-     */
-    public function testTheTagGetsNothingOutsideThePeriodOfTheExperiment(string $now)
-    {
-        Date::$now = strtotime($now . ' UTC');
-
-        $this->assertSame(['found' => false], $this->getPublic($this->idExperiment, 1));
-    }
-
-    public function getTimesOutsideTheExperiment(): array
-    {
-        return [
-            'the day before' => ['2024-02-29 23:59:59'],
-            'the day after' => ['2024-04-01 00:00:00'],
-        ];
-    }
-
-    public function testTheTagGetsNothingForAnotherWebsiteOrAnUnknownExperiment()
-    {
-        $this->assertSame(['found' => false], $this->getPublic($this->idExperiment, 2));
-        $this->assertSame(['found' => false], $this->getPublic(99, 1));
+        $this->assertSame(['experiments' => []], $this->getPublic(3));
     }
 
     public function testAnExperimentIsAddedFromTheForm()
     {
-        $this->post(['idSite' => '2'], $this->getForm('Form test!'));
+        $this->post(['idSite' => '2'], $this->getForm('Form test'));
 
         try {
             (new Controller())->addExperiment();
@@ -102,19 +95,27 @@ class ControllerTest extends IntegrationTestCase
         }
 
         $experiment = (new Experiments())->getAllForSite(2)[0];
-        $this->assertSame('Formtest', $experiment['name']);
-        $this->assertSame("// two\nlines('<b>')", $experiment['js_insert']);
+        $this->assertSame(['Form test', 25, 'starts_with', 'https://example.org/shop'], [$experiment['name'], $experiment['traffic_share'], $experiment['target_match'], $experiment['target_value']]);
+        $this->assertSame(
+            [['name' => 'One', 'css' => '', 'js' => "// two\nlines('<b>')"], ['name' => '', 'css' => 'b{}', 'js' => '']],
+            $experiment['variants']
+        );
     }
 
-    public function testAnExperimentIsUpdatedAndDeletedFromTheForm()
+    public function testAnExperimentIsUpdatedStoppedAndDeletedFromTheForm()
     {
+        $api = API::getInstance();
         $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment] + $this->getForm('renamed'));
         $this->redirects('updateExperiment');
-        $this->assertSame('renamed', API::getInstance()->getExperiment($this->idExperiment, 1)['name']);
+        $this->assertSame('renamed', $api->getExperiment($this->idExperiment, 1)['name']);
+
+        $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'nonce' => Nonce::getNonce(Controller::NONCE)]);
+        $this->redirects('stop');
+        $this->assertSame('ended', $api->getExperiment($this->idExperiment, 1)['status']);
 
         $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'nonce' => Nonce::getNonce(Controller::NONCE)]);
         $this->redirects('delete');
-        $this->assertNull(API::getInstance()->getExperiment($this->idExperiment, 1));
+        $this->assertNull($api->getExperiment($this->idExperiment, 1));
     }
 
     /**
@@ -150,7 +151,7 @@ class ControllerTest extends IntegrationTestCase
 
     public function getActions(): array
     {
-        return [['addExperiment'], ['updateExperiment'], ['delete']];
+        return [['addExperiment'], ['updateExperiment'], ['stop'], ['delete']];
     }
 
     public function testTheEditFormNeedsAdminAccessToTheWebsite()
@@ -164,9 +165,9 @@ class ControllerTest extends IntegrationTestCase
     }
 
     /**
-     * @dataProvider getWidgets
+     * @dataProvider getAdminWidgets
      */
-    public function testTheWidgetsAreForAdminsOfTheWebsite(string $widget)
+    public function testCreatingExperimentsIsForAdminsOfTheWebsite(string $widget)
     {
         $_GET = ['idSite' => '1'];
         FakeAccess::clearAccess(false, [2], [1]);
@@ -180,25 +181,49 @@ class ControllerTest extends IntegrationTestCase
         (new $widget())->render();
     }
 
-    public function getWidgets(): array
+    public function getAdminWidgets(): array
     {
-        return [[GetExperiments::class], [GetABTesting::class]];
+        return [[GetABTesting::class], [GetInsertExperiment::class]];
     }
 
-    public function testTheListShowsTheExperimentsOfTheWebsiteToItsAdmin()
+    public function testTheListIsForUsersOfTheWebsite()
     {
-        API::getInstance()->insertExperiment(2, 'other-site', '', '', '2024-03-01', '2024-03-31', '', '');
+        $_GET = ['idSite' => '1'];
+        FakeAccess::clearAccess(false, [2], []);
+
+        $this->expectException(NoAccessException::class);
+
+        (new GetExperiments())->render();
+    }
+
+    public function testAViewerSeesTheListWithoutTheWaysToChangeIt()
+    {
+        API::getInstance()->insertExperiment(2, 'other-site', '', '', '2024-03-01', '2024-03-31', [['js' => '']]);
+        $_GET = ['idSite' => '1'];
+        FakeAccess::clearAccess(false, [], [1]);
+
+        $html = (new GetExperiments())->render();
+
+        $this->assertStringContainsString('button', $html);
+        $this->assertStringContainsString('Running', $html);
+        $this->assertStringNotContainsString('other-site', $html);
+        $this->assertStringNotContainsString('<form', $html);
+        $this->assertStringNotContainsString('name="nonce"', $html);
+    }
+
+    public function testAnAdminCanStopARunningExperimentFromTheList()
+    {
         $_GET = ['idSite' => '1'];
         FakeAccess::clearAccess(false, [1]);
 
         $html = (new GetExperiments())->render();
 
-        $this->assertStringContainsString('button', $html);
-        $this->assertStringContainsString('a(&#039;&lt;b&gt;&#039;)', $html);
-        $this->assertStringNotContainsString('other-site', $html);
+        $this->assertStringContainsString('action=stop&amp;idSite=1', $html);
+        $this->assertStringContainsString('action=delete&amp;idSite=1', $html);
+        $this->assertStringContainsString('name="nonce" value="' . Nonce::getNonce(Controller::NONCE) . '"', $html);
     }
 
-    public function testTheFormsCarryTheTokenAndPostToTheWebsite()
+    public function testTheFormsCarryTheTokenAndTheExperiment()
     {
         $_GET = ['idSite' => '1', 'id' => (string) $this->idExperiment, 'period' => 'week', 'date' => '2024-03-05'];
         $nonce = 'name="nonce" value="' . Nonce::getNonce(Controller::NONCE) . '"';
@@ -207,25 +232,67 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString($nonce, $create);
         $this->assertStringContainsString('action="?module=RebelABTesting&amp;action=addExperiment&amp;idSite=1&amp;period=week&amp;date=2024-03-05"', $create);
         $this->assertStringContainsString('name="from_date" id="from_date" value="2024-03-05"', $create);
+        $this->assertStringContainsString('name="variants[0][css]"', $create);
 
         $edit = (new Controller())->editExperimentForm();
         $this->assertStringContainsString($nonce, $edit);
         $this->assertStringContainsString('action=updateExperiment&amp;idSite=1', $edit);
         $this->assertStringContainsString('value="A secret plan"', $edit);
+        $this->assertStringContainsString('<option value="contains" selected>', $edit);
+        $this->assertStringContainsString('name="variants[0][name]" value="Green"', $edit);
+        $this->assertStringContainsString('a(&#039;&lt;b&gt;&#039;)</textarea>', $edit);
+    }
+
+    public function testEachExperimentHasAPageInTheMenuOfItsWebsite()
+    {
+        $_GET = ['idSite' => '1'];
+        FakeAccess::clearAccess(false, [], [1]);
+
+        $pages = [];
+        foreach (StaticContainer::get(WidgetsProvider::class)->getWidgetConfigs() as $config) {
+            if ($config->getModule() === 'RebelABTesting' && $config->getAction() === 'result') {
+                $pages[] = [$config->getName(), $config->getParameters()['idExperiment']];
+            }
+        }
+
+        $this->assertSame([['button', $this->idExperiment]], $pages);
+    }
+
+    public function testThePageOfAnExperimentShowsItsResultToAViewer()
+    {
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        FakeAccess::clearAccess(false, [], [1]);
+
+        $html = (new Controller())->result();
+
+        $this->assertStringContainsString('<h2>button</h2>', $html);
+        $this->assertStringContainsString('Original', $html);
+        $this->assertStringContainsString('Green', $html);
+        $this->assertStringNotContainsString('A secret plan', $html);
+    }
+
+    public function testThePageOfAnExperimentNeedsAccessToItsWebsite()
+    {
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        FakeAccess::clearAccess(false, [], [2]);
+
+        $this->expectException(NoAccessException::class);
+
+        (new Controller())->result();
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function getPublic(int $id, int $idSite): array
+    private function getPublic(int $idSite): array
     {
-        $_GET = ['id' => (string) $id, 'idSite' => (string) $idSite];
+        $_GET = ['idSite' => (string) $idSite];
 
-        return json_decode((new Controller())->getExperimentPublic(), true);
+        return json_decode((new Controller())->getExperimentsPublic(), true);
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private function getForm(string $name): array
     {
@@ -236,14 +303,19 @@ class ControllerTest extends IntegrationTestCase
             'description' => 'd',
             'from_date' => '2024-05-01',
             'to_date' => '2024-05-31',
-            'css_insert' => '',
-            'js_insert' => "// two\nlines('<b>')",
+            'traffic_share' => '25',
+            'target_match' => 'starts_with',
+            'target_value' => 'https://example.org/shop',
+            'variants' => [
+                ['name' => 'One', 'css' => '', 'js' => "// two\nlines('<b>')"],
+                ['name' => '', 'css' => 'b{}', 'js' => ''],
+            ],
         ];
     }
 
     /**
      * @param array<string, string> $query
-     * @param array<string, string> $form
+     * @param array<string, mixed> $form
      */
     private function post(array $query, array $form): void
     {
@@ -272,7 +344,8 @@ class ControllerTest extends IntegrationTestCase
         }
 
         FakeAccess::clearAccess(true);
-        $this->assertSame('button', API::getInstance()->getExperiment($this->idExperiment, 1)['name']);
+        $experiment = API::getInstance()->getExperiment($this->idExperiment, 1);
+        $this->assertSame(['button', 'running'], [$experiment['name'], $experiment['status']]);
         $this->assertCount(1, (new Experiments())->getAllForSite(1));
     }
 

@@ -10,7 +10,9 @@
 namespace Piwik\Plugins\RebelABTesting\Widgets;
 
 use Piwik\Nonce;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
+use Piwik\Piwik;
+use Piwik\Plugins\RebelABTesting\API;
+use Piwik\Request;
 use Piwik\Plugins\RebelABTesting\Controller;
 use Piwik\Widget\Widget;
 use Piwik\Widget\WidgetConfig;
@@ -22,19 +24,22 @@ class GetExperiments extends Widget
         $config->setCategoryId('RebelABTesting_RebelABTesting');
         $config->setSubcategoryId('RebelABTesting_ExistingExperiments');
         $config->setName('RebelABTesting_ExistingExperiments');
-        $config->setOrder(98);
-        $config->setIsEnabled(Controller::getAdminSite() > 0);
+        $config->setOrder(1);
     }
 
     public function render()
     {
-        $idSite = Controller::checkAdminSite();
+        $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
+        Piwik::checkUserHasViewAccess($idSite);
+        $isAdmin = Piwik::isUserHasAdminAccess($idSite);
 
         return $this->renderTemplate('experiments', [
-            'experiments' => (new Experiments())->getAllForSite($idSite),
+            'experiments' => API::getInstance()->getExperiments($idSite),
+            'isAdmin' => $isAdmin,
+            'stopUrl' => Controller::getActionUrl('stop', $idSite),
             'deleteUrl' => Controller::getActionUrl('delete', $idSite),
             'editUrl' => Controller::getActionUrl('editExperimentForm', $idSite),
-            'nonce' => Nonce::getNonce(Controller::NONCE),
+            'nonce' => $isAdmin ? Nonce::getNonce(Controller::NONCE) : '',
         ]);
     }
 }

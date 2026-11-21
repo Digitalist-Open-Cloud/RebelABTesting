@@ -13,6 +13,9 @@ use Piwik\Common;
 use Piwik\Db;
 use Piwik\DbHelper;
 
+/**
+ * The visits that took part in an experiment, a row for each visit and experiment.
+ */
 class LogExperiment
 {
     public const TABLE = 'rebel_ab_testing_log';
@@ -24,19 +27,15 @@ class LogExperiment
             `idsite` INT UNSIGNED NOT NULL,
             `idvisit` BIGINT UNSIGNED NOT NULL,
             `idvisitor` BINARY(8) NOT NULL,
-            `count` INT DEFAULT NULL,
-            `experiment_name` VARCHAR(255) NULL,
-            `variant` INT DEFAULT NULL,
+            `idexperiment` INT UNSIGNED NOT NULL,
+            `experiment_name` VARCHAR(255) NOT NULL,
+            `variant` TINYINT UNSIGNED NOT NULL,
+            `assignment_id` CHAR(32) NOT NULL,
             `server_time` DATETIME NOT NULL,
-            `created_time` DATETIME NOT NULL,
-            `idaction_url` INTEGER UNSIGNED NULL,
-            `idaction_name` INTEGER UNSIGNED NULL,
-            `idgoal` INT DEFAULT NULL,
-            `category` VARCHAR(255) NOT NULL DEFAULT '',
-            `idexperiment` INT NULL,
-            `assignment_id` CHAR(32) NULL,
             PRIMARY KEY (`idlog`),
-            KEY `idx_visit_time` (idvisit, server_time)
+            UNIQUE KEY `visit_experiment` (`idvisit`, `idexperiment`),
+            KEY `site_time` (`idsite`, `server_time`),
+            KEY `experiment_variant` (`idexperiment`, `variant`)
         ");
     }
 
@@ -46,13 +45,15 @@ class LogExperiment
     }
 
     /**
+     * A visit keeps the variant it was first logged with.
+     *
      * @param array<string, mixed> $row the values by column name
      */
     public function createLog(array $row)
     {
         $columns = array_keys($row);
         $sql = sprintf(
-            'INSERT INTO %s (%s) VALUES (%s)',
+            'INSERT IGNORE INTO %s (%s) VALUES (%s)',
             Common::prefixTable(self::TABLE),
             implode(', ', $columns),
             implode(', ', array_fill(0, count($columns), '?'))

@@ -1,10 +1,10 @@
 (function () {
   var KEY_PREFIX = 'sabt:';
 
-  // Reads the visitor's active A/B assignment from localStorage (written by
-  // the RebelABTesting tag). Returns null when there is none, or when
-  // localStorage is unavailable.
-  function getActiveAssignment() {
+  // The experiments the visitor takes part in, as the tag of the plugin keeps them in
+  // localStorage: "id-variant-assignment" of each, separated by commas.
+  function activeAssignments() {
+      var active = [];
       try {
           var today = new Date().toISOString().slice(0, 10);
           for (var i = 0; i < window.localStorage.length; i++) {
@@ -12,35 +12,31 @@
               if (!key || key.indexOf(KEY_PREFIX) !== 0) {
                   continue;
               }
-              var rec;
+              var record;
               try {
-                  rec = JSON.parse(window.localStorage.getItem(key));
+                  record = JSON.parse(window.localStorage.getItem(key));
               } catch (e) {
                   continue;
               }
-              if (rec && (rec.v === '1' || rec.v === '2')
-                  && /^[0-9a-f]{32}$/.test(String(rec.a))
-                  && typeof rec.exp === 'string' && rec.exp >= today) {
-                  return { v: rec.v, id: key.substring(KEY_PREFIX.length), a: rec.a };
+              if (record && typeof record.v === 'number' && record.v >= 1
+                  && /^[0-9a-f]{32}$/.test(String(record.a))
+                  && typeof record.exp === 'string' && record.exp >= today) {
+                  active.push(key.substring(KEY_PREFIX.length) + '-' + record.v + '-' + record.a);
               }
           }
       } catch (e) {
-          // localStorage blocked
+          // localStorage is blocked
       }
-      return null;
+      return active.join(',');
   }
 
   function trackingParams() {
-      var assignment = getActiveAssignment();
-      if (!assignment) {
-          return '';
-      }
-      return '&sabt=' + assignment.v + '&sabi=' + encodeURIComponent(assignment.id) + '&saba=' + assignment.a;
+      var active = activeAssignments();
+      return active ? '&rabt=' + active : '';
   }
 
-  // The same parameters on every request type the Matomo tracker sends
-  // through a plugin hook, so a conversion (goal, event, link, ecommerce)
-  // made without a new pageview still counts for the assignment.
+  // Every kind of request gets the parameter, so that a goal, event or order without a new page
+  // view counts for the experiment too.
   var HOOKS = ['log', 'link', 'goal', 'event', 'sitesearch', 'ecommerce', 'ping',
       'contentImpression', 'contentInteraction'];
 
@@ -52,11 +48,9 @@
       Matomo.addPlugin('RebelABTesting', plugin);
   }
 
-  // If Matomo object exists, initialize the plugin
   if ('object' === typeof window.Matomo) {
       init();
   } else {
-      // Tracker might not be loaded yet
       if ('object' !== typeof window.matomoPluginAsyncInit) {
           window.matomoPluginAsyncInit = [];
       }

@@ -1,0 +1,92 @@
+<form method="post" action="{{ actionUrl }}" class="rebelABTestingForm">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    {% if experiment.id is defined %}<input type="hidden" name="id" value="{{ experiment.id }}">{% endif %}
+
+    <h3 class="form-section-title">{{ 'RebelABTesting_FormBasicInfo'|translate }}</h3>
+    <div class="row">
+        <div class="col s12 m6 form-field">
+            <label for="name">{{ 'RebelABTesting_ExperimentName'|translate }}</label>
+            <input type="text" name="name" id="name" value="{{ experiment.name }}" maxlength="255" required>
+        </div>
+        <div class="col s12 m6 form-field">
+            <label for="hypothesis">{{ 'RebelABTesting_FormHypothesis'|translate }}</label>
+            <input type="text" name="hypothesis" id="hypothesis" value="{{ experiment.hypothesis }}">
+            <span class="form-hint">{{ 'RebelABTesting_FormHypothesisHint'|translate }}</span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col s12 m6 form-field">
+            <label for="description">{{ 'General_Description'|translate }}</label>
+            <input type="text" name="description" id="description" value="{{ experiment.description }}">
+        </div>
+    </div>
+
+    <h3 class="form-section-title">{{ 'RebelABTesting_FormSchedule'|translate }}</h3>
+    <div class="row">
+        <div class="col s12 m6 form-field">
+            <label for="from_date">{{ 'RebelABTesting_FormFromDate'|translate }}</label>
+            <input type="date" name="from_date" id="from_date" value="{{ experiment.from_date }}" required>
+            <span class="form-hint">{{ 'RebelABTesting_FormFromDateHint'|translate }}</span>
+        </div>
+        <div class="col s12 m6 form-field">
+            <label for="to_date">{{ 'RebelABTesting_FormToDate'|translate }}</label>
+            <input type="date" name="to_date" id="to_date" value="{{ experiment.to_date }}" required>
+            <span class="form-hint">{{ 'RebelABTesting_FormToDateHint'|translate }}</span>
+        </div>
+    </div>
+
+    <h3 class="form-section-title">{{ 'RebelABTesting_FormAudience'|translate }}</h3>
+    <div class="row">
+        <div class="col s12 m6 form-field">
+            <label for="target_match">{{ 'RebelABTesting_FormTargetMatch'|translate }}</label>
+            <select name="target_match" id="target_match" class="browser-default">
+                {% for match in matches %}
+                <option value="{{ match }}"{% if match == experiment.target_match %} selected{% endif %}>{{ ('RebelABTesting_Match_' ~ match)|translate }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col s12 m6 form-field">
+            <label for="target_value">{{ 'RebelABTesting_FormTargetValue'|translate }}</label>
+            <input type="text" name="target_value" id="target_value" value="{{ experiment.target_value }}" maxlength="1000">
+            <span class="form-hint">{{ 'RebelABTesting_FormTargetValueHint'|translate }}</span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col s12 m6 form-field">
+            <label for="traffic_share">{{ 'RebelABTesting_FormTrafficShare'|translate }}</label>
+            <input type="number" name="traffic_share" id="traffic_share" value="{{ experiment.traffic_share }}" min="1" max="100" required>
+            <span class="form-hint">{{ 'RebelABTesting_FormTrafficShareHint'|translate }}</span>
+        </div>
+    </div>
+
+    <h3 class="form-section-title">{{ 'RebelABTesting_FormVariants'|translate }}</h3>
+    <p class="section-help">{{ 'RebelABTesting_FormVariantsHelp'|translate }}</p>
+    <div class="rebelABTestingVariants" data-max="{{ maxVariants }}">
+        {% for variant in experiment.variants %}
+        <fieldset class="rebelABTestingVariant">
+            <legend>{{ 'RebelABTesting_Variant'|translate }} <span class="rebelABTestingVariantNumber">{{ loop.index }}</span></legend>
+            <div class="form-field">
+                <label>{{ 'General_Name'|translate }}</label>
+                <input type="text" name="variants[{{ loop.index0 }}][name]" value="{{ variant.name }}" maxlength="100">
+            </div>
+            <div class="code-field">
+                <label>CSS</label>
+                <textarea name="variants[{{ loop.index0 }}][css]" class="code-textarea">{{ variant.css }}</textarea>
+                <span class="form-hint">{{ 'RebelABTesting_FormExample'|translate }} <code>.btn { background-color: #ff5722; }</code></span>
+            </div>
+            <div class="code-field">
+                <label>JavaScript</label>
+                <textarea name="variants[{{ loop.index0 }}][js]" class="code-textarea">{{ variant.js }}</textarea>
+                <span class="form-hint">{{ 'RebelABTesting_FormExample'|translate }} <code>document.querySelector('h1').textContent = 'New headline';</code></span>
+            </div>
+            <button type="button" class="btn btn-flat rebelABTestingRemoveVariant">{{ 'RebelABTesting_FormRemoveVariant'|translate }}</button>
+        </fieldset>
+        {% endfor %}
+    </div>
+    <button type="button" class="btn btn-flat rebelABTestingAddVariant">{{ 'RebelABTesting_FormAddVariant'|translate }}</button>
+
+    <div class="form-actions">
+        <input type="submit" value="{{ submitLabel }}" class="btn">
+        {% if backUrl is defined %}<a href="{{ backUrl }}" class="btn btn-flat">{{ 'General_Cancel'|translate }}</a>{% endif %}
+    </div>
+</form>
