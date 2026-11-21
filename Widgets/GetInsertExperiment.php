@@ -26,7 +26,7 @@ class GetInsertExperiment extends Widget
 
     public function render()
     {
-        $idSite = Controller::checkAdminSite();
+        Controller::checkAdminSite();
 
         return $this->renderTemplate('insert');
     }

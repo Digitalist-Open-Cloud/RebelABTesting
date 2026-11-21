@@ -1,70 +1,178 @@
 (function () {
   return function (parameters, TagManager) {
+      var KEY_PREFIX = "sabt:";
+      var CACHE_PREFIX = "sabt-experiments:";
+      var CACHE_SECONDS = 300;
+      var ORIGINAL = 1;
+      var NOT_TAKING_PART = 0;
+
       this.fire = function () {
-          const experiment = parameters.get("experiment");
-          const matomoOrigin = parameters.get("matomoOrigin");
-          const parts = String(experiment || "").split(",");
-          const _paq = (window._paq = window._paq || []);
-          const ORIGINAL = "1";
-          const VARIANT = "2";
-          const KEY_PREFIX = "sabt:";
+          var origin = parameters.get("matomoOrigin");
+          var container = parameters.get("container");
+          var idSite = container && container.idsite;
+          var hideTimeout = parseInt(parameters.get("hideTimeout", 500), 10) || 0;
+          var _paq = (window._paq = window._paq || []);
+          var cacheKey = CACHE_PREFIX + idSite;
+          var cache;
 
-          if (!experiment) return;
+          if (!origin || !idSite) return;
 
-          if (parts.length >= 6) {
-              // Legacy format: "id,name,from,to,css,js," — the full
-              // snapshot baked in at selection time by an older version of
-              // this tag. Kept working as-is (no live fetch) so tags
-              // created before this change keep firing; re-select the
-              // experiment in this tag (or recreate it) to upgrade it to
-              // the live-fetch format below.
-              const expId = parts[0];
-              const expName = parts[1];
-              const start = parts[2] + "T00:00:00Z";
-              const stop = parts[3] + "T23:59:00Z";
-              const css = decodeURIComponent(parts[4].replace(/\+/g, "%20"));
-              const js = decodeURIComponent(parts[5].replace(/\+/g, "%20"));
-              initExp(_paq, start, stop, parts[3], js, css, expId, expName);
+          // Without localStorage a visitor cannot keep a variant: everyone gets the original and
+          // nobody is counted.
+          try {
+              cache = JSON.parse(localStorage.getItem(cacheKey));
+          } catch (e) {
               return;
           }
 
-          // Current format: "id,idSite" — a stable reference. The actual
-          // name/dates/css/js are fetched fresh on every page load, so
-          // editing the experiment takes effect immediately without
-          // republishing this tag.
-          const expId = parts[0];
-          const expSiteId = parts[1];
-          if (!expId || !expSiteId || !matomoOrigin) return;
-
-          fetchExperiment(matomoOrigin, expId, expSiteId, function (data) {
-              if (!data || !data.found) return;
-              const start = data.from_date + "T00:00:00Z";
-              const stop = data.to_date + "T23:59:00Z";
-              initExp(_paq, start, stop, data.to_date, data.js_insert || "", data.css_insert || "", expId, data.name);
-          });
-
-          function fetchExperiment(origin, id, idSite, callback) {
-              var url = origin + "/index.php?module=RebelABTesting&action=getExperimentPublic&format=json"
-                  + "&idSite=" + encodeURIComponent(idSite) + "&id=" + encodeURIComponent(id);
-              try {
-                  if (window.fetch) {
-                      fetch(url, { method: "GET", credentials: "omit" })
-                          .then(function (res) { return res.json(); })
-                          .then(callback)
-                          .catch(function () { /* silent — no experiment shown this load */ });
-                  } else {
-                      var xhr = new XMLHttpRequest();
-                      xhr.open("GET", url, true);
-                      xhr.onload = function () {
-                          if (xhr.status === 200) {
-                              try { callback(JSON.parse(xhr.responseText)); } catch (e) { /* ignore */ }
-                          }
-                      };
-                      xhr.send();
-                  }
-              } catch (e) {
-                  // ignore — no experiment shown this load
+          if (cache && Array.isArray(cache.e)) {
+              // The experiments of an earlier page are used at once, so that nothing flashes.
+              // A change in Matomo reaches the visitor on a page after the next fetch.
+              run(cache.e, false);
+              if (Date.now() - cache.t > CACHE_SECONDS * 1000) {
+                  fetchExperiments(store);
               }
+              return;
+          }
+
+          var reveal = hide(hideTimeout);
+          fetchExperiments(function (experiments) {
+              store(experiments);
+              run(experiments, true);
+              reveal();
+          }, reveal);
+
+          function store(experiments) {
+              try {
+                  localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), e: experiments }));
+              } catch (e) { /* the next page fetches again */ }
+          }
+
+          function fetchExperiments(done, failed) {
+              var url = origin + "/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=" + encodeURIComponent(idSite);
+              fetch(url, { method: "GET", credentials: "omit" })
+                  .then(function (response) { return response.json(); })
+                  .then(function (data) { done(data && Array.isArray(data.experiments) ? data.experiments : []); })
+                  .catch(function () { if (failed) failed(); });
+          }
+
+          // Hides the page until reveal() is called or the time is up.
+          function hide(milliseconds) {
+              if (!milliseconds) return function () {};
+
+              var style = document.createElement("style");
+              style.textContent = "html{opacity:0 !important}";
+              document.head.appendChild(style);
+
+              var timer = setTimeout(reveal, milliseconds);
+              function reveal() {
+                  clearTimeout(timer);
+                  style.remove();
+              }
+              return reveal;
+          }
+
+          function run(experiments, waited) {
+              var today = new Date().toISOString().slice(0, 10);
+              var isNew = false;
+
+              removeExpiredAssignments(today);
+
+              for (var i = 0; i < experiments.length; i++) {
+                  var experiment = experiments[i];
+                  if (today < experiment.from_date || today > experiment.to_date || !matches(experiment)) continue;
+
+                  var assignment = getAssignment(experiment);
+                  if (!assignment) return;
+                  isNew = isNew || assignment.isNew;
+
+                  var variant = experiment.variants[assignment.v - ORIGINAL - 1];
+                  if (variant) {
+                      try {
+                          insert("style", variant.css);
+                          insert("script", variant.js);
+                      } catch (e) {
+                          console.error("Error in the variant of an experiment", e);
+                      }
+                  }
+              }
+
+              var active = activeAssignments(today);
+              if (!active) return;
+
+              _paq.push(["appendToTrackingUrl", "rabt=" + active]);
+              // The page view may already be sent, without the experiment.
+              if (isNew || waited) _paq.push(["ping"]);
+          }
+
+          function matches(experiment) {
+              var url = window.location.href;
+              switch (experiment.match) {
+                  case "equals": return url === experiment.value;
+                  case "contains": return url.indexOf(experiment.value) !== -1;
+                  case "starts_with": return url.indexOf(experiment.value) === 0;
+                  case "regexp":
+                      try { return new RegExp(experiment.value).test(url); } catch (e) { return false; }
+                  default: return true;
+              }
+          }
+
+          function isValid(record) {
+              return record && typeof record.v === "number" && record.v >= NOT_TAKING_PART
+                  && /^[0-9a-f]{32}$/.test(String(record.a)) && typeof record.exp === "string";
+          }
+
+          function read(key) {
+              try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
+          }
+
+          // The variant the visitor has in the experiment, drawn by chance the first time.
+          // Null when it cannot be kept.
+          function getAssignment(experiment) {
+              var key = KEY_PREFIX + experiment.id;
+              var record = read(key);
+              var isNew = !isValid(record) || record.v > experiment.variants.length + ORIGINAL;
+
+              if (isNew) {
+                  var takesPart = Math.random() * 100 < experiment.share;
+                  record = {
+                      v: takesPart ? ORIGINAL + Math.floor(Math.random() * (experiment.variants.length + 1)) : NOT_TAKING_PART,
+                      a: randomHex32()
+                  };
+              }
+
+              try {
+                  localStorage.setItem(key, JSON.stringify({ v: record.v, a: record.a, exp: experiment.to_date }));
+              } catch (e) {
+                  return null;
+              }
+              return { v: record.v, isNew: isNew && record.v !== NOT_TAKING_PART };
+          }
+
+          function assignmentKeys() {
+              var keys = [];
+              for (var i = 0; i < localStorage.length; i++) {
+                  var key = localStorage.key(i);
+                  if (key && key.indexOf(KEY_PREFIX) === 0) keys.push(key);
+              }
+              return keys;
+          }
+
+          function removeExpiredAssignments(today) {
+              assignmentKeys().forEach(function (key) {
+                  var record = read(key);
+                  if (!isValid(record) || record.exp < today) localStorage.removeItem(key);
+              });
+          }
+
+          // What is sent with tracking requests: "id-variant-assignment" of each experiment the
+          // visitor takes part in.
+          function activeAssignments(today) {
+              return assignmentKeys().map(function (key) {
+                  var record = read(key);
+                  return isValid(record) && record.v >= ORIGINAL && record.exp >= today
+                      ? key.substring(KEY_PREFIX.length) + "-" + record.v + "-" + record.a : null;
+              }).filter(Boolean).join(",");
           }
 
           function randomHex32() {
@@ -76,89 +184,11 @@
               return out;
           }
 
-          // Remove the assignments of every other experiment. One test runs
-          // per site, so another sabt:* entry is stale (e.g. a concluded test
-          // whose stored exp still lies in the future) and must not keep
-          // riding along on this visitor's requests via tracker.js.
-          // Best effort: failures here never block the experiment.
-          function removeOtherAssignments(exceptKey) {
-              try {
-                  var others = [];
-                  for (var i = 0; i < localStorage.length; i++) {
-                      var k = localStorage.key(i);
-                      if (k && k.indexOf(KEY_PREFIX) === 0 && k !== exceptKey) others.push(k);
-                  }
-                  for (var j = 0; j < others.length; j++) localStorage.removeItem(others[j]);
-              } catch (e) { /* ignore */ }
-          }
-
-          // Returns {v, a} for this experiment, creating and persisting a
-          // new assignment when needed. Returns null when localStorage is
-          // unavailable, so the visitor is neither assigned nor counted.
-          function getAssignment(expId, toDate) {
-              var key = KEY_PREFIX + expId;
-              try {
-                  var rec = null;
-                  var raw = localStorage.getItem(key); // throws when blocked
-                  try {
-                      rec = JSON.parse(raw);
-                  } catch (e) { rec = null; }
-                  if (!(rec && (rec.v === ORIGINAL || rec.v === VARIANT) && /^[0-9a-f]{32}$/.test(String(rec.a)))) {
-                      rec = { v: Math.random() < 0.5 ? ORIGINAL : VARIANT, a: randomHex32() };
-                  }
-                  localStorage.setItem(key, JSON.stringify({ v: rec.v, a: rec.a, exp: toDate }));
-                  removeOtherAssignments(key);
-                  return { v: rec.v, a: rec.a };
-              } catch (e) {
-                  return null;
-              }
-          }
-
-          function initExp(_paq, testStartDate, testEndDate, toDate, scriptText, cssText, expId, expName) {
-              const currentDate = new Date();
-              const startDate = new Date(testStartDate);
-              const endDate = new Date(testEndDate);
-
-              if (currentDate >= startDate && currentDate <= endDate) {
-                  const assignment = getAssignment(expId, toDate);
-                  // No usable localStorage: show the original, send nothing.
-                  if (!assignment) return;
-
-                  // Send tracking parameters to Matomo
-                  _paq.push(['appendToTrackingUrl', 'sabt=' + assignment.v + '&sabi=' + expId + '&sabn=' + encodeURIComponent(expName) + '&saba=' + assignment.a]);
-
-                  if (assignment.v === VARIANT) {
-                      try {
-                          insertCSS(cssText);
-                          insertJS(scriptText);
-                      } catch (e) {
-                          console.error("Error in script execution", e);
-                      }
-                  }
-
-                  // Exposure ping, for both variants, after the parameters are set.
-                  _paq.push(['ping']);
-              }
-          }
-
-          /**
-           * Function to insert CSS into the document head
-           */
-          function insertCSS(cssText) {
-              const style = document.createElement("style");
-              style.type = "text/css";
-              style.textContent = cssText;
-              document.head.appendChild(style);
-          }
-
-          /**
-           * Function to insert JS script into the document head
-           */
-          function insertJS(scriptText) {
-              const script = document.createElement("script");
-              script.type = "text/javascript";
-              script.text = scriptText;
-              document.head.appendChild(script);
+          function insert(tag, text) {
+              if (!text) return;
+              var element = document.createElement(tag);
+              element.textContent = text;
+              document.head.appendChild(element);
           }
       };
   };

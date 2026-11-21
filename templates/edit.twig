@@ -15,66 +15,7 @@
             {% if experiment is empty %}
             <div class="alert">{{ 'RebelABTesting_ExperimentNotFound'|translate }}</div>
             {% else %}
-            <form method="post" action="{{ updateUrl }}">
-                <input type="hidden" name="nonce" value="{{ nonce }}">
-                <input type="hidden" name="id" value="{{ experiment.id }}">
-
-                <h3 class="form-section-title">{{ 'RebelABTesting_FormBasicInfo'|translate }}</h3>
-                <div class="row">
-                    <div class="col s12 m6 form-field">
-                        <label for="name">{{ 'RebelABTesting_ExperimentName'|translate }}</label>
-                        <input type="text" name="name" id="name" value="{{ experiment.name }}" required>
-                        <span class="form-hint">{{ 'RebelABTesting_FormNameHint'|translate }}</span>
-                    </div>
-                    <div class="col s12 m6 form-field">
-                        <label for="hypothesis">{{ 'RebelABTesting_FormHypothesis'|translate }}</label>
-                        <input type="text" name="hypothesis" id="hypothesis" value="{{ experiment.hypothesis }}">
-                        <span class="form-hint">{{ 'RebelABTesting_FormHypothesisHint'|translate }}</span>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col s12 m6 form-field">
-                        <label for="description">{{ 'General_Description'|translate }}</label>
-                        <input type="text" name="description" id="description" value="{{ experiment.description }}">
-                    </div>
-                </div>
-
-                <h3 class="form-section-title">{{ 'RebelABTesting_FormSchedule'|translate }}</h3>
-                <div class="row">
-                    <div class="col s12 m6 form-field">
-                        <label for="from_date">{{ 'RebelABTesting_FormFromDate'|translate }}</label>
-                        <input type="date" name="from_date" id="from_date" value="{{ experiment.from_date }}" required>
-                        <span class="form-hint">{{ 'RebelABTesting_FormFromDateHint'|translate }}</span>
-                    </div>
-                    <div class="col s12 m6 form-field">
-                        <label for="to_date">{{ 'RebelABTesting_FormToDate'|translate }}</label>
-                        <input type="date" name="to_date" id="to_date" value="{{ experiment.to_date }}" required>
-                        <span class="form-hint">{{ 'RebelABTesting_FormToDateHint'|translate }}</span>
-                    </div>
-                </div>
-
-                <h3 class="form-section-title">{{ 'RebelABTesting_FormVariantCode'|translate }}</h3>
-                <p class="section-help">{{ 'RebelABTesting_FormVariantCodeHelp'|translate }}</p>
-                <div class="row">
-                    <div class="col s12 code-field">
-                        <label for="css_insert">{{ 'RebelABTesting_FormCss'|translate }}</label>
-                        <textarea name="css_insert" id="css_insert" class="code-textarea">{{ experiment.css_insert }}</textarea>
-                        <span class="form-hint">{{ 'RebelABTesting_FormExample'|translate }} <code>.btn { background-color: #ff5722; }</code></span>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col s12 code-field">
-                        <label for="js_insert">{{ 'RebelABTesting_FormJavaScript'|translate }}</label>
-                        <textarea name="js_insert" id="js_insert" class="code-textarea">{{ experiment.js_insert }}</textarea>
-                        <span class="form-hint">{{ 'RebelABTesting_FormExample'|translate }} <code>document.querySelector('h1').textContent = 'New headline';</code></span>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <input type="submit" value="{{ 'RebelABTesting_FormSave'|translate }}" class="btn">
-                    <a href="{{ backUrl }}" class="btn btn-flat">{{ 'General_Cancel'|translate }}</a>
-                </div>
-            </form>
+            {% include '@RebelABTesting/_form.twig' with {submitLabel: 'RebelABTesting_FormSave'|translate} %}
             {% endif %}
         </div>
     </div>

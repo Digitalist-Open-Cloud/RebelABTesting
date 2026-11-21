@@ -16,7 +16,7 @@ use Piwik\Nonce;
 use Piwik\Notification;
 use Piwik\Piwik;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Tracker\ExposureParams;
+use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 use Piwik\Request;
 use Piwik\Url;
 use Piwik\ViewDataTable\Factory;
@@ -49,6 +49,18 @@ class Controller extends \Piwik\Plugin\Controller
     public static function getActionUrl(string $action, int $idSite): string
     {
         return '?' . http_build_query(['module' => 'RebelABTesting', 'action' => $action] + self::getPageParameters($idSite));
+    }
+
+    /**
+     * @return array<string, mixed> what the form of an experiment needs besides the experiment
+     */
+    public static function getFormVariables(): array
+    {
+        return [
+            'nonce' => Nonce::getNonce(self::NONCE),
+            'matches' => ExperimentValidator::MATCHES,
+            'maxVariants' => ExperimentValidator::MAX_VARIANTS,
+        ];
     }
 
     public function addExperiment()
@@ -84,6 +96,16 @@ class Controller extends \Piwik\Plugin\Controller
         $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
     }
 
+    public function stop()
+    {
+        $idSite = $this->checkWriteRequest();
+
+        API::getInstance()->stopExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite);
+        $this->notify('RebelABTesting_ExperimentStopped', Notification::CONTEXT_SUCCESS);
+
+        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
+    }
+
     public function delete()
     {
         $idSite = $this->checkWriteRequest();
@@ -98,35 +120,58 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $idSite = self::checkAdminSite();
 
-        $experiment = API::getInstance()->getExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite);
-
-        return $this->renderTemplate('edit', [
-            'experiment' => $experiment,
-            'idSite' => $idSite,
-            'updateUrl' => self::getActionUrl('updateExperiment', $idSite),
+        return $this->renderTemplate('edit', self::getFormVariables() + [
+            'experiment' => API::getInstance()->getExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite),
+            'actionUrl' => self::getActionUrl('updateExperiment', $idSite),
             'backUrl' => $this->getReportingUrl($idSite, self::LIST_PAGE),
-            'nonce' => Nonce::getNonce(self::NONCE),
         ]);
     }
 
     /**
-     * What the tag on the website asks for, without being logged in: the variant of an experiment
-     * that is running. Nothing is told about experiments that have ended or not started.
+     * The page of an experiment in the reporting menu.
      */
-    public function getExperimentPublic()
+    public function result()
+    {
+        $this->checkSitePermission();
+        $experiment = (new Experiments())->getById(Request::fromRequest()->getIntegerParameter('idExperiment', 0), $this->idSite);
+
+        return $this->renderTemplate('result', [
+            'experiment' => $experiment,
+            'result' => $experiment ? (new Results())->get($experiment) : null,
+            'isAdmin' => Piwik::isUserHasAdminAccess($this->idSite),
+        ]);
+    }
+
+    /**
+     * What the tag on the website asks for, without being logged in: the experiments of a website
+     * that are running. Nothing is told about experiments that have ended or not started.
+     */
+    public function getExperimentsPublic()
     {
         Common::sendHeader('Access-Control-Allow-Origin: *');
         Common::sendHeader('Content-Type: application/json; charset=utf-8');
         Common::sendHeader('Cache-Control: no-store');
 
-        $request = Request::fromRequest();
-        $row = (new Experiments())->getById($request->getIntegerParameter('id', 0), $request->getIntegerParameter('idSite', 0));
-
-        if (!ExposureParams::isWithinSchedule(Date::now()->getTimestamp(), $row)) {
-            return json_encode(['found' => false]);
+        $now = Date::now()->getTimestamp();
+        $running = [];
+        foreach ((new Experiments())->getAllForSite(Request::fromRequest()->getIntegerParameter('idSite', 0)) as $experiment) {
+            if (Experiments::getStatus($experiment, $now) !== Experiments::STATUS_RUNNING) {
+                continue;
+            }
+            $running[] = [
+                'id' => $experiment['id'],
+                'from_date' => $experiment['from_date'],
+                'to_date' => $experiment['to_date'],
+                'share' => $experiment['traffic_share'],
+                'match' => $experiment['target_match'],
+                'value' => $experiment['target_value'],
+                'variants' => array_map(function (array $variant): array {
+                    return ['css' => $variant['css'], 'js' => $variant['js']];
+                }, $experiment['variants']),
+            ];
         }
 
-        return json_encode(API::publicFields($row));
+        return json_encode(['experiments' => $running]);
     }
 
     public function getExperimentReport()
@@ -180,20 +225,23 @@ class Controller extends \Piwik\Plugin\Controller
     }
 
     /**
-     * The fields of the form, in the order the API takes them.
-     *
-     * @return string[]
+     * @return array<int, mixed> the fields of the form, in the order the API takes them
      */
     private function getExperimentFields(): array
     {
         $post = Request::fromPost();
-        $fields = [preg_replace('/[^a-zA-Z0-9_-]/', '', $post->getStringParameter('name', ''))];
 
-        foreach (['hypothesis', 'description', 'from_date', 'to_date', 'css_insert', 'js_insert'] as $field) {
-            $fields[] = trim($post->getStringParameter($field, ''));
-        }
-
-        return $fields;
+        return [
+            trim($post->getStringParameter('name', '')),
+            trim($post->getStringParameter('hypothesis', '')),
+            trim($post->getStringParameter('description', '')),
+            trim($post->getStringParameter('from_date', '')),
+            trim($post->getStringParameter('to_date', '')),
+            array_values($post->getArrayParameter('variants', [])),
+            $post->getIntegerParameter('traffic_share', 100),
+            $post->getStringParameter('target_match', ExperimentValidator::MATCH_ANY),
+            $post->getStringParameter('target_value', ''),
+        ];
     }
 
     private function notify(string $message, string $context): void

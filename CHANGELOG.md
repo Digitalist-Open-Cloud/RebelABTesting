@@ -5,11 +5,28 @@
 The plugin is renamed from SimpleABTesting to RebelABTesting. It is a new plugin to Matomo and does
 not take over data of SimpleABTesting.
 
+### Added
+
+- Each experiment has a page with its result: visits per variant and, for each goal, the conversion
+  rate, the difference to the original and the chance that the variant is better.
+- Several experiments can run on a website at the same time.
+- An experiment can have up to ten variants.
+- An experiment can be limited to pages by their address, and to a share of the visitors.
+- An experiment can be stopped before its last day.
+- The list of experiments shows whether an experiment is planned, running or has ended. Users with
+  view access see the list and the results.
+- The tag hides the page while it fetches the experiments on a visitor's first page, and applies
+  variants at once on later pages.
+- Matomo deletes the log of the plugin together with the visits, when old logs are deleted and when
+  the data of a visitor is deleted.
+- Swedish translation.
+
 ### Security
 
 - The lists and forms of experiments need admin access to the website. Before, a user with view
   access to any website could read the experiments of every website.
-- The address the tag reads an experiment from only answers for an experiment that is running.
+- The address the tag reads experiments from only answers for experiments that are running, and
+  without their names.
 - After a change, the browser is sent to a page of Matomo. The address is no longer taken from the
   request, and neither is the message that is shown.
 - A tracking request is only logged for a running experiment of its website, under the name the
@@ -24,10 +41,17 @@ not take over data of SimpleABTesting.
 - JavaScript and CSS of several lines keep their line breaks when stored through the API.
 - Experiments can be stored on MariaDB versions that have the function `TO_DATE`.
 - The segments for the variant and the experiment work. Their columns on the visit were never
-  created; they are now `abtest_variant` and `abtest_idexperiment`.
+  created.
 
 ### Changed
 
+- One tag runs all experiments of a website. It no longer has an experiment to choose.
+- The log has a row for each visit and experiment, not for each tracking request.
+- Tracking requests carry the experiments in the parameter `rabt`.
+- `insertExperiment` and `updateExperiment` take a list of variants, the share of visitors and the
+  pages. `stopExperiment`, `getExperiments` and `getExperimentResult` are new, and
+  `getExperimentPublic` and `getExperimentReportData` are removed.
+- The segments `experimentId` and `experimentVariant` read the log of the plugin.
 - The database tables are `rebel_ab_testing_experiments` and `rebel_ab_testing_log`.
 - The plugin needs PHP 8.2 or newer.
 - `insertExperiment` returns the ID of the experiment.
@@ -35,6 +59,7 @@ not take over data of SimpleABTesting.
   encoding.
 - The menu has its own icon, and the icon font is removed.
 - The segments for the experiment name and category are removed.
+- The name of an experiment can contain any characters.
 
 ## [0.1.99] - 2026-11-10
 

@@ -18,42 +18,43 @@ use Piwik\Tracker\Visit\VisitProperties;
 class RequestProcessor extends MatomoRequestProcessor
 {
     /**
-     * Logs the request for the experiment it names, when that experiment belongs to the website
-     * and is running. What the browser sends is not trusted beyond that.
+     * Logs the visit for each experiment the request names, when that experiment belongs to the
+     * website, is running and has the variant.
      */
     public function recordLogs(VisitProperties $visitProperties, Request $request)
     {
-        $exposure = ExposureParams::fromRequestParams($request->getParams());
-        if ($exposure === null || $exposure['variant'] === null) {
+        $assignments = Assignments::fromRequestParams($request->getParams());
+        if (empty($assignments)) {
             return;
         }
 
         $idSite = (int) $request->getIdSite();
+        $timestamp = (int) $request->getCurrentTimestamp();
         $experiments = new Experiments();
+        $log = new LogExperiment();
 
-        $experiment = $exposure['idexperiment'] === null ? null : $experiments->getById($exposure['idexperiment'], $idSite);
-        if ($experiment === null && $exposure['experiment_name'] !== ExposureParams::UNKNOWN_NAME) {
-            $id = $experiments->getIdByName($idSite, $exposure['experiment_name']);
-            $experiment = $id === null ? null : $experiments->getById($id, $idSite);
+        // ponytail: one query per experiment and request, keep them in the tracker cache if that shows up in profiles
+        foreach ($assignments as $idExperiment => $assignment) {
+            $experiment = $experiments->getById($idExperiment, $idSite);
+
+            if (
+                $experiment === null
+                || Experiments::getStatus($experiment, $timestamp) !== Experiments::STATUS_RUNNING
+                || $assignment['variant'] > count($experiment['variants']) + 1
+            ) {
+                continue;
+            }
+
+            $log->createLog([
+                'idsite' => $idSite,
+                'idvisit' => $visitProperties->getProperty('idvisit'),
+                'idvisitor' => $visitProperties->getProperty('idvisitor'),
+                'idexperiment' => $idExperiment,
+                'experiment_name' => $experiment['name'],
+                'variant' => $assignment['variant'],
+                'assignment_id' => $assignment['assignment_id'],
+                'server_time' => gmdate('Y-m-d H:i:s', $timestamp),
+            ]);
         }
-
-        if (!ExposureParams::isWithinSchedule((int) $request->getCurrentTimestamp(), $experiment)) {
-            return;
-        }
-
-        (new LogExperiment())->createLog([
-            'idsite' => $idSite,
-            'experiment_name' => $experiment['name'],
-            'idexperiment' => (int) $experiment['id'],
-            'assignment_id' => $exposure['assignment_id'],
-            'variant' => $exposure['variant'],
-            'idvisit' => $visitProperties->getProperty('idvisit'),
-            'idvisitor' => $visitProperties->getProperty('idvisitor'),
-            'server_time' => gmdate('Y-m-d H:i:s', (int) $request->getCurrentTimestamp()),
-            'created_time' => gmdate('Y-m-d H:i:s'),
-            'category' => 'Experiment',
-            'idaction_url' => $visitProperties->getProperty('visit_exit_idaction_url') ?? $visitProperties->getProperty('visit_entry_idaction_url'),
-            'idaction_name' => $visitProperties->getProperty('visit_exit_idaction_name') ?? $visitProperties->getProperty('visit_entry_idaction_name'),
-        ]);
     }
 }

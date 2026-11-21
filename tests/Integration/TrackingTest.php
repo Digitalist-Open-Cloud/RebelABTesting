@@ -3,8 +3,12 @@
 namespace Piwik\Plugins\RebelABTesting\tests\Integration;
 
 use Piwik\Common;
+use Piwik\Container\StaticContainer;
+use Piwik\Date;
 use Piwik\Db;
+use Piwik\LogDeleter;
 use Piwik\Plugins\Goals\API as GoalsApi;
+use Piwik\Plugins\PrivacyManager\Model\DataSubjects;
 use Piwik\Plugins\RebelABTesting\API;
 use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
 use Piwik\Plugins\VisitsSummary\API as VisitsSummaryApi;
@@ -34,37 +38,35 @@ class TrackingTest extends IntegrationTestCase
     {
         parent::setUp();
 
+        Fixture::loadAllTranslations();
         Fixture::createSuperUser();
         Fixture::createWebsite('2024-01-01 00:00:00');
         Fixture::createWebsite('2024-01-01 00:00:00');
-        $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', '', '', '2024-03-01', '2024-03-31', '', '');
+        $this->idExperiment = $this->addExperiment('button', 2);
         $this->visits = 0;
     }
 
-    public function testAVisitIsLoggedForTheExperimentOfItsWebsite()
+    public function testAVisitIsLoggedOnceForEachExperimentItTakesPartIn()
     {
-        $this->trackVisit(1, ['sabt' => '2', 'sabi' => $this->idExperiment, 'sabn' => 'a name the browser made up', 'saba' => self::ASSIGNMENT]);
+        $other = $this->addExperiment('headline', 1);
+
+        $this->trackVisit(1, [$this->idExperiment => 3, $other => 1], self::DAY, ['/', '/pricing', '/thanks']);
 
         $this->assertEquals(
-            [['idsite' => 1, 'experiment_name' => 'button', 'idexperiment' => $this->idExperiment, 'variant' => 2, 'assignment_id' => self::ASSIGNMENT]],
+            [
+                ['idsite' => 1, 'experiment_name' => 'button', 'idexperiment' => $this->idExperiment, 'variant' => 3, 'assignment_id' => self::ASSIGNMENT],
+                ['idsite' => 1, 'experiment_name' => 'headline', 'idexperiment' => $other, 'variant' => 1, 'assignment_id' => self::ASSIGNMENT],
+            ],
             $this->getLog()
         );
-    }
-
-    public function testAnExperimentIsFoundByItsNameWhenTheIdIsMissing()
-    {
-        $this->trackVisit(1, ['sabt' => '1', 'sabn' => 'button']);
-
-        $this->assertEquals('button', $this->getLog()[0]['experiment_name']);
-        $this->assertEquals($this->idExperiment, $this->getLog()[0]['idexperiment']);
     }
 
     /**
      * @dataProvider getRequestsThatDoNotCount
      */
-    public function testARequestThatIsNotForARunningExperimentOfTheWebsiteIsNotLogged(int $idSite, array $parameters, string $day)
+    public function testARequestThatIsNotForARunningExperimentOfTheWebsiteIsNotLogged(int $idSite, string $parameter, string $day)
     {
-        $this->trackVisit($idSite, $parameters, $day);
+        $this->trackVisit($idSite, $parameter, $day);
 
         $this->assertSame([], $this->getLog());
     }
@@ -72,56 +74,79 @@ class TrackingTest extends IntegrationTestCase
     public function getRequestsThatDoNotCount(): array
     {
         return [
-            'no experiment' => [1, [], self::DAY],
-            'unknown experiment' => [1, ['sabt' => '1', 'sabi' => 99, 'sabn' => 'made-up'], self::DAY],
-            'experiment of another website' => [2, ['sabt' => '1', 'sabi' => 1, 'sabn' => 'button'], self::DAY],
-            'a variant that does not exist' => [1, ['sabt' => '3', 'sabi' => 1], self::DAY],
-            'after the experiment has ended' => [1, ['sabt' => '1', 'sabi' => 1], '2024-04-01'],
-            'before the experiment starts' => [1, ['sabt' => '1', 'sabi' => 1], '2024-02-29'],
+            'no experiment' => [1, '', self::DAY],
+            'unknown experiment' => [1, '99-1-' . self::ASSIGNMENT, self::DAY],
+            'experiment of another website' => [2, '1-1-' . self::ASSIGNMENT, self::DAY],
+            'a variant the experiment does not have' => [1, '1-4-' . self::ASSIGNMENT, self::DAY],
+            'not well-formed' => [1, "1-2' OR 1-" . self::ASSIGNMENT, self::DAY],
+            'after the experiment has ended' => [1, '1-1-' . self::ASSIGNMENT, '2024-04-01'],
+            'before the experiment starts' => [1, '1-1-' . self::ASSIGNMENT, '2024-02-29'],
         ];
     }
 
-    public function testTheVisitKeepsVariantAndExperiment()
+    public function testAStoppedExperimentIsNoLongerLogged()
     {
-        $this->trackVisit(1, ['sabt' => '2', 'sabi' => $this->idExperiment, 'sabn' => 'button']);
+        Date::$now = strtotime('2024-03-04 12:00:00 UTC');
+        API::getInstance()->stopExperiment($this->idExperiment, 1);
+        Date::$now = null;
 
-        $this->assertEquals(
-            ['abtest_variant' => 2, 'abtest_idexperiment' => $this->idExperiment],
-            Db::fetchRow('SELECT abtest_variant, abtest_idexperiment FROM ' . Common::prefixTable('log_visit'))
-        );
+        $this->trackVisit(1, [$this->idExperiment => 1]);
+
+        $this->assertSame([], $this->getLog());
     }
 
-    public function testValuesThatAreNotWellFormedAreNotKeptOnTheVisit()
+    public function testVisitsCanBeSegmentedByExperimentAndVariant()
     {
-        $this->trackVisit(1, ['sabt' => "2' OR 1", 'sabi' => 'abc']);
-
-        $this->assertSame(
-            ['abtest_variant' => null, 'abtest_idexperiment' => null],
-            Db::fetchRow('SELECT abtest_variant, abtest_idexperiment FROM ' . Common::prefixTable('log_visit'))
-        );
-    }
-
-    public function testVisitsCanBeSegmentedByVariant()
-    {
-        $this->trackVisit(1, ['sabt' => '1', 'sabi' => $this->idExperiment]);
-        $this->trackVisit(1, ['sabt' => '2', 'sabi' => $this->idExperiment]);
-        $this->trackVisit(1, ['sabt' => '2', 'sabi' => $this->idExperiment]);
+        $other = $this->addExperiment('headline', 1);
+        $this->trackVisit(1, [$this->idExperiment => 1]);
+        $this->trackVisit(1, [$this->idExperiment => 2, $other => 1]);
+        $this->trackVisit(1, [$this->idExperiment => 2, $other => 2]);
+        $this->trackVisit(1, [$other => 2]);
         $this->trackVisit(1, []);
 
-        $visits = VisitsSummaryApi::getInstance()->get(1, 'day', self::DAY, 'experimentVariant==2;experimentId==' . $this->idExperiment);
+        $visits = function (string $segment): int {
+            return (int) VisitsSummaryApi::getInstance()->get(1, 'day', self::DAY, $segment)->getFirstRow()->getColumn('nb_visits');
+        };
 
-        $this->assertEquals(2, $visits->getFirstRow()->getColumn('nb_visits'));
+        $this->assertSame(2, $visits('experimentId==' . $this->idExperiment . ';experimentVariant==2'));
+        $this->assertSame(3, $visits('experimentId==' . $this->idExperiment));
+        $this->assertSame(3, $visits('experimentId==' . $other));
+        $this->assertSame(5, $visits(''));
+    }
+
+    public function testTheResultComparesTheVariantsWithTheOriginal()
+    {
+        GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
+        foreach ([1 => [40, 8], 2 => [40, 20], 3 => [10, 1]] as $variant => [$visits, $converted]) {
+            for ($visit = 0; $visit < $visits; $visit++) {
+                $this->trackVisit(1, [$this->idExperiment => $variant], self::DAY, $visit < $converted ? ['/', '/thanks', '/thanks?again'] : ['/']);
+            }
+        }
+        $this->trackVisit(1, [], self::DAY, ['/thanks']);
+
+        $result = API::getInstance()->getExperimentResult(1, $this->idExperiment);
+
+        $this->assertSame(
+            [['variant' => 1, 'name' => 'Original', 'nb_visits' => 40], ['variant' => 2, 'name' => 'Green', 'nb_visits' => 40], ['variant' => 3, 'name' => 'Variant 2', 'nb_visits' => 10]],
+            $result['variants']
+        );
+        $this->assertSame(['Thanks'], array_column($result['goals'], 'name'));
+
+        [$original, $green, $second] = $result['goals'][0]['variants'];
+        $this->assertSame([8, 0.2, null, null, null], [$original['nb_visits_converted'], $original['conversion_rate'], $original['uplift'], $original['chance_to_beat_original'], $original['verdict']]);
+        $this->assertSame([20, 0.5, 'better'], [$green['nb_visits_converted'], $green['conversion_rate'], $green['verdict']]);
+        $this->assertEqualsWithDelta(1.5, $green['uplift'], 0.0001);
+        $this->assertGreaterThan(0.95, $green['chance_to_beat_original']);
+        $this->assertSame([1, 'not_enough_data', null], [$second['nb_visits_converted'], $second['verdict'], $second['chance_to_beat_original']]);
     }
 
     public function testTheReportsCountVisitsAndConversionsPerVariant()
     {
         GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
-        $original = ['sabt' => '1', 'sabi' => $this->idExperiment];
-        $variant = ['sabt' => '2', 'sabi' => $this->idExperiment];
 
-        $this->trackVisit(1, $original, self::DAY, ['/', '/pricing']);
-        $this->trackVisit(1, $variant, self::DAY, ['/', '/thanks']);
-        $this->trackVisit(1, $variant, self::DAY, ['/thanks']);
+        $this->trackVisit(1, [$this->idExperiment => 1], self::DAY, ['/', '/pricing']);
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/', '/thanks']);
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/thanks']);
         $this->trackVisit(1, [], self::DAY, ['/thanks']);
 
         $api = API::getInstance();
@@ -137,14 +162,35 @@ class TrackingTest extends IntegrationTestCase
                 return $api->getExperimentGoalData(1, 'week', self::DAY, null, $idSubtable);
             })
         );
-        $this->assertEquals(
-            [
-                ['experiment_name' => 'button', 'variant' => 1, 'nb_unique_visitors' => 1, 'nb_visits' => 1],
-                ['experiment_name' => 'button', 'variant' => 2, 'nb_unique_visitors' => 2, 'nb_visits' => 2],
-            ],
-            $api->getExperimentReportData(1, 'day', self::DAY)
-        );
         $this->assertSame(0, $api->getExperimentData(2, 'day', self::DAY)->getRowsCount());
+    }
+
+    public function testTheLogOfAVisitIsDeletedWithTheVisit()
+    {
+        $this->trackVisit(1, [$this->idExperiment => 1]);
+        $this->trackVisit(1, [$this->idExperiment => 2]);
+        $idVisit = (int) Db::fetchOne('SELECT idvisit FROM ' . Common::prefixTable(LogExperiment::TABLE) . ' WHERE variant = 2');
+
+        StaticContainer::get(DataSubjects::class)->deleteDataSubjects([['idsite' => 1, 'idvisit' => $idVisit]]);
+
+        $this->assertEquals([1], array_column($this->getLog(), 'variant'));
+    }
+
+    public function testTheLogIsDeletedWithOldVisits()
+    {
+        $this->trackVisit(1, [$this->idExperiment => 1], '2024-03-02');
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY);
+
+        StaticContainer::get(LogDeleter::class)->deleteVisitsFor('2024-03-01 00:00:00', '2024-03-03 00:00:00', 1);
+
+        $this->assertEquals([2], array_column($this->getLog(), 'variant'));
+    }
+
+    private function addExperiment(string $name, int $variants): int
+    {
+        $list = array_slice([['name' => 'Green', 'css' => '', 'js' => ''], ['name' => '', 'css' => '', 'js' => '']], 0, $variants);
+
+        return API::getInstance()->insertExperiment(1, $name, '', '', '2024-03-01', '2024-03-31', $list);
     }
 
     /**
@@ -167,18 +213,26 @@ class TrackingTest extends IntegrationTestCase
     }
 
     /**
-     * @param array<string, mixed> $parameters the experiment parameters the tag adds to a request
+     * @param array<int, int>|string $experiments the variant by experiment, or the parameter as the browser would send it
      * @param string[] $paths
      */
-    private function trackVisit(int $idSite, array $parameters, string $day = self::DAY, array $paths = ['/']): void
+    private function trackVisit(int $idSite, $experiments, string $day = self::DAY, array $paths = ['/']): void
     {
+        if (is_array($experiments)) {
+            $entries = [];
+            foreach ($experiments as $idExperiment => $variant) {
+                $entries[] = $idExperiment . '-' . $variant . '-' . self::ASSIGNMENT;
+            }
+            $experiments = implode(',', $entries);
+        }
+
         $tracker = Fixture::getTracker($idSite, $day . ' 10:00:00', true, true);
         $tracker->setTokenAuth(Fixture::getTokenAuth());
         $tracker->setNewVisitorId();
         // Matomo takes requests from one address for one visit.
-        $tracker->setIp('10.0.0.' . ++$this->visits);
-        foreach ($parameters as $name => $value) {
-            $tracker->setCustomTrackingParameter($name, $value);
+        $tracker->setIp('10.0.' . intdiv($this->visits, 250) . '.' . (1 + $this->visits++ % 250));
+        if ($experiments !== '') {
+            $tracker->setCustomTrackingParameter('rabt', $experiments);
         }
 
         foreach ($paths as $minutes => $path) {
@@ -193,7 +247,7 @@ class TrackingTest extends IntegrationTestCase
      */
     private function getLog(): array
     {
-        return Db::fetchAll('SELECT DISTINCT idsite, experiment_name, idexperiment, variant, assignment_id FROM ' . Common::prefixTable(LogExperiment::TABLE));
+        return Db::fetchAll('SELECT idsite, experiment_name, idexperiment, variant, assignment_id FROM ' . Common::prefixTable(LogExperiment::TABLE) . ' ORDER BY idexperiment, idlog');
     }
 
     protected static function configureFixture($fixture)

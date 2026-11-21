@@ -10,7 +10,6 @@
 namespace Piwik\Plugins\RebelABTesting\Widgets;
 
 use Piwik\Date;
-use Piwik\Nonce;
 use Piwik\Plugins\RebelABTesting\Controller;
 use Piwik\Widget\Widget;
 use Piwik\Widget\WidgetConfig;
@@ -30,11 +29,19 @@ class GetABTesting extends Widget
     {
         $idSite = Controller::checkAdminSite();
 
-        return $this->renderTemplate('index', [
+        return $this->renderTemplate('index', Controller::getFormVariables() + [
+            'experiment' => [
+                'name' => '',
+                'hypothesis' => '',
+                'description' => '',
+                'from_date' => Date::now()->toString(),
+                'to_date' => Date::now()->addPeriod(1, 'month')->toString(),
+                'traffic_share' => 100,
+                'target_match' => 'any',
+                'target_value' => '',
+                'variants' => [['name' => '', 'css' => '', 'js' => '']],
+            ],
             'actionUrl' => Controller::getActionUrl('addExperiment', $idSite),
-            'nonce' => Nonce::getNonce(Controller::NONCE),
-            'fromDate' => Date::now()->toString(),
-            'toDate' => Date::now()->addPeriod(1, 'month')->toString(),
         ]);
     }
 }

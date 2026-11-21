@@ -1,0 +1,68 @@
+<div class="rebelABTestingPlugin">
+    <div class="card">
+        <div class="card-content">
+            {% if experiment is empty %}
+            <div class="alert">{{ 'RebelABTesting_ExperimentNotFound'|translate }}</div>
+            {% else %}
+            <h2>{{ experiment.name }}</h2>
+            <p>
+                <span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span>
+                {{ experiment.from_date }} &ndash; {{ experiment.to_date }}
+            </p>
+            {% if isAdmin and experiment.hypothesis is not empty %}
+            <p><strong>{{ 'RebelABTesting_FormHypothesis'|translate }}:</strong> {{ experiment.hypothesis }}</p>
+            {% endif %}
+
+            <h3 class="form-section-title">{{ 'RebelABTesting_ResultVisits'|translate }}</h3>
+            <table class="rebelABTestingTable">
+                <thead>
+                    <tr>
+                        <th>{{ 'RebelABTesting_Variant'|translate }}</th>
+                        <th>{{ 'RebelABTesting_NbVisits'|translate }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for variant in result.variants %}
+                    <tr>
+                        <td>{{ variant.name }}</td>
+                        <td>{{ variant.nb_visits|number }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% for goal in result.goals %}
+            <h3 class="form-section-title">{{ goal.name }}</h3>
+            <table class="rebelABTestingTable">
+                <thead>
+                    <tr>
+                        <th>{{ 'RebelABTesting_Variant'|translate }}</th>
+                        <th>{{ 'RebelABTesting_NbVisitsConverted'|translate }}</th>
+                        <th>{{ 'RebelABTesting_ResultConversionRate'|translate }}</th>
+                        <th>{{ 'RebelABTesting_ResultUplift'|translate }}</th>
+                        <th>{{ 'RebelABTesting_ResultChance'|translate }}</th>
+                        <th>{{ 'RebelABTesting_ResultVerdict'|translate }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for variant in goal.variants %}
+                    <tr>
+                        <td>{{ variant.name }}</td>
+                        <td>{{ variant.nb_visits_converted|number }}</td>
+                        <td>{{ (variant.conversion_rate * 100)|number(2) }}%</td>
+                        <td>{% if variant.uplift is not null %}{{ variant.uplift > 0 ? '+' : '' }}{{ (variant.uplift * 100)|number(1) }}%{% endif %}</td>
+                        <td>{% if variant.chance_to_beat_original is not null %}{{ (variant.chance_to_beat_original * 100)|number(1) }}%{% endif %}</td>
+                        <td>{% if variant.verdict %}<span class="rebelABTestingVerdict rebelABTestingVerdict-{{ variant.verdict }}">{{ ('RebelABTesting_Verdict_' ~ variant.verdict)|translate }}</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert">{{ 'RebelABTesting_ResultNoConversions'|translate }}</div>
+            {% endfor %}
+
+            <p class="section-help">{{ 'RebelABTesting_ResultHelp'|translate }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
