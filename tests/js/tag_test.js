@@ -290,3 +290,64 @@ Deno.test("the preview of a fake door shows it without telling Matomo", async ()
   assertEquals(env.placed.length, 1);
   assertEquals(env._paq, []);
 });
+
+// An element of the page that records what a change does to it.
+function element(over = {}) {
+  const node = {
+    textContent: "old", className: "btn", attributes: { src: "old.png", srcset: "old-2x.png 2x", href: "/old" },
+    style: { cssText: "color: black", properties: {}, setProperty(name, value, priority) { this.properties[name] = [value, priority]; } },
+    setAttribute(name, value) { node.attributes[name] = value; },
+    removeAttribute(name) { delete node.attributes[name]; },
+    ...over,
+  };
+  return node;
+}
+
+Deno.test("the changes of a variant are made to the elements they point at", async () => {
+  const page = { "h1": [element(), element()], ".banner": [element()], ".buy": [element()], "img.hero": [element()], "a.more": [element()] };
+  const changes = [
+    { selector: "h1", action: "text", value: "New <headline>" },
+    { selector: ".banner", action: "hide", value: "" },
+    { selector: ".buy", action: "add_class", value: "big green" },
+    { selector: ".buy", action: "style", value: "background: green" },
+    { selector: "img.hero", action: "image", value: "/new.png" },
+    { selector: "a.more", action: "link", value: "https://shop.example/more" },
+    { selector: ".not-there", action: "hide", value: "" },
+    { selector: "(", action: "hide", value: "" },
+  ];
+  const env = makeEnv({ experiments: [experiment({ variants: [{ changes, css: "", js: "" }] })], page });
+  await fireWith([0, 0.9], env);
+
+  assertEquals(page.h1.map((e) => e.textContent), ["New <headline>", "New <headline>"]);
+  assertEquals(page[".banner"][0].style.properties, { display: ["none", "important"] });
+  assertEquals(page[".buy"][0].className, "btn big green");
+  assertEquals(page[".buy"][0].style.cssText, "color: black;background: green");
+  assertEquals(page["img.hero"][0].attributes, { src: "/new.png", href: "/old" });
+  assertEquals(page["a.more"][0].attributes.href, "https://shop.example/more");
+  assertEquals(env.appended, []);
+});
+
+Deno.test("the original leaves the elements as they are", async () => {
+  const page = { "h1": [element()] };
+  const changes = [{ selector: "h1", action: "text", value: "New" }];
+  const env = makeEnv({ experiments: [experiment({ variants: [{ changes, css: "", js: "" }] })], page });
+  await fireWith([0, 0.1], env);
+
+  assertEquals(page.h1[0].textContent, "old");
+});
+
+Deno.test("elements that arrive while the page loads are changed too, each once", async () => {
+  const page = { ".buy": [element()] };
+  const changes = [{ selector: ".buy", action: "add_class", value: "green" }];
+  const env = makeEnv({ experiments: [experiment({ variants: [{ changes, css: "", js: "" }] })], page });
+  let loaded;
+  env.document.readyState = "loading";
+  env.document.addEventListener = (_type, listener) => { loaded = listener; };
+  await fireWith([0, 0.9], env);
+
+  page[".buy"].push(element());
+  loaded();
+  loaded();
+
+  assertEquals(page[".buy"].map((e) => e.className), ["btn green", "btn green"]);
+});

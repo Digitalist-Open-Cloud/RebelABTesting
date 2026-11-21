@@ -202,10 +202,51 @@
           function apply(variant) {
               if (!variant) return;
               try {
+                  applyChanges(variant.changes || []);
                   insert("style", variant.css);
                   insert("script", variant.js);
               } catch (e) {
                   console.error("Error in the variant of an experiment", e);
+              }
+          }
+
+          // Changes the elements each change points at. While the page is still loading, elements
+          // are changed as they arrive, so that the original does not show first.
+          function applyChanges(changes) {
+              if (!changes.length) return;
+              var done = changes.map(function () { return new WeakSet(); });
+
+              function run() {
+                  changes.forEach(function (change, index) {
+                      var elements;
+                      try { elements = document.querySelectorAll(change.selector); } catch (e) { return; }
+                      for (var i = 0; i < elements.length; i++) {
+                          if (done[index].has(elements[i])) continue;
+                          done[index].add(elements[i]);
+                          applyChange(elements[i], change);
+                      }
+                  });
+              }
+
+              run();
+              if (document.readyState !== "loading") return;
+
+              var observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(run);
+              if (observer) observer.observe(document.documentElement, { childList: true, subtree: true });
+              document.addEventListener("DOMContentLoaded", function () {
+                  run();
+                  if (observer) observer.disconnect();
+              });
+          }
+
+          function applyChange(element, change) {
+              switch (change.action) {
+                  case "text": element.textContent = change.value; break;
+                  case "hide": element.style.setProperty("display", "none", "important"); break;
+                  case "add_class": element.className = (element.className + " " + change.value).trim(); break;
+                  case "style": element.style.cssText += ";" + change.value; break;
+                  case "image": element.setAttribute("src", change.value); element.removeAttribute("srcset"); break;
+                  case "link": element.setAttribute("href", change.value); break;
               }
           }
 

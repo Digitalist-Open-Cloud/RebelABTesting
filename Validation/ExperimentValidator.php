@@ -24,8 +24,14 @@ final class ExperimentValidator
     public const DOOR_POSITIONS = ['after', 'before', 'append', 'prepend'];
     public const DOOR_ELEMENTS = ['button', 'link'];
 
+    public const ACTION_HIDE = 'hide';
+    public const ACTIONS = ['text', self::ACTION_HIDE, 'add_class', 'style', 'image', 'link'];
+    public const MAX_CHANGES = 20;
+
     private const NAME_MAX_LENGTH = 255;
     private const TARGET_MAX_LENGTH = 1000;
+    private const SELECTOR_MAX_LENGTH = 500;
+    private const VALUE_MAX_LENGTH = 2000;
 
     public static function validateName(string $name): ?string
     {
@@ -66,11 +72,69 @@ final class ExperimentValidator
     }
 
     /**
-     * @param array<int, array{name: string, css: string, js: string}> $variants
+     * @param array<int, array<string, mixed>> $variants
      */
     public static function validateVariants(array $variants): ?string
     {
-        return count($variants) < 1 || count($variants) > self::MAX_VARIANTS ? 'RebelABTesting_ErrorVariants' : null;
+        if (count($variants) < 1 || count($variants) > self::MAX_VARIANTS) {
+            return 'RebelABTesting_ErrorVariants';
+        }
+
+        foreach ($variants as $variant) {
+            if (count($variant['changes']) > self::MAX_CHANGES) {
+                return 'RebelABTesting_ErrorChange';
+            }
+            foreach ($variant['changes'] as $change) {
+                if (!self::isValidChange($change)) {
+                    return 'RebelABTesting_ErrorChange';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a variant has CSS or JavaScript, which only an admin of the website may write.
+     *
+     * @param array<int, array<string, mixed>> $variants
+     */
+    public static function hasCode(array $variants): bool
+    {
+        foreach ($variants as $variant) {
+            if (trim(($variant['css'] ?? '') . ($variant['js'] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{selector: string, action: string, value: string} $change
+     */
+    private static function isValidChange(array $change): bool
+    {
+        if (
+            !in_array($change['action'], self::ACTIONS, true)
+            || mb_strlen($change['selector']) > self::SELECTOR_MAX_LENGTH
+            || mb_strlen($change['value']) > self::VALUE_MAX_LENGTH
+        ) {
+            return false;
+        }
+
+        switch ($change['action']) {
+            case self::ACTION_HIDE:
+                return true;
+            case 'add_class':
+                return (bool) preg_match('/^[A-Za-z0-9_-]+( [A-Za-z0-9_-]+)*$/', $change['value']);
+            case 'image':
+            case 'link':
+                // An address without a scheme stays on the website. Others could run code.
+                return $change['value'] !== '' && (bool) preg_match('~^(https?://|mailto:|tel:|(?![a-z][a-z0-9+.-]*:))~i', $change['value']);
+            default:
+                return $change['value'] !== '';
+        }
     }
 
     /**
@@ -115,7 +179,7 @@ final class ExperimentValidator
 
     /**
      * @param mixed $variants what a request handed over
-     * @return array<int, array{name: string, css: string, js: string}>
+     * @return array<int, array{name: string, changes: array<int, array{selector: string, action: string, value: string}>, css: string, js: string}>
      */
     public static function normalizeVariants($variants): array
     {
@@ -124,8 +188,24 @@ final class ExperimentValidator
             if (!is_array($variant)) {
                 continue;
             }
+            $changes = [];
+            foreach (is_array($variant['changes'] ?? null) ? $variant['changes'] : [] as $change) {
+                $selector = is_array($change) ? trim((string) ($change['selector'] ?? '')) : '';
+                // A row of the form that was left empty.
+                if ($selector === '') {
+                    continue;
+                }
+                $action = (string) ($change['action'] ?? '');
+                $changes[] = [
+                    'selector' => $selector,
+                    'action' => $action,
+                    'value' => $action === self::ACTION_HIDE ? '' : trim((string) ($change['value'] ?? '')),
+                ];
+            }
+
             $normalized[] = [
                 'name' => mb_substr(trim((string) ($variant['name'] ?? '')), 0, 100),
+                'changes' => $changes,
                 'css' => (string) ($variant['css'] ?? ''),
                 'js' => (string) ($variant['js'] ?? ''),
             ];

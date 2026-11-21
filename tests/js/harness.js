@@ -45,6 +45,11 @@ export function makeEnv(opts = {}) {
       };
       return node;
     },
+    // The elements of the page by selector, for the changes of a variant.
+    querySelectorAll(selector) {
+      if (selector === "(") throw new Error("not a selector");
+      return (opts.page ?? {})[selector] ?? [];
+    },
     querySelector(selector) {
       if (selector === "(") throw new Error("not a selector");
       return (opts.elements ?? []).includes(selector)

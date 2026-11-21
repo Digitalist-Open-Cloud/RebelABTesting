@@ -42,7 +42,8 @@ class Experiments
             `target_match` VARCHAR(20) NOT NULL DEFAULT 'any',
             `target_value` TEXT,
             `variants` MEDIUMTEXT NOT NULL,
-            `primary_goal` INT NULL,
+            `primary_measure` TEXT,
+            `guardrails` TEXT,
             `kind` VARCHAR(20) NOT NULL DEFAULT 'ab',
             `door` TEXT,
             `preview_token` CHAR(32) NOT NULL,
@@ -59,7 +60,7 @@ class Experiments
     /**
      * @param array<string, mixed> $experiment name, hypothesis, description, from_date, to_date,
      *                                         traffic_share, target_match, target_value, variants
-     *                                         primary_goal, kind and door
+     *                                         primary_measure, guardrails, kind and door
      */
     public function insertExperiment(int $idSite, array $experiment): int
     {
@@ -157,9 +158,10 @@ class Experiments
         $row['id'] = (int) $row['id'];
         $row['idsite'] = (int) $row['idsite'];
         $row['traffic_share'] = (int) $row['traffic_share'];
-        $row['primary_goal'] = $row['primary_goal'] === null ? null : (int) $row['primary_goal'];
+        $row['primary_measure'] = $row['primary_measure'] === null ? null : json_decode($row['primary_measure'], true);
+        $row['guardrails'] = json_decode((string) $row['guardrails'], true) ?: [];
         $row['target_value'] = (string) $row['target_value'];
-        $row['variants'] = json_decode($row['variants'], true) ?: [];
+        $row['variants'] = ExperimentValidator::normalizeVariants(json_decode($row['variants'], true));
         $row['door'] = $row['door'] === null ? null : json_decode($row['door'], true);
         $row['status'] = self::getStatus($row, Date::now()->getTimestamp());
 
@@ -201,7 +203,8 @@ class Experiments
             'traffic_share' => (int) ($experiment['traffic_share'] ?? 100),
             'target_match' => (string) ($experiment['target_match'] ?? ExperimentValidator::MATCH_ANY),
             'target_value' => trim((string) ($experiment['target_value'] ?? '')),
-            'primary_goal' => isset($experiment['primary_goal']) ? (int) $experiment['primary_goal'] : null,
+            'primary_measure' => empty($experiment['primary_measure']) ? null : json_encode($experiment['primary_measure']),
+            'guardrails' => json_encode($experiment['guardrails'] ?? []),
         ];
         $kind = (string) ($experiment['kind'] ?? ExperimentValidator::KIND_AB);
         $isDoor = $kind === ExperimentValidator::KIND_FAKE_DOOR;
@@ -226,7 +229,8 @@ class Experiments
         $values['kind'] = $kind;
         $values['door'] = $door === null ? null : json_encode($door);
         if ($isDoor) {
-            $values['primary_goal'] = null;
+            $values['primary_measure'] = null;
+            $values['guardrails'] = '[]';
         }
 
         return $values;

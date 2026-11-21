@@ -39,6 +39,28 @@ final class Statistics
     }
 
     /**
+     * How likely it is that visits of the variant have a higher amount on average than visits of the
+     * original, from 0 to 1. Null when there are too few visits to tell, or no amounts at all.
+     *
+     * @param float $originalSquares the squares of the amounts of the original's visits, added up
+     */
+    public static function chanceOfHigherAverage(int $originalVisits, float $originalSum, float $originalSquares, int $variantVisits, float $variantSum, float $variantSquares): ?float
+    {
+        if ($originalVisits < self::MIN_VISITS || $variantVisits < self::MIN_VISITS) {
+            return null;
+        }
+
+        $original = $originalSum / $originalVisits;
+        $variant = $variantSum / $variantVisits;
+        $error = sqrt(
+            max(0, $originalSquares / $originalVisits - $original ** 2) / ($originalVisits - 1)
+            + max(0, $variantSquares / $variantVisits - $variant ** 2) / ($variantVisits - 1)
+        );
+
+        return $error > 0 ? self::normalDistribution(($variant - $original) / $error) : null;
+    }
+
+    /**
      * How likely a split at least this uneven is when every group has the same chance to get a
      * visitor, from 0 to 1. A very small number means that visitors are not assigned or counted
      * as they should be. Null when there are too few visitors to tell.

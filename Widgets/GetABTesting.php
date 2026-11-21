@@ -22,12 +22,12 @@ class GetABTesting extends Widget
         $config->setSubcategoryId('RebelABTesting_CreateNewExperiment');
         $config->setName('RebelABTesting_CreateNewExperiment');
         $config->setOrder(97);
-        $config->setIsEnabled(Controller::getAdminSite() > 0);
+        $config->setIsEnabled(Controller::getWriteSite() > 0);
     }
 
     public function render()
     {
-        $idSite = Controller::checkAdminSite();
+        $idSite = Controller::checkWriteSite();
 
         return $this->renderTemplate('index', Controller::getFormVariables($idSite) + [
             'experiment' => [
@@ -39,10 +39,11 @@ class GetABTesting extends Widget
                 'traffic_share' => 100,
                 'target_match' => 'any',
                 'target_value' => '',
-                'primary_goal' => null,
+                'primary_measure' => null,
+                'guardrails' => [],
                 'kind' => 'ab',
                 'door' => ['selector' => '', 'position' => 'after', 'element' => 'button', 'label' => '', 'css_class' => '', 'message' => ''],
-                'variants' => [['name' => '', 'css' => '', 'js' => '']],
+                'variants' => [['name' => '', 'changes' => [], 'css' => '', 'js' => '']],
             ],
             'actionUrl' => Controller::getActionUrl('addExperiment', $idSite),
         ]);

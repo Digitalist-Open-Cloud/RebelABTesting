@@ -15,7 +15,6 @@ use Piwik\Date;
 use Piwik\Nonce;
 use Piwik\Notification;
 use Piwik\Piwik;
-use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 use Piwik\Request;
@@ -31,19 +30,19 @@ class Controller extends \Piwik\Plugin\Controller
     private const CREATE_PAGE = 'RebelABTesting_CreateNewExperiment';
 
     /**
-     * @return int the requested website when the user is admin of it, otherwise 0
+     * @return int the requested website when the user may write to it, otherwise 0
      */
-    public static function getAdminSite(): int
+    public static function getWriteSite(): int
     {
         $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
 
-        return $idSite > 0 && Piwik::isUserHasAdminAccess($idSite) ? $idSite : 0;
+        return $idSite > 0 && Piwik::isUserHasWriteAccess($idSite) ? $idSite : 0;
     }
 
-    public static function checkAdminSite(): int
+    public static function checkWriteSite(): int
     {
         $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
-        Piwik::checkUserHasAdminAccess($idSite);
+        Piwik::checkUserHasWriteAccess($idSite);
 
         return $idSite;
     }
@@ -58,16 +57,11 @@ class Controller extends \Piwik\Plugin\Controller
      */
     public static function getFormVariables(int $idSite): array
     {
-        $goals = ['' => Piwik::translate('RebelABTesting_FormNoPrimaryGoal')];
-        foreach (GoalsApi::getInstance()->getGoals($idSite) as $goal) {
-            $goals[$goal['idgoal']] = Common::unsanitizeInputValue($goal['name']);
-        }
-        if (Site::isEcommerceEnabledFor($idSite)) {
-            $goals[Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER] = Piwik::translate('General_EcommerceOrders');
-        }
-
         return [
-            'goals' => $goals,
+            'measures' => Measures::getChoices($idSite),
+            'guardrailSlots' => range(0, Measures::MAX_GUARDRAILS - 1),
+            'actions' => ExperimentValidator::ACTIONS,
+            'canUseCode' => Piwik::isUserHasAdminAccess($idSite),
             'nonce' => Nonce::getNonce(self::NONCE),
             'matches' => ExperimentValidator::MATCHES,
             'maxVariants' => ExperimentValidator::MAX_VARIANTS,
@@ -132,7 +126,7 @@ class Controller extends \Piwik\Plugin\Controller
 
     public function editExperimentForm()
     {
-        $idSite = self::checkAdminSite();
+        $idSite = self::checkWriteSite();
 
         return $this->renderTemplate('edit', self::getFormVariables($idSite) + [
             'experiment' => API::getInstance()->getExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite),
@@ -150,13 +144,13 @@ class Controller extends \Piwik\Plugin\Controller
         $experiment = (new Experiments())->getById(Request::fromRequest()->getIntegerParameter('idExperiment', 0), $this->idSite);
 
         $result = $experiment ? (new Results())->get($experiment) : null;
-        $isAdmin = Piwik::isUserHasAdminAccess($this->idSite);
+        $canWrite = Piwik::isUserHasWriteAccess($this->idSite);
 
         return $this->renderTemplate('result', [
             'experiment' => $experiment,
             'result' => $result,
-            'isAdmin' => $isAdmin,
-            'previewLinks' => $experiment && $isAdmin ? $this->getPreviewLinks($experiment, $result['variants'] ?? []) : [],
+            'canWrite' => $canWrite,
+            'previewLinks' => $experiment && $canWrite ? $this->getPreviewLinks($experiment, $result['variants'] ?? []) : [],
         ]);
     }
 
@@ -191,7 +185,7 @@ class Controller extends \Piwik\Plugin\Controller
                 'match' => $experiment['target_match'],
                 'value' => $experiment['target_value'],
                 'variants' => array_map(function (array $variant): array {
-                    return ['css' => $variant['css'], 'js' => $variant['js']];
+                    return ['changes' => $variant['changes'], 'css' => $variant['css'], 'js' => $variant['js']];
                 }, $experiment['variants']),
             ];
         }
@@ -239,7 +233,7 @@ class Controller extends \Piwik\Plugin\Controller
      */
     private function checkWriteRequest(): int
     {
-        $idSite = self::checkAdminSite();
+        $idSite = self::checkWriteSite();
 
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
             throw new Exception(Piwik::translate('General_ExceptionSecurityCheckFailed'));
@@ -266,9 +260,10 @@ class Controller extends \Piwik\Plugin\Controller
             $post->getIntegerParameter('traffic_share', 100),
             $post->getStringParameter('target_match', ExperimentValidator::MATCH_ANY),
             $post->getStringParameter('target_value', ''),
-            $post->getStringParameter('primary_goal', ''),
+            $this->getMeasure('primary_measure') ?? [],
             $post->getStringParameter('kind', ExperimentValidator::KIND_AB),
             $post->getArrayParameter('door', []),
+            array_values(array_filter(array_map([$this, 'getMeasure'], ['guardrail_0', 'guardrail_1']))),
         ];
     }
 
@@ -296,6 +291,21 @@ class Controller extends \Piwik\Plugin\Controller
         }
 
         return $links;
+    }
+
+    /**
+     * @param string $field the name of the choice of a measure in the form
+     * @return array<string, mixed>|null
+     */
+    private function getMeasure(string $field): ?array
+    {
+        $post = Request::fromPost();
+
+        return Measures::fromChoice(
+            $post->getStringParameter($field, ''),
+            $post->getStringParameter($field . '_category', ''),
+            $post->getStringParameter($field . '_action', '')
+        );
     }
 
     private function notify(string $message, string $context): void

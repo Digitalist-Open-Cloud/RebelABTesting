@@ -47,7 +47,7 @@ class ControllerTest extends IntegrationTestCase
         Date::$now = strtotime('2024-03-05 12:00:00 UTC');
         $this->idGoal = GoalsApi::getInstance()->addGoal(2, 'Signed <up>', 'url', 'thanks', 'contains');
         GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
-        $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', 'A secret plan', 'Internal', '2024-03-01', '2024-03-31', [['name' => 'Green', 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing');
+        $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', 'A secret plan', 'Internal', '2024-03-01', '2024-03-31', [['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing');
         $_GET = $_POST = [];
         $_SERVER['REQUEST_METHOD'] = 'GET';
     }
@@ -86,7 +86,7 @@ class ControllerTest extends IntegrationTestCase
                 'share' => 50,
                 'match' => 'contains',
                 'value' => '/pricing',
-                'variants' => [['css' => 'h1{}', 'js' => "a('<b>')"]],
+                'variants' => [['changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'css' => 'h1{}', 'js' => "a('<b>')"]],
             ]]],
             $this->getPublic(1)
         );
@@ -96,7 +96,7 @@ class ControllerTest extends IntegrationTestCase
     public function testTheTagGetsAFakeDoor()
     {
         $door = ['selector' => '#menu', 'position' => 'after', 'element' => 'button', 'label' => 'Export', 'css_class' => '', 'message' => 'Soon'];
-        $id = API::getInstance()->insertExperiment(2, 'door', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', '', 'fake_door', $door);
+        $id = API::getInstance()->insertExperiment(2, 'door', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', [], 'fake_door', $door);
 
         $this->assertSame(
             ['id' => $id, 'kind' => 'fake_door', 'door' => $door, 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'share' => 100, 'match' => 'any', 'value' => '', 'variants' => []],
@@ -157,9 +157,14 @@ class ControllerTest extends IntegrationTestCase
         }
 
         $experiment = (new Experiments())->getAllForSite(2)[0];
-        $this->assertSame(['Form test', 25, 'starts_with', 'https://example.org/shop', $this->idGoal], [$experiment['name'], $experiment['traffic_share'], $experiment['target_match'], $experiment['target_value'], $experiment['primary_goal']]);
+        $this->assertSame(['Form test', 25, 'starts_with', 'https://example.org/shop'], [$experiment['name'], $experiment['traffic_share'], $experiment['target_match'], $experiment['target_value']]);
+        $this->assertSame(['type' => 'goal', 'idgoal' => $this->idGoal], $experiment['primary_measure']);
+        $this->assertSame([['type' => 'event', 'category' => 'Video', 'action' => 'Play']], $experiment['guardrails']);
         $this->assertSame(
-            [['name' => 'One', 'css' => '', 'js' => "// two\nlines('<b>')"], ['name' => '', 'css' => 'b{}', 'js' => '']],
+            [
+                ['name' => 'One', 'changes' => [['selector' => '.buy', 'action' => 'add_class', 'value' => 'green']], 'css' => '', 'js' => "// two\nlines('<b>')"],
+                ['name' => '', 'changes' => [], 'css' => 'b{}', 'js' => ''],
+            ],
             $experiment['variants']
         );
     }
@@ -203,12 +208,12 @@ class ControllerTest extends IntegrationTestCase
     /**
      * @dataProvider getActions
      */
-    public function testAChangeNeedsAdminAccessToTheWebsite(string $action)
+    public function testAChangeNeedsWriteAccessToTheWebsite(string $action)
     {
         $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment] + $this->getForm('renamed'));
         FakeAccess::clearAccess(false, [2], [1]);
 
-        $this->refuses($action, 'checkUserHasAdminAccess');
+        $this->refuses($action, 'checkUserHasWriteAccess');
     }
 
     public function getActions(): array
@@ -216,7 +221,7 @@ class ControllerTest extends IntegrationTestCase
         return [['addExperiment'], ['updateExperiment'], ['stop'], ['delete']];
     }
 
-    public function testTheEditFormNeedsAdminAccessToTheWebsite()
+    public function testTheEditFormNeedsWriteAccessToTheWebsite()
     {
         $_GET = ['idSite' => '1', 'id' => (string) $this->idExperiment];
         FakeAccess::clearAccess(false, [2], [1]);
@@ -229,7 +234,7 @@ class ControllerTest extends IntegrationTestCase
     /**
      * @dataProvider getAdminWidgets
      */
-    public function testCreatingExperimentsIsForAdminsOfTheWebsite(string $widget)
+    public function testCreatingExperimentsIsForUsersWhoCanWriteToTheWebsite(string $widget)
     {
         $_GET = ['idSite' => '1'];
         FakeAccess::clearAccess(false, [2], [1]);
@@ -298,17 +303,47 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('<option value="ab" selected>A/B test</option>', $create);
         $this->assertStringContainsString('data-result="Run for at least {days} days: {visits} visits in each of the {groups} groups.', $create);
         $this->assertStringContainsString('name="door[selector]"', $create);
-        $this->assertStringContainsString('<option value="" selected>None</option>', $create);
-        $this->assertStringContainsString('>Thanks</option>', $create);
+        $this->assertSame(3, substr_count($create, '<option value="" selected>None</option>'));
+        $this->assertStringContainsString('<option value="goal:1">Goal: Thanks</option>', $create);
+        $this->assertStringContainsString('<option value="bounce">Bounces</option>', $create);
+        $this->assertStringNotContainsString('Revenue per visit', $create);
         $this->assertStringNotContainsString('Signed', $create);
 
+        API::getInstance()->updateExperiment($this->idExperiment, 1, 'button', 'A secret plan', '', '2024-03-01', '2024-03-31', [['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing', ['type' => 'search'], 'ab', [], [['type' => 'event', 'category' => 'Video "HD"', 'action' => '']]);
         $edit = (new Controller())->editExperimentForm();
+        $this->assertStringContainsString('<option value="search" selected>', $edit);
+        $this->assertStringContainsString('<option value="event" selected>', $edit);
+        $this->assertStringContainsString('name="guardrail_0_category" id="guardrail_0_category" value="Video &quot;HD&quot;"', $edit);
         $this->assertStringContainsString($nonce, $edit);
         $this->assertStringContainsString('action=updateExperiment&amp;idSite=1', $edit);
         $this->assertStringContainsString('value="A secret plan"', $edit);
         $this->assertStringContainsString('<option value="contains" selected>', $edit);
         $this->assertStringContainsString('name="variants[0][name]" value="Green"', $edit);
+        $this->assertStringContainsString('name="variants[0][changes][0][value]" value="New &lt;headline&gt;"', $edit);
+        $this->assertStringContainsString('<option value="text" selected>', $edit);
         $this->assertStringContainsString('a(&#039;&lt;b&gt;&#039;)</textarea>', $edit);
+    }
+
+    public function testAUserWithWriteAccessGetsTheFormWithoutCssAndJavaScript()
+    {
+        $id = API::getInstance()->insertExperiment(1, 'no code', '', '', '2024-03-01', '2024-03-31', [['changes' => [['selector' => '.ad', 'action' => 'hide']]]]);
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        $_GET = ['idSite' => '1'];
+        $create = (new GetABTesting())->render();
+        $this->assertStringContainsString('name="variants[0][changes][0][selector]"', $create);
+        $this->assertStringNotContainsString('[css]', $create);
+        $this->assertStringNotContainsString('[js]', $create);
+
+        $list = (new GetExperiments())->render();
+        $this->assertSame(1, substr_count($list, 'action=editExperimentForm'));
+        $this->assertStringContainsString('action=editExperimentForm&amp;idSite=1&amp;period=day&amp;date=yesterday&amp;id=' . $id . '"', $list);
+        $this->assertSame(2, substr_count($list, 'action=delete'));
+
+        $_GET = ['idSite' => '1', 'id' => (string) $id];
+        $edit = (new Controller())->editExperimentForm();
+        $this->assertStringContainsString('<option value="hide" selected>', $edit);
+        $this->assertStringNotContainsString('[js]', $edit);
     }
 
     public function testEachExperimentHasAPageInTheMenuOfItsWebsite()
@@ -387,9 +422,14 @@ class ControllerTest extends IntegrationTestCase
             'traffic_share' => '25',
             'target_match' => 'starts_with',
             'target_value' => 'https://example.org/shop',
-            'primary_goal' => (string) $this->idGoal,
+            'primary_measure' => 'goal:' . $this->idGoal,
+            'primary_measure_category' => 'left over from another choice',
+            'guardrail_0' => '',
+            'guardrail_1' => 'event',
+            'guardrail_1_category' => 'Video',
+            'guardrail_1_action' => 'Play',
             'variants' => [
-                ['name' => 'One', 'css' => '', 'js' => "// two\nlines('<b>')"],
+                ['name' => 'One', 'css' => '', 'js' => "// two\nlines('<b>')", 'changes' => [['selector' => '.buy', 'action' => 'add_class', 'value' => 'green'], ['selector' => '', 'action' => 'text', 'value' => '']]],
                 ['name' => '', 'css' => 'b{}', 'js' => ''],
             ],
         ];

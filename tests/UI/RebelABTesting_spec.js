@@ -42,6 +42,22 @@ describe('RebelABTesting', function () {
         expect(await text('.rebelABTestingVariantNumber')).to.equal('1 | 2');
     });
 
+    it('should add and remove the changes of a variant', async function () {
+        const names = () => page.evaluate(() => [...document.querySelectorAll('.rebelABTestingVariant:nth-child(2) .rebelABTestingChange input[name$="[selector]"]')]
+            .map((field) => `${field.name}=${field.value}`));
+
+        await page.type('input[name="variants[1][changes][0][selector]"]', 'h1');
+        await page.evaluate(() => document.querySelector('.rebelABTestingVariant:nth-child(2) .rebelABTestingAddChange').click());
+        await page.type('input[name="variants[1][changes][1][selector]"]', '.banner');
+        expect(await names()).to.deep.equal(['variants[1][changes][0][selector]=h1', 'variants[1][changes][1][selector]=.banner']);
+
+        await page.evaluate(() => document.querySelector('.rebelABTestingVariant:nth-child(2) .rebelABTestingRemoveChange').click());
+        expect(await names()).to.deep.equal(['variants[1][changes][0][selector]=.banner']);
+
+        await page.evaluate(() => document.querySelector('.rebelABTestingVariant:nth-child(2) .rebelABTestingRemoveChange').click());
+        expect(await names()).to.deep.equal(['variants[1][changes][0][selector]=']);
+    });
+
     it('should show the fields of the kind of experiment', async function () {
         const visible = (selector) => page.evaluate((s) => document.querySelector(s).offsetParent !== null, selector);
 
@@ -55,6 +71,19 @@ describe('RebelABTesting', function () {
 
         await page.select('#kind', 'ab');
         expect(await visible('#door_label')).to.equal(false);
+    });
+
+    it('should ask for the category of an event only when an event is chosen', async function () {
+        const visible = (selector) => page.evaluate((s) => document.querySelector(s).offsetParent !== null, selector);
+
+        expect(await visible('#primary_measure_category')).to.equal(false);
+
+        await page.select('#primary_measure', 'event');
+        expect(await visible('#primary_measure_category')).to.equal(true);
+        expect(await visible('#guardrail_0_category')).to.equal(false);
+
+        await page.select('#primary_measure', 'goal:1');
+        expect(await visible('#primary_measure_category')).to.equal(false);
     });
 
     it('should tell how long to run the experiment', async function () {
@@ -75,6 +104,9 @@ describe('RebelABTesting', function () {
             document.querySelector('#target_value').value = '/pricing';
         });
         await page.type('input[name="variants[0][name]"]', 'Green');
+        await page.type('input[name="variants[0][changes][0][selector]"]', '.buy');
+        await page.select('select[name="variants[0][changes][0][action]"]', 'add_class');
+        await page.type('input[name="variants[0][changes][0][value]"]', 'green');
         await page.type('textarea[name="variants[0][css]"]', '.btn { background: green; }');
         await page.type('textarea[name="variants[1][js]"]', "// second\ndocument.title = 'B';");
         await submit('.rebelABTestingForm input[type=submit]');
@@ -99,6 +131,8 @@ describe('RebelABTesting', function () {
 
         expect(await text('.rebelABTestingPlugin h2')).to.equal('Green button');
         expect(await text('.rebelABTestingTable:first-of-type tbody td:first-child')).to.equal('Original | Green | Variant 2');
+        expect(await text('.rebelABTestingMeasureTable-primary tbody td:first-child')).to.equal('Original | Green | Variant 2');
+        expect(await text('h3.form-section-title')).to.contain('Judged by: Goal: Thanks page');
         expect(await count('a[href*="#rabt-preview=1-"]')).to.equal(3);
     });
 
@@ -110,6 +144,8 @@ describe('RebelABTesting', function () {
 
         expect(await page.evaluate(() => document.querySelector('textarea[name="variants[1][js]"]').value)).to.equal("// second\ndocument.title = 'B';");
         expect(await page.evaluate(() => document.querySelector('#target_match').value)).to.equal('contains');
+        expect(await page.evaluate(() => ['selector', 'action', 'value']
+            .map((field) => document.querySelector(`[name="variants[0][changes][0][${field}]"]`).value))).to.deep.equal(['.buy', 'add_class', 'green']);
 
         await page.evaluate(() => { document.querySelector('.rebelABTestingForm #name').value = 'Greener button'; });
         await submit('.rebelABTestingForm input[type=submit]');

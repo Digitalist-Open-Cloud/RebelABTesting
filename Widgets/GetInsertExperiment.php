@@ -21,12 +21,12 @@ class GetInsertExperiment extends Widget
         $config->setSubcategoryId('RebelABTesting_InsertExperiment');
         $config->setName('RebelABTesting_InsertExperiment');
         $config->setOrder(99);
-        $config->setIsEnabled(Controller::getAdminSite() > 0);
+        $config->setIsEnabled(Controller::getWriteSite() > 0);
     }
 
     public function render()
     {
-        Controller::checkAdminSite();
+        Controller::checkWriteSite();
 
         return $this->renderTemplate('insert');
     }

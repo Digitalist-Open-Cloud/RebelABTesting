@@ -33,6 +33,20 @@ final class StatisticsTest extends TestCase
         $this->assertEqualsWithDelta(0.767, Statistics::chanceToBeat(1000, 100, 1000, 110), 0.001);
     }
 
+    public function testAHigherAverageIsFoundWhenTheAmountsDiffer(): void
+    {
+        // 100 visits each, amounts 10 and 20 in turn against 20 and 30 in turn: averages 15 and 25.
+        $this->assertGreaterThan(0.999, Statistics::chanceOfHigherAverage(100, 1500, 25000, 100, 2500, 65000));
+        $this->assertLessThan(0.001, Statistics::chanceOfHigherAverage(100, 2500, 65000, 100, 1500, 25000));
+        $this->assertEqualsWithDelta(0.5, Statistics::chanceOfHigherAverage(100, 1500, 25000, 100, 1500, 25000), 0.0001);
+    }
+
+    public function testNothingIsSaidAboutAveragesOfFewVisitsOrWithoutAmounts(): void
+    {
+        $this->assertNull(Statistics::chanceOfHigherAverage(29, 1500, 25000, 100, 2500, 65000));
+        $this->assertNull(Statistics::chanceOfHigherAverage(100, 0, 0, 100, 0, 0));
+    }
+
     /**
      * @dataProvider getSplits
      * @param int[] $visitors

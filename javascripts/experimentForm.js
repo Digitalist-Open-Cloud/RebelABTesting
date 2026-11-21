@@ -41,6 +41,11 @@
             variant.querySelectorAll('[name]').forEach(function (field) {
                 field.name = field.name.replace(/^variants\[\d+\]/, 'variants[' + index + ']');
             });
+            variant.querySelectorAll('.rebelABTestingChange').forEach(function (change, changeIndex) {
+                change.querySelectorAll('[name]').forEach(function (field) {
+                    field.name = field.name.replace(/\[changes\]\[\d+\]/, '[changes][' + changeIndex + ']');
+                });
+            });
             variant.querySelector('.rebelABTestingRemoveVariant').hidden = variants.length === 1;
         });
 
@@ -69,28 +74,66 @@
             : planner.dataset.unknown;
     }
 
+    // The category and action of an event are only asked for when an event is chosen.
+    function showEventFields(form) {
+        form.querySelectorAll('.rebelABTestingMeasure').forEach(function (measure) {
+            var isEvent = measure.querySelector('select').value === 'event';
+            measure.querySelectorAll('.rebelABTestingMeasureEvent').forEach(function (field) {
+                field.hidden = !isEvent;
+            });
+        });
+    }
+
     function refresh(form) {
         showKind(form);
+        showEventFields(form);
         plan(form);
     }
 
+    function clear(element) {
+        element.querySelectorAll('input, textarea').forEach(function (field) {
+            field.value = '';
+        });
+        element.querySelectorAll('select').forEach(function (field) {
+            field.selectedIndex = 0;
+        });
+    }
+
     document.addEventListener('click', function (event) {
-        var button = event.target instanceof Element ? event.target.closest('.rebelABTestingAddVariant, .rebelABTestingRemoveVariant') : null;
+        var button = event.target instanceof Element
+            ? event.target.closest('.rebelABTestingAddVariant, .rebelABTestingRemoveVariant, .rebelABTestingAddChange, .rebelABTestingRemoveChange')
+            : null;
         if (!button) {
             return;
         }
 
         var form = button.closest('.rebelABTestingForm');
         var list = form.querySelector('.rebelABTestingVariants');
+        var changes;
+        var copy;
 
         if (button.classList.contains('rebelABTestingAddVariant')) {
-            var copy = list.lastElementChild.cloneNode(true);
-            copy.querySelectorAll('input, textarea').forEach(function (field) {
-                field.value = '';
+            copy = list.lastElementChild.cloneNode(true);
+            copy.querySelectorAll('.rebelABTestingChange:not(:first-child)').forEach(function (change) {
+                change.remove();
             });
+            clear(copy);
             list.appendChild(copy);
-        } else {
+        } else if (button.classList.contains('rebelABTestingRemoveVariant')) {
             button.closest('.rebelABTestingVariant').remove();
+        } else if (button.classList.contains('rebelABTestingAddChange')) {
+            changes = button.closest('.rebelABTestingVariant').querySelector('.rebelABTestingChanges');
+            copy = changes.lastElementChild.cloneNode(true);
+            clear(copy);
+            changes.appendChild(copy);
+        } else {
+            changes = button.closest('.rebelABTestingChanges');
+            // The last row stays, empty, so that there is one to fill in.
+            if (changes.children.length === 1) {
+                clear(changes.firstElementChild);
+            } else {
+                button.closest('.rebelABTestingChange').remove();
+            }
         }
 
         renumber(list);

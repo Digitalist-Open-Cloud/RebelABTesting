@@ -19,7 +19,7 @@ use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 class ExperimentsTest extends IntegrationTestCase
 {
     private const JS = "// greet\nif (a < b && c > \"d\") { alert('hi'); }";
-    private const VARIANT = ['name' => '', 'css' => '', 'js' => ''];
+    private const VARIANT = ['name' => '', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New']], 'css' => '', 'js' => ''];
 
     /**
      * @var API
@@ -52,11 +52,12 @@ class ExperimentsTest extends IntegrationTestCase
 
     public function testAnExperimentIsStoredAndReadAsItWasWritten()
     {
-        $variants = [['name' => 'Green', 'css' => 'h1 > a { color: green; }', 'js' => self::JS], ['name' => '', 'css' => '', 'js' => 'b()']];
+        $changes = [['selector' => 'h1 > a', 'action' => 'text', 'value' => 'Buy "now" & <save>'], ['selector' => '.ad', 'action' => 'hide', 'value' => '']];
+        $variants = [['name' => 'Green', 'changes' => $changes, 'css' => 'h1 > a { color: green; }', 'js' => self::JS], ['name' => '', 'changes' => [], 'css' => '', 'js' => 'b()']];
 
         $idGoal = GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
 
-        $id = $this->api->insertExperiment(1, 'Button, spring', 'We think "green" wins', 'About <the> button', '2024-03-01', '2024-03-31', $variants, 20, 'contains', ' /pricing ', (string) $idGoal);
+        $id = $this->api->insertExperiment(1, 'Button, spring', 'We think "green" wins', 'About <the> button', '2024-03-01', '2024-03-31', $variants, 20, 'contains', ' /pricing ', ['type' => 'goal', 'idgoal' => $idGoal, 'category' => 'ignored'], 'ab', [], [['type' => 'bounce'], ['type' => 'event', 'category' => ' Video ', 'action' => 'Play'], ['type' => 'bounce'], ['type' => 'search']]);
 
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertRegExpCompat('/^[0-9a-f]{32}$/', $experiment['preview_token']);
@@ -74,30 +75,45 @@ class ExperimentsTest extends IntegrationTestCase
             'target_match' => 'contains',
             'target_value' => '/pricing',
             'variants' => $variants,
-            'primary_goal' => $idGoal,
+            'primary_measure' => ['type' => 'goal', 'idgoal' => $idGoal],
+            'guardrails' => [['type' => 'bounce'], ['type' => 'event', 'category' => 'Video', 'action' => 'Play']],
             'kind' => 'ab',
             'door' => null,
             'status' => 'running',
         ], $experiment);
     }
 
-    public function testThePrimaryGoalCanBeEcommerceOrdersOrNone()
+    /**
+     * @dataProvider getMeasures
+     */
+    public function testAnExperimentCanBeJudgedBy(array $given, ?array $stored)
     {
-        $orders = $this->api->insertExperiment(1, 'orders', '', '', '2024-03-01', '2024-03-31', [self::VARIANT], 100, 'any', '', 'ecommerceOrder');
-        $none = $this->add(1, 'none', '2024-03-01', '2024-03-31');
+        $id = $this->api->insertExperiment(1, 'judged', '', '', '2024-03-01', '2024-03-31', [self::VARIANT], 100, 'any', '', $given);
 
-        $this->assertSame(0, $this->api->getExperiment($orders, 1)['primary_goal']);
-        $this->assertNull($this->api->getExperiment($none, 1)['primary_goal']);
+        $this->assertSame($stored, $this->api->getExperiment($id, 1)['primary_measure']);
+    }
+
+    public function getMeasures(): array
+    {
+        return [
+            'nothing' => [[], null],
+            'orders' => [['type' => 'orders'], ['type' => 'orders']],
+            'revenue' => [['type' => 'revenue', 'idgoal' => 4], ['type' => 'revenue']],
+            'bounces' => [['type' => 'bounce'], ['type' => 'bounce']],
+            'site search' => [['type' => 'search'], ['type' => 'search']],
+            'an event of a category' => [['type' => 'event', 'category' => 'Video'], ['type' => 'event', 'category' => 'Video', 'action' => '']],
+            'an event of a category and action' => [['type' => 'event', 'category' => 'Video', 'action' => ' Play '], ['type' => 'event', 'category' => 'Video', 'action' => 'Play']],
+        ];
     }
 
     public function testAFakeDoorIsStoredWithoutVariantsAndPrimaryGoal()
     {
         $door = ['selector' => '#menu', 'position' => 'append', 'element' => 'link', 'label' => 'Compare <plans>', 'css_class' => 'nav-link', 'message' => 'Coming "soon"'];
 
-        $id = $this->api->insertExperiment(1, 'door', '', '', '2024-03-01', '2024-03-31', [['js' => 'ignored()']], 100, 'any', '', '', 'fake_door', $door);
+        $id = $this->api->insertExperiment(1, 'door', '', '', '2024-03-01', '2024-03-31', [['js' => 'ignored()']], 100, 'any', '', ['type' => 'bounce'], 'fake_door', $door, [['type' => 'bounce']]);
 
         $experiment = $this->api->getExperiment($id, 1);
-        $this->assertSame(['fake_door', $door, [], null], [$experiment['kind'], $experiment['door'], $experiment['variants'], $experiment['primary_goal']]);
+        $this->assertSame(['fake_door', $door, [], null, []], [$experiment['kind'], $experiment['door'], $experiment['variants'], $experiment['primary_measure'], $experiment['guardrails']]);
     }
 
     public function testEachExperimentHasItsOwnSecretForPreviews()
@@ -126,6 +142,7 @@ class ExperimentsTest extends IntegrationTestCase
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertSame(['link', '2024-03-05', '2024-04-05', 50, 'equals'], [$experiment['name'], $experiment['from_date'], $experiment['to_date'], $experiment['traffic_share'], $experiment['target_match']]);
         $this->assertSame(['a{}', ''], array_column($experiment['variants'], 'css'));
+        $this->assertSame([[], []], array_column($experiment['variants'], 'changes'));
     }
 
     public function testAnExperimentIsDeleted()
@@ -175,12 +192,12 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAnInvalidExperimentIsRefused(array $change, string $message)
     {
         $this->add(1, 'running', '2024-03-01', '2024-03-31');
-        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => '', 'goal' => '', 'kind' => 'ab', 'door' => []];
+        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => '', 'measure' => [], 'kind' => 'ab', 'door' => []];
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage($message);
 
-        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value'], $experiment['goal'], $experiment['kind'], $experiment['door']);
+        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value'], $experiment['measure'], $experiment['kind'], $experiment['door']);
     }
 
     public function getInvalidExperiments(): array
@@ -191,13 +208,16 @@ class ExperimentsTest extends IntegrationTestCase
             'not a date' => [['from' => 'tomorrow'], 'YYYY-MM-DD'],
             'last day first' => [['from' => '2024-06-01'], 'must not be after'],
             'no variants' => [['variants' => []], 'between 1 and 10 variants'],
+            'a link that runs code' => [['variants' => [['changes' => [['selector' => 'a', 'action' => 'link', 'value' => 'javascript:x()']]]]], 'A change needs'],
             'no visitors' => [['share' => 0], 'between 1 and 100'],
             'unknown comparison' => [['match' => 'sounds_like', 'value' => 'x'], 'Unknown way'],
             'nothing to compare with' => [['match' => 'contains'], 'address to compare'],
-            'a goal the website does not have' => [['goal' => '99'], 'not a goal of this website'],
+            'a goal the website does not have' => [['measure' => ['type' => 'goal', 'idgoal' => 99]], 'A measure is'],
+            'an event without a category' => [['measure' => ['type' => 'event', 'action' => 'Play']], 'A measure is'],
+            'an unknown measure' => [['measure' => ['type' => 'happiness']], 'A measure is'],
             'an unknown kind' => [['kind' => 'survey'], 'Unknown kind'],
             'a fake door without its fields' => [['kind' => 'fake_door', 'door' => ['label' => 'Export']], 'A fake door needs'],
-            'a goal that is not a number' => [['goal' => '1 OR 1'], 'not a goal of this website'],
+            'a goal that is not a number' => [['measure' => ['type' => 'goal', 'idgoal' => '1 OR 1']], 'A measure is'],
         ];
     }
 
@@ -212,7 +232,7 @@ class ExperimentsTest extends IntegrationTestCase
     /**
      * @dataProvider getAdminMethods
      */
-    public function testOnlyAnAdminOfTheWebsiteCanReadAndChangeItsExperiments(string $method, array $parameters)
+    public function testOnlyAUserWhoCanWriteToTheWebsiteCanReadAndChangeItsExperiments(string $method, array $parameters)
     {
         $id = $this->add(2, 'theirs', '2024-03-01', '2024-03-31');
         FakeAccess::clearAccess(false, [1], [2]);
@@ -240,6 +260,67 @@ class ExperimentsTest extends IntegrationTestCase
         ];
     }
 
+    public function testAUserWithWriteAccessCanRunExperimentsWithoutCode()
+    {
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        $id = $this->add(1, 'no code', '2024-03-01', '2024-03-31');
+        $this->api->updateExperiment($id, 1, 'still no code', '', '', '2024-03-01', '2024-03-31', [['changes' => [['selector' => '.ad', 'action' => 'hide']]]]);
+        $door = $this->api->insertExperiment(1, 'door', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', [], 'fake_door', ['selector' => '#menu', 'label' => 'Export', 'message' => 'Soon']);
+        $this->api->stopExperiment($door, 1);
+        $this->api->deleteExperiment($door, 1);
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['still no code', 'hide'], [$experiment['name'], $experiment['variants'][0]['changes'][0]['action']]);
+        $this->assertCount(1, $this->api->getExperiments(1));
+    }
+
+    /**
+     * @dataProvider getCode
+     */
+    public function testCssAndJavaScriptNeedAdminAccess(array $variant)
+    {
+        $id = $this->add(1, 'no code', '2024-03-01', '2024-03-31');
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        foreach (['insert' => [1, 'code', '', '', '2024-05-01', '2024-05-31', [$variant]], 'update' => [$id, 1, 'code', '', '', '2024-03-01', '2024-03-31', [self::VARIANT, $variant]]] as $action => $parameters) {
+            try {
+                $this->api->{$action . 'Experiment'}(...$parameters);
+                $this->fail("The $action was not refused.");
+            } catch (NoAccessException $e) {
+                $this->addToAssertionCount(1);
+            }
+        }
+
+        FakeAccess::clearAccess(false, [1]);
+        $this->assertGreaterThan(0, $this->api->insertExperiment(1, 'code', '', '', '2024-05-01', '2024-05-31', [$variant]));
+        $this->assertSame(['no code', 'code'], array_column($this->api->getExperiments(1), 'name'));
+    }
+
+    public function getCode(): array
+    {
+        return [
+            'JavaScript' => [['js' => 'x()']],
+            'CSS' => [['css' => 'a{}']],
+        ];
+    }
+
+    public function testAnExperimentWithCodeIsOnlyChangedByAnAdmin()
+    {
+        $id = $this->api->insertExperiment(1, 'code', '', '', '2024-03-01', '2024-03-31', [['js' => 'x()']]);
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        try {
+            $this->api->updateExperiment($id, 1, 'mine now', '', '', '2024-03-01', '2024-03-31', [self::VARIANT]);
+            $this->fail('The update was not refused.');
+        } catch (NoAccessException $e) {
+        }
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['code', 'x()'], [$experiment['name'], $experiment['variants'][0]['js']]);
+        $this->assertTrue($this->api->getExperiments(1)[0]['has_code']);
+    }
+
     public function testAnExperimentCannotBeChangedThroughAnotherWebsite()
     {
         $id = $this->add(2, 'theirs', '2024-03-01', '2024-03-31');
@@ -261,7 +342,7 @@ class ExperimentsTest extends IntegrationTestCase
         FakeAccess::clearAccess(false, [], [1]);
 
         $this->assertSame(
-            [['id' => $id, 'idsite' => 1, 'name' => 'button', 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'kind' => 'ab', 'status' => 'running']],
+            [['id' => $id, 'idsite' => 1, 'name' => 'button', 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'kind' => 'ab', 'status' => 'running', 'has_code' => false]],
             $this->api->getExperiments(1)
         );
     }

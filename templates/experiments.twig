@@ -13,7 +13,7 @@
                             <th>{{ 'RebelABTesting_ListStatus'|translate }}</th>
                             <th>{{ 'RebelABTesting_FormFromDate'|translate }}</th>
                             <th>{{ 'RebelABTesting_FormToDate'|translate }}</th>
-                            {% if isAdmin %}<th>{{ 'RebelABTesting_ListActions'|translate }}</th>{% endif %}
+                            {% if canWrite %}<th>{{ 'RebelABTesting_ListActions'|translate }}</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -25,9 +25,11 @@
                             <td><span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span></td>
                             <td>{{ experiment.from_date }}</td>
                             <td>{{ experiment.to_date }}</td>
-                            {% if isAdmin %}
+                            {% if canWrite %}
                             <td class="actions-cell">
+                                {% if canUseCode or not experiment.has_code %}
                                 <a class="btn" href="{{ editUrl }}&amp;id={{ experiment.id }}">{{ 'General_Edit'|translate }}</a>
+                                {% endif %}
                                 {% if experiment.status == 'running' %}
                                 <form method="post" action="{{ stopUrl }}">
                                     <input type="hidden" name="nonce" value="{{ nonce }}">
