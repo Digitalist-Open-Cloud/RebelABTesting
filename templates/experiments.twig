@@ -7,12 +7,12 @@
                 <table class="rebelABTestingTable">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>From Date</th>
-                            <th>To Date</th>
+                            <th>{{ 'General_Name'|translate }}</th>
+                            <th>{{ 'RebelABTesting_FormFromDate'|translate }}</th>
+                            <th>{{ 'RebelABTesting_FormToDate'|translate }}</th>
                             <th>CSS</th>
                             <th>JavaScript</th>
-                            <th>Actions</th>
+                            <th>{{ 'RebelABTesting_ListActions'|translate }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -24,11 +24,11 @@
                             <td class="code-cell"><span title="{{ experiment.css_insert }}">{{ experiment.css_insert }}</span></td>
                             <td class="code-cell"><span title="{{ experiment.js_insert }}">{{ experiment.js_insert }}</span></td>
                             <td class="actions-cell">
-                                <a class="btn" href="{{ editUrl }}&amp;id={{ experiment.id }}">Edit</a>
+                                <a class="btn" href="{{ editUrl }}&amp;id={{ experiment.id }}">{{ 'General_Edit'|translate }}</a>
                                 <form method="post" action="{{ deleteUrl }}">
                                     <input type="hidden" name="nonce" value="{{ nonce }}">
                                     <input type="hidden" name="id" value="{{ experiment.id }}">
-                                    <button type="submit" class="btn btn-delete">Delete</button>
+                                    <button type="submit" class="btn btn-delete">{{ 'General_Delete'|translate }}</button>
                                 </form>
                             </td>
                         </tr>
@@ -37,7 +37,7 @@
                 </table>
             </div>
             {% else %}
-            <div class="alert">No experiments for this website.</div>
+            <div class="alert">{{ 'RebelABTesting_ListEmpty'|translate }}</div>
             {% endif %}
         </div>
     </div>

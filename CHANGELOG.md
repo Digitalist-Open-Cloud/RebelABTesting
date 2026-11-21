@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-The plugin is renamed from SimpleABTesting to RebelABTesting. See "Coming from SimpleABTesting" in
-the README.
+The plugin is renamed from SimpleABTesting to RebelABTesting. It is a new plugin to Matomo and does
+not take over data of SimpleABTesting.
 
 ### Security
 
@@ -31,7 +31,8 @@ the README.
 - The database tables are `rebel_ab_testing_experiments` and `rebel_ab_testing_log`.
 - The plugin needs PHP 8.2 or newer.
 - `insertExperiment` returns the ID of the experiment.
-- The API hands out and takes texts as they were written, without HTML encoding.
+- Texts of an experiment are stored, taken and handed out as they were written, without HTML
+  encoding.
 - The menu has its own icon, and the icon font is removed.
 - The segments for the experiment name and category are removed.
 
