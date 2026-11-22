@@ -17,6 +17,9 @@ final class ExperimentValidator
     public const MATCH_ANY = 'any';
     public const MATCHES = [self::MATCH_ANY, 'equals', 'contains', 'starts_with', 'regexp'];
     public const MAX_VARIANTS = 10;
+    public const EXCLUDE_NONE = 'none';
+    public const EXCLUDES = [self::EXCLUDE_NONE, 'equals', 'contains', 'starts_with', 'regexp'];
+    public const CONFIDENCES = [90, 95, 99];
 
     public const KIND_AB = 'ab';
     public const KIND_FAKE_DOOR = 'fake_door';
@@ -70,6 +73,26 @@ final class ExperimentValidator
         }
 
         return null;
+    }
+
+    /**
+     * The pages an experiment leaves out, among the pages it runs on.
+     */
+    public static function validateExclude(string $match, string $value): ?string
+    {
+        if (!in_array($match, self::EXCLUDES, true)) {
+            return 'RebelABTesting_ErrorTargetMatch';
+        }
+        if ($match !== self::EXCLUDE_NONE && ($value === '' || mb_strlen($value) > self::TARGET_MAX_LENGTH)) {
+            return 'RebelABTesting_ErrorTargetValue';
+        }
+
+        return null;
+    }
+
+    public static function validateConfidence(int $percent): ?string
+    {
+        return in_array($percent, self::CONFIDENCES, true) ? null : 'RebelABTesting_ErrorConfidence';
     }
 
     /**

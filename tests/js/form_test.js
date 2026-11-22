@@ -15,6 +15,13 @@ Deno.test("a difference twice as large needs about a quarter of the visits", () 
   assertEquals(requiredVisits(0.05, 0.20), 6424);
 });
 
+Deno.test("being surer needs more visits, and being less sure fewer", () => {
+  // (2.3263 + 0.8416)^2 = 10.0356 and (1.2816 + 0.8416)^2 = 4.5080, times 3979
+  assertEquals(requiredVisits(0.05, 0.10, 99), 39932);
+  assertEquals(requiredVisits(0.05, 0.10, 90), 17938);
+  assertEquals(requiredVisits(0.05, 0.10, 95), requiredVisits(0.05, 0.10));
+});
+
 Deno.test("nothing is said for numbers that cannot be", () => {
   for (const [rate, effect] of [[0, 0.1], [1, 0.1], [0.6, 0.8], [0.05, 0], [NaN, 0.1], [0.05, NaN]]) {
     assertEquals(requiredVisits(rate, effect), null);

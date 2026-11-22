@@ -177,8 +177,13 @@ describe('RebelABTesting', function () {
         });
         expect(mask).to.contain('svg');
 
-        await page.goto(pageUrl('1'));
-        await page.waitForSelector('.rebelABTestingPlugin h2', { visible: true });
+        // The name of an experiment in the list leads to its page.
+        await page.click('.rebelABTestingTable tbody td a');
+        await page.waitForFunction(() => {
+            const heading = document.querySelector('.rebelABTestingPlugin h2');
+            return heading && heading.textContent === 'Green button';
+        });
+        expect(page.url()).to.match(/subcategory=\d+$/);
         await page.waitForNetworkIdle();
 
         expect(await text('.rebelABTestingPlugin h2')).to.equal('Green button');

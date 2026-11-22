@@ -39,6 +39,21 @@ not take over data of SimpleABTesting.
   an element the page already has.
 - The tag takes the address of Matomo with a path, for a Matomo that is installed in a directory.
 - A test website in `tests/site` to try experiments on.
+- More to judge an experiment by: the revenue of a goal, total revenue, visits that reach any goal,
+  page views per visit and the length of a visit.
+- A chart on the page of an experiment shows how the primary measure of each variant developed.
+- The segment chosen in Matomo limits the result of an experiment to its visits.
+- An experiment can leave out pages, and say how sure to be before a variant is called better or
+  worse: 90, 95 or 99%.
+- Templates fill in the changes of a variant for the things that are tested most.
+- A variant can send the visitor to another page, for a test between two pages.
+- Changes to experiments go through Matomo's API events, which RebelAuditLog logs.
+- The list of experiments shows what the primary measure of each says so far, and the name of an
+  experiment leads to its page.
+- The one who adds an experiment can get an email when a variant is found better or worse, and when
+  the experiment has ended.
+- A variant is compared with the original also when one of them has no visit with the outcome at
+  all.
 - Swedish translation.
 
 ### Security

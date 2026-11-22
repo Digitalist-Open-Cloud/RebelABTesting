@@ -41,12 +41,18 @@ class Experiments
             `traffic_share` TINYINT UNSIGNED NOT NULL DEFAULT 100,
             `target_match` VARCHAR(20) NOT NULL DEFAULT 'any',
             `target_value` TEXT,
+            `exclude_match` VARCHAR(20) NOT NULL DEFAULT 'none',
+            `exclude_value` TEXT,
+            `confidence` TINYINT UNSIGNED NOT NULL DEFAULT 95,
             `variants` MEDIUMTEXT NOT NULL,
             `primary_measure` TEXT,
             `guardrails` TEXT,
             `kind` VARCHAR(20) NOT NULL DEFAULT 'ab',
             `door` TEXT,
             `preview_token` CHAR(32) NOT NULL,
+            `created_by` VARCHAR(100) NOT NULL DEFAULT '',
+            `notify` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+            `notified` VARCHAR(40) NOT NULL DEFAULT '',
             PRIMARY KEY (`id`),
             UNIQUE KEY `unique_name` (`idsite`, `name`)
         ");
@@ -59,13 +65,15 @@ class Experiments
 
     /**
      * @param array<string, mixed> $experiment name, hypothesis, description, from_date, to_date,
-     *                                         traffic_share, target_match, target_value, variants
+     *                                         traffic_share, target_match, target_value,
+     *                                         exclude_match, exclude_value, confidence, variants
      *                                         primary_measure, guardrails, kind and door
      */
     public function insertExperiment(int $idSite, array $experiment): int
     {
         $values = $this->getValidValues($experiment);
         $values['preview_token'] = bin2hex(random_bytes(16));
+        $values['created_by'] = Piwik::getCurrentUserLogin();
 
         $this->write(
             'INSERT INTO `' . $this->table() . '` (idsite, `' . implode('`, `', array_keys($values)) . '`) VALUES (?' . str_repeat(',?', count($values)) . ')',
@@ -97,6 +105,29 @@ class Experiments
             'UPDATE `' . $this->table() . '` SET stopped_at = ? WHERE id = ? AND idsite = ? AND stopped_at IS NULL',
             [Date::now()->getDatetime(), $id, $idSite]
         );
+    }
+
+    /**
+     * The experiments whose creator wants to hear about their result and has not heard the last of it.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getAllToNotify(): array
+    {
+        $rows = Db::fetchAll('SELECT * FROM `' . $this->table() . "` WHERE notify = 1 AND created_by != '' AND notified != ? AND from_date <= ? ORDER BY id", [
+            self::STATUS_ENDED,
+            Date::now()->toString(),
+        ]);
+
+        return array_map([self::class, 'enrich'], $rows);
+    }
+
+    /**
+     * @param string $state what the creator of the experiment was told last
+     */
+    public function setNotified(int $id, string $state): void
+    {
+        Db::query('UPDATE `' . $this->table() . '` SET notified = ? WHERE id = ?', [$state, $id]);
     }
 
     public function deleteExperiment(int $id, int $idSite): void
@@ -161,6 +192,9 @@ class Experiments
         $row['primary_measure'] = $row['primary_measure'] === null ? null : json_decode($row['primary_measure'], true);
         $row['guardrails'] = json_decode((string) $row['guardrails'], true) ?: [];
         $row['target_value'] = (string) $row['target_value'];
+        $row['exclude_value'] = (string) $row['exclude_value'];
+        $row['confidence'] = (int) $row['confidence'];
+        $row['notify'] = (bool) $row['notify'];
         $row['variants'] = ExperimentValidator::normalizeVariants(json_decode($row['variants'], true));
         $row['door'] = $row['door'] === null ? null : json_decode($row['door'], true);
         $row['status'] = self::getStatus($row, Date::now()->getTimestamp());
@@ -203,6 +237,10 @@ class Experiments
             'traffic_share' => (int) ($experiment['traffic_share'] ?? 100),
             'target_match' => (string) ($experiment['target_match'] ?? ExperimentValidator::MATCH_ANY),
             'target_value' => trim((string) ($experiment['target_value'] ?? '')),
+            'exclude_match' => (string) ($experiment['exclude_match'] ?? ExperimentValidator::EXCLUDE_NONE),
+            'exclude_value' => trim((string) ($experiment['exclude_value'] ?? '')),
+            'confidence' => (int) ($experiment['confidence'] ?? 95),
+            'notify' => empty($experiment['notify']) ? 0 : 1,
             'primary_measure' => empty($experiment['primary_measure']) ? null : json_encode($experiment['primary_measure']),
             'guardrails' => json_encode($experiment['guardrails'] ?? []),
         ];
@@ -225,6 +263,8 @@ class Experiments
             ?? ExperimentValidator::validateDates($values['from_date'], $values['to_date'])
             ?? ExperimentValidator::validateTrafficShare($values['traffic_share'])
             ?? ExperimentValidator::validateTarget($values['target_match'], $values['target_value'])
+            ?? ExperimentValidator::validateExclude($values['exclude_match'], $values['exclude_value'])
+            ?? ExperimentValidator::validateConfidence($values['confidence'])
             ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelABTesting_ErrorKind')
             ?? $kindError;
 
@@ -234,6 +274,9 @@ class Experiments
 
         if ($values['target_match'] === ExperimentValidator::MATCH_ANY) {
             $values['target_value'] = '';
+        }
+        if ($values['exclude_match'] === ExperimentValidator::EXCLUDE_NONE) {
+            $values['exclude_value'] = '';
         }
         $values['variants'] = json_encode($variants);
         $values['kind'] = $kind;

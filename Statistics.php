@@ -15,7 +15,7 @@ namespace Piwik\Plugins\RebelABTesting;
 final class Statistics
 {
     private const MIN_VISITS = 30;
-    private const MIN_OF_EACH_OUTCOME = 5;
+    private const MIN_EXPECTED_OF_EACH_OUTCOME = 5;
 
     /**
      * How likely it is that the variant converts better than the original, from 0 to 1. Null when
@@ -25,15 +25,23 @@ final class Statistics
      */
     public static function chanceToBeat(int $originalVisits, int $originalConverted, int $variantVisits, int $variantConverted): ?float
     {
-        foreach ([[$originalVisits, $originalConverted], [$variantVisits, $variantConverted]] as [$visits, $converted]) {
-            if ($visits < self::MIN_VISITS || $converted < self::MIN_OF_EACH_OUTCOME || $visits - $converted < self::MIN_OF_EACH_OUTCOME) {
-                return null;
-            }
+        if ($originalVisits < self::MIN_VISITS || $variantVisits < self::MIN_VISITS) {
+            return null;
+        }
+        // The test holds when each group would have a handful of visits that convert, and that do not,
+        // if the two converted alike. A group of its own may have none: that is a difference too.
+        $converting = ($originalConverted + $variantConverted) / ($originalVisits + $variantVisits);
+        $smallest = min($originalVisits, $variantVisits);
+        if ($smallest * $converting < self::MIN_EXPECTED_OF_EACH_OUTCOME || $smallest * (1 - $converting) < self::MIN_EXPECTED_OF_EACH_OUTCOME) {
+            return null;
         }
 
         $original = $originalConverted / $originalVisits;
         $variant = $variantConverted / $variantVisits;
         $error = sqrt($original * (1 - $original) / $originalVisits + $variant * (1 - $variant) / $variantVisits);
+        if ($error <= 0.0) {
+            return null;
+        }
 
         return self::normalDistribution(($variant - $original) / $error);
     }
@@ -57,7 +65,15 @@ final class Statistics
             + max(0, $variantSquares / $variantVisits - $variant ** 2) / ($variantVisits - 1)
         );
 
-        return $error > 0 ? self::normalDistribution(($variant - $original) / $error) : null;
+        if ($error > 0) {
+            return self::normalDistribution(($variant - $original) / $error);
+        }
+        // Every visit of a variant has the same amount. Then the variants differ for sure, or not at all.
+        if ($variant === $original) {
+            return null;
+        }
+
+        return $variant > $original ? 1.0 : 0.0;
     }
 
     /**

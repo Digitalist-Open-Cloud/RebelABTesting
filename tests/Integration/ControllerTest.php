@@ -6,6 +6,7 @@ use Exception;
 use Piwik\Date;
 use Piwik\NoAccessException;
 use Piwik\Nonce;
+use Piwik\Piwik;
 use Piwik\Plugin\WidgetsProvider;
 use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\API;
@@ -85,6 +86,8 @@ class ControllerTest extends IntegrationTestCase
                 'share' => 50,
                 'match' => 'contains',
                 'value' => '/pricing',
+                'exclude_match' => 'none',
+                'exclude_value' => '',
                 'variants' => [['changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'redirect' => '', 'css' => 'h1{}', 'js' => "a('<b>')"]],
             ]]],
             $this->getPublic(1)
@@ -98,7 +101,7 @@ class ControllerTest extends IntegrationTestCase
         $id = API::getInstance()->insertExperiment(2, 'door', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', [], 'fake_door', $door);
 
         $this->assertSame(
-            ['id' => $id, 'kind' => 'fake_door', 'door' => $door, 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'share' => 100, 'match' => 'any', 'value' => '', 'variants' => []],
+            ['id' => $id, 'kind' => 'fake_door', 'door' => $door, 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'share' => 100, 'match' => 'any', 'value' => '', 'exclude_match' => 'none', 'exclude_value' => '', 'variants' => []],
             $this->getPublic(2)['experiments'][0]
         );
     }
@@ -181,6 +184,7 @@ class ControllerTest extends IntegrationTestCase
         $experiment = (new Experiments())->getAllForSite(2)[0];
         $this->assertSame(['Form test', 25, 'starts_with', 'https://example.org/shop'], [$experiment['name'], $experiment['traffic_share'], $experiment['target_match'], $experiment['target_value']]);
         $this->assertSame(['type' => 'goal', 'idgoal' => $this->idGoal], $experiment['primary_measure']);
+        $this->assertSame(['contains', '/checkout', 99], [$experiment['exclude_match'], $experiment['exclude_value'], $experiment['confidence']]);
         $this->assertSame([['type' => 'event', 'category' => 'Video', 'action' => 'Play']], $experiment['guardrails']);
         $this->assertSame(
             [
@@ -189,6 +193,28 @@ class ControllerTest extends IntegrationTestCase
             ],
             $experiment['variants']
         );
+    }
+
+    public function testChangesFromTheFormsGoThroughMatomosApiSoThatAnAuditLogSeesThem()
+    {
+        $seen = [];
+        foreach (['insertExperiment', 'updateExperiment', 'stopExperiment', 'deleteExperiment'] as $method) {
+            Piwik::addAction('API.RebelABTesting.' . $method . '.end', function () use (&$seen, $method) {
+                $seen[] = $method;
+            });
+        }
+
+        $this->post(['idSite' => '2'], $this->getForm('Audited'));
+        $this->redirects('addExperiment');
+        $id = (string) (new Experiments())->getAllForSite(2)[0]['id'];
+        $this->post(['idSite' => '2'], ['id' => $id] + $this->getForm('Audited again'));
+        $this->redirects('updateExperiment');
+        $this->post(['idSite' => '2'], ['id' => $id, 'nonce' => Nonce::getNonce(Controller::NONCE)]);
+        $this->redirects('stop');
+        $this->post(['idSite' => '2'], ['id' => $id, 'nonce' => Nonce::getNonce(Controller::NONCE)]);
+        $this->redirects('delete');
+
+        $this->assertSame(['insertExperiment', 'updateExperiment', 'stopExperiment', 'deleteExperiment'], $seen);
     }
 
     public function testAnExperimentIsUpdatedStoppedAndDeletedFromTheForm()
@@ -303,7 +329,7 @@ class ControllerTest extends IntegrationTestCase
 
         $html = (new GetExperiments())->render();
 
-        $this->assertStringContainsString('button', $html);
+        $this->assertStringContainsString('category=RebelABTesting_RebelABTesting&amp;subcategory=' . $this->idExperiment . '">button</a>', $html);
         $this->assertStringContainsString('Running', $html);
         $this->assertStringNotContainsString('other-site', $html);
         $this->assertStringNotContainsString('<form', $html);
@@ -340,7 +366,11 @@ class ControllerTest extends IntegrationTestCase
         $this->assertSame(3, substr_count($create, '<option value="" selected>None</option>'));
         $this->assertStringContainsString('<option value="goal:1">Goal: Thanks</option>', $create);
         $this->assertStringContainsString('<option value="bounce">Bounces</option>', $create);
-        $this->assertStringNotContainsString('Revenue per visit', $create);
+        $this->assertStringContainsString('<option value="goal_revenue:1">Revenue per visit of goal: Thanks</option>', $create);
+        $this->assertStringContainsString('<option value="visit_length">Visit length</option>', $create);
+        $this->assertStringNotContainsString('<option value="revenue">', $create);
+        $this->assertStringContainsString('<option value="95" selected>95%</option>', $create);
+        $this->assertStringContainsString('<option value="none" selected>None</option>', $create);
         $this->assertStringNotContainsString('Signed', $create);
 
         API::getInstance()->updateExperiment($this->idExperiment, 1, 'button', 'A secret plan', '', '2024-03-01', '2024-03-31', [['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'redirect' => '', 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing', ['type' => 'search'], 'ab', [], [['type' => 'event', 'category' => 'Video "HD"', 'action' => '']]);
@@ -421,6 +451,17 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('#rabt-preview=' . $this->idExperiment . '-2-' . $experiment['preview_token'] . '"', $html);
     }
 
+    public function testThePageOfAnExperimentShowsItsDescriptionToThoseWhoCanChangeIt()
+    {
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        $html = (new Controller())->result();
+
+        $this->assertStringContainsString('A secret plan', $html);
+        $this->assertStringContainsString('Internal', $html);
+    }
+
     public function testThePageOfAnExperimentNeedsAccessToItsWebsite()
     {
         $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
@@ -456,6 +497,9 @@ class ControllerTest extends IntegrationTestCase
             'traffic_share' => '25',
             'target_match' => 'starts_with',
             'target_value' => 'https://example.org/shop',
+            'exclude_match' => 'contains',
+            'exclude_value' => '/checkout',
+            'confidence' => '99',
             'primary_measure' => 'goal:' . $this->idGoal,
             'primary_measure_category' => 'left over from another choice',
             'guardrail_0' => '',

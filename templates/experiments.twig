@@ -11,6 +11,7 @@
                             <th>{{ 'General_Name'|translate }}</th>
                             <th>{{ 'RebelABTesting_FormKind'|translate }}</th>
                             <th>{{ 'RebelABTesting_ListStatus'|translate }}</th>
+                            <th>{{ 'RebelABTesting_ResultVerdict'|translate }}</th>
                             <th>{{ 'RebelABTesting_FormFromDate'|translate }}</th>
                             <th>{{ 'RebelABTesting_FormToDate'|translate }}</th>
                             {% if canWrite %}<th>{{ 'RebelABTesting_ListActions'|translate }}</th>{% endif %}
@@ -20,9 +21,10 @@
                         {% for experiment in experiments %}
                         <tr>
                             <td>{{ experiment.id }}</td>
-                            <td>{{ experiment.name }}</td>
+                            <td><a href="{{ resultUrl }}{{ experiment.id }}">{{ experiment.name }}</a></td>
                             <td>{{ ('RebelABTesting_Kind_' ~ experiment.kind)|translate }}</td>
                             <td><span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span></td>
+                            <td>{% if experiment.summary %}<span class="rebelABTestingVerdict rebelABTestingVerdict-{{ experiment.summary.verdict }}">{{ experiment.summary.text }}</span>{% endif %}</td>
                             <td>{{ experiment.from_date }}</td>
                             <td>{{ experiment.to_date }}</td>
                             {% if canWrite %}

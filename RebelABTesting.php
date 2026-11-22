@@ -42,6 +42,7 @@ class RebelABTesting extends Plugin
     public function getJavaScriptFiles(&$files)
     {
         $files[] = 'plugins/RebelABTesting/javascripts/experimentForm.js';
+        $files[] = 'plugins/RebelABTesting/javascripts/evolutionChart.js';
     }
 
     public function getTablesInstalled(&$tables)

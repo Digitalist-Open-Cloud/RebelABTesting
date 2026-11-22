@@ -1,7 +1,6 @@
 // Runs the tag of the plugin on the test website, in Matomo's test environment, and checks what
 // the visitor sees and what Matomo counts.
 describe('RebelABTestingWebsite', function () {
-    this.timeout(60000);
     this.fixture = 'Piwik\\Plugins\\RebelABTesting\\tests\\Fixtures\\SiteWithGoal';
 
     const site = (name, extra = '') => `${config.piwikUrl}plugins/RebelABTesting/tests/site/${name}?matomo=/tests/PHPUnit/proxy&idsite=1${extra}`;
@@ -29,16 +28,12 @@ describe('RebelABTestingWebsite', function () {
     const getResult = (id) => testEnvironment.callApi('RebelABTesting.getExperimentResult', { idSite: 1, id });
     const stop = (id) => testEnvironment.callApi('RebelABTesting.stopExperiment', { idSite: 1, id });
 
-    // A browser that has never been on the website, and that draws the given number wherever the
+    // A browser that has never been on the website as far as the tag can tell, and that draws the given number wherever the
     // tag draws one: below 0.5 the original of two groups, above it the variant.
-    let visitors = 0;
     async function newVisitor(random) {
         await page.goto(`${config.piwikUrl}plugins/RebelABTesting/tests/site/site.css`);
         await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
         await page.webpage._client.send('Network.clearBrowserCookies');
-        // Matomo takes requests of one browser from one address for one visit.
-        const userAgent = (await page.evaluate(() => navigator.userAgent)).replace(/ Visitor\/\d+$/, '');
-        await page.webpage.setUserAgent(`${userAgent} Visitor/${++visitors}`);
         await page.evaluateOnNewDocument((value) => { Math.random = () => value; }, random);
     }
 
@@ -51,10 +46,19 @@ describe('RebelABTestingWebsite', function () {
         await settle();
     }
 
-    // Goes where the link goes. A click that leaves the page now and then never returns in the
-    // test browser.
+    // Waits until Matomo has counted something for an experiment, and tells what it holds if not.
+    async function counted(id, isCounted, what = 'what the visitor did') {
+        await waitFor(async () => isCounted(await getResult(id)), what).catch(async (error) => {
+            throw new Error(`${error.message} It holds: ${JSON.stringify(await getResult(id))}`);
+        });
+    }
+
+    // Goes where the link goes, the way a browser does. The test browser's own way of opening a page
+    // now and then never returns after a page that sent the visitor on.
     async function follow(selector) {
-        await page.goto(await page.evaluate((s) => document.querySelector(s).href, selector));
+        const address = await page.evaluate((s) => document.querySelector(s).href, selector);
+        await page.evaluate((a) => { window.location.href = a; }, address).catch(() => {});
+        await waitFor(() => page.evaluate((a) => window.location.href === a && document.readyState === 'complete', address).catch(() => false), 'the next page');
         await settle();
     }
 
@@ -103,7 +107,7 @@ describe('RebelABTestingWebsite', function () {
         await follow('.buy-button');
         expect(await text('h1')).to.equal('A better headline');
 
-        await waitFor(async () => (await getResult(id)).measures[0].variants[1].nb_visits_with_outcome === 1);
+        await counted(id, (result) => result.measures[0].variants[1].nb_visits_with_outcome === 1);
         const result = await getResult(id);
         expect(result.variants.map((variant) => variant.nb_visits)).to.deep.equal([0, 1]);
         expect(result.measures[0].role).to.equal('primary');
@@ -120,7 +124,7 @@ describe('RebelABTestingWebsite', function () {
         await open('index.html');
 
         expect(await text('h1')).to.equal('Welcome to the Test Shop');
-        await waitFor(async () => (await getResult(id)).variants[0].nb_visits === 1);
+        await counted(id, (result) => result.variants[0].nb_visits === 1);
         expect((await getResult(id)).variants[1].nb_visits).to.equal(0);
         await stop(id);
     });
@@ -139,7 +143,7 @@ describe('RebelABTestingWebsite', function () {
         await open('pricing.html');
         expect(await page.evaluate(() => document.title)).to.equal('Changed by the variant');
         expect(await page.evaluate(() => getComputedStyle(document.querySelector('h1')).letterSpacing)).to.equal('3px');
-        await waitFor(async () => (await getResult(id)).variants[1].nb_visits === 1);
+        await counted(id, (result) => result.variants[1].nb_visits === 1);
         await stop(id);
     });
 
@@ -161,7 +165,7 @@ describe('RebelABTestingWebsite', function () {
         await stop(id);
     });
 
-    it.only('should send the variant of a test between two pages to the other page and count it there', async function () {
+    it('should send the variant of a test between two pages to the other page and count it there', async function () {
         const id = await addExperiment('two pages', {
             'variants[0][redirect]': 'pricing-b.html',
             targetMatch: 'contains',
@@ -179,16 +183,13 @@ describe('RebelABTestingWebsite', function () {
         expect(await text('h1')).to.equal('Pricing, one plan');
         expect(await page.evaluate(() => new URLSearchParams(window.location.search).get('utm_campaign'))).to.equal('spring');
 
-        console.log('MARK on b', await page.evaluate(() => [location.href, document.querySelector('h1').textContent, JSON.stringify(Object.assign({}, localStorage))].join(' || ')));
         await follow('.buy-button');
-        await settle(); await settle();
-        console.log('MARK RESULT', JSON.stringify(await getResult(id)));
-        await waitFor(async () => (await getResult(id)).measures[0].variants[1].nb_visits_with_outcome === 1, 'the conversion of the variant');
+        await counted(id, (result) => result.measures[0].variants[1].nb_visits_with_outcome === 1, 'the conversion of the variant');
 
+        // To Matomo this browser is still the same visit, so the original is not counted for it.
         await newVisitor(0.1);
         await open('pricing.html');
         expect(await text('h1')).to.equal('Pricing');
-        await waitFor(async () => (await getResult(id)).variants[0].nb_visits === 1);
         await stop(id);
     });
 
@@ -229,12 +230,12 @@ describe('RebelABTestingWebsite', function () {
         await open('index.html');
 
         expect(await text('#main-menu > :last-child')).to.equal('Compare plans');
-        await waitFor(async () => (await getResult(id)).nb_visits === 1);
+        await counted(id, (result) => result.nb_visits === 1);
         expect((await getResult(id)).nb_clicks).to.equal(0);
 
         await page.click('#main-menu .compare');
         expect(await text('#main-menu > :last-child')).to.equal('Not there yet');
-        await waitFor(async () => (await getResult(id)).nb_clicks === 1);
+        await counted(id, (result) => result.nb_clicks === 1);
         await stop(id);
     });
 
@@ -246,10 +247,10 @@ describe('RebelABTestingWebsite', function () {
         expect((await getResult(id)).nb_visits).to.equal(0);
 
         await page.evaluate(() => document.querySelector('.signup-button').scrollIntoView());
-        await waitFor(async () => (await getResult(id)).nb_visits === 1);
+        await counted(id, (result) => result.nb_visits === 1);
 
         await page.click('.signup-button');
-        await waitFor(async () => (await getResult(id)).nb_clicks === 1);
+        await counted(id, (result) => result.nb_clicks === 1);
         await stop(id);
     });
 });

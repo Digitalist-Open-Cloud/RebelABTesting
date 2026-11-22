@@ -61,7 +61,8 @@ class ExperimentsTest extends IntegrationTestCase
 
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertRegExpCompat('/^[0-9a-f]{32}$/', $experiment['preview_token']);
-        unset($experiment['preview_token']);
+        $this->assertSame(['superUserLogin', true, ''], [$experiment['created_by'], $experiment['notify'], $experiment['notified']]);
+        unset($experiment['preview_token'], $experiment['created_by'], $experiment['notify'], $experiment['notified']);
         $this->assertEquals([
             'id' => $id,
             'idsite' => 1,
@@ -74,6 +75,9 @@ class ExperimentsTest extends IntegrationTestCase
             'traffic_share' => 20,
             'target_match' => 'contains',
             'target_value' => '/pricing',
+            'exclude_match' => 'none',
+            'exclude_value' => '',
+            'confidence' => 95,
             'variants' => $variants,
             'primary_measure' => ['type' => 'goal', 'idgoal' => $idGoal],
             'guardrails' => [['type' => 'bounce'], ['type' => 'event', 'category' => 'Video', 'action' => 'Play']],
@@ -101,9 +105,24 @@ class ExperimentsTest extends IntegrationTestCase
             'revenue' => [['type' => 'revenue', 'idgoal' => 4], ['type' => 'revenue']],
             'bounces' => [['type' => 'bounce'], ['type' => 'bounce']],
             'site search' => [['type' => 'search'], ['type' => 'search']],
+            'page views' => [['type' => 'pageviews'], ['type' => 'pageviews']],
+            'visit length' => [['type' => 'visit_length'], ['type' => 'visit_length']],
+            'any goal' => [['type' => 'conversions'], ['type' => 'conversions']],
+            'total revenue' => [['type' => 'total_revenue'], ['type' => 'total_revenue']],
             'an event of a category' => [['type' => 'event', 'category' => 'Video'], ['type' => 'event', 'category' => 'Video', 'action' => '']],
             'an event of a category and action' => [['type' => 'event', 'category' => 'Video', 'action' => ' Play '], ['type' => 'event', 'category' => 'Video', 'action' => 'Play']],
         ];
+    }
+
+    public function testAnExperimentCanBeJudgedByTheRevenueOfAGoalAndLeaveOutPages()
+    {
+        $idGoal = GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
+
+        $id = $this->api->insertExperiment(1, 'judged', '', '', '2024-03-01', '2024-03-31', [self::VARIANT], 100, 'any', '', ['type' => 'goal_revenue', 'idgoal' => $idGoal], 'ab', [], [], 99, 'starts_with', ' https://example.org/checkout ');
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['type' => 'goal_revenue', 'idgoal' => $idGoal], $experiment['primary_measure']);
+        $this->assertSame([99, 'starts_with', 'https://example.org/checkout'], [$experiment['confidence'], $experiment['exclude_match'], $experiment['exclude_value']]);
     }
 
     public function testAFakeDoorIsStoredWithoutVariantsAndPrimaryGoal()
@@ -200,12 +219,12 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAnInvalidExperimentIsRefused(array $change, string $message)
     {
         $this->add(1, 'running', '2024-03-01', '2024-03-31');
-        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => '', 'measure' => [], 'kind' => 'ab', 'door' => []];
+        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => '', 'measure' => [], 'kind' => 'ab', 'door' => [], 'confidence' => 95, 'exclude' => ['none', '']];
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage($message);
 
-        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value'], $experiment['measure'], $experiment['kind'], $experiment['door']);
+        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value'], $experiment['measure'], $experiment['kind'], $experiment['door'], [], $experiment['confidence'], ...$experiment['exclude']);
     }
 
     public function getInvalidExperiments(): array
@@ -224,6 +243,9 @@ class ExperimentsTest extends IntegrationTestCase
             'an event without a category' => [['measure' => ['type' => 'event', 'action' => 'Play']], 'A measure is'],
             'an unknown measure' => [['measure' => ['type' => 'happiness']], 'A measure is'],
             'a watched element without a selector' => [['kind' => 'watch', 'door' => []], 'element to watch'],
+            'an unknown way to leave out pages' => [['exclude' => ['sounds_like', 'x']], 'Unknown way'],
+            'no pages to leave out' => [['exclude' => ['contains', '']], 'address to compare'],
+            'a level of certainty that is not offered' => [['confidence' => 80], '90, 95 or 99'],
             'an unknown kind' => [['kind' => 'survey'], 'Unknown kind'],
             'a fake door without its fields' => [['kind' => 'fake_door', 'door' => ['label' => 'Export']], 'A fake door needs'],
             'a goal that is not a number' => [['measure' => ['type' => 'goal', 'idgoal' => '1 OR 1']], 'A measure is'],

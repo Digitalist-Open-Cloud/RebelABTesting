@@ -191,6 +191,88 @@ class TrackingTest extends IntegrationTestCase
         $this->assertSame([0, 16], array_column($measures[2]['variants'], 'nb_visits_with_outcome'));
     }
 
+    public function testAnExperimentIsJudgedByPageViewsVisitLengthAndAnyGoal()
+    {
+        GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains', false, 5);
+        $id = API::getInstance()->insertExperiment(1, 'engagement', '', '', '2024-03-01', '2024-03-31', [['js' => '']], 100, 'any', '', ['type' => 'pageviews'], 'ab', [], [['type' => 'visit_length'], ['type' => 'conversions']]);
+
+        for ($visit = 0; $visit < 30; $visit++) {
+            $this->trackVisit(1, [$id => 1], self::DAY, ['/']);
+            $this->trackVisit(1, [$id => 2], self::DAY, ['/', '/more', '/thanks'], 0, [], 'play');
+        }
+
+        $measures = API::getInstance()->getExperimentResult(1, $id)['measures'];
+        $value = function (int $measure, int $variant, string $field) use ($measures) {
+            return $measures[$measure]['variants'][$variant][$field];
+        };
+
+        $this->assertSame(['Page views per visit', 'Visit length', 'Visits that reach any goal'], array_slice(array_column($measures, 'name'), 0, 3));
+        $this->assertSame(['number', 'seconds', 'share'], array_slice(array_column($measures, 'unit'), 0, 3));
+        // The event the variant's visits end with is no page view.
+        $this->assertSame([1.0, 3.0, 'better'], [$value(0, 0, 'value'), $value(0, 1, 'value'), $value(0, 1, 'verdict')]);
+        $this->assertSame([0.0, 181.0, '3 min 1s'], [$value(1, 0, 'value'), $value(1, 1, 'value'), $value(1, 1, 'value_formatted')]);
+        $this->assertSame([0, 30, '100%'], [$value(2, 0, 'nb_visits_with_outcome'), $value(2, 1, 'nb_visits_with_outcome'), $value(2, 1, 'value_formatted')]);
+    }
+
+    public function testRevenueOfAGoalAndTotalRevenueAreAmountsPerVisit()
+    {
+        $idGoal = GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains', false, 5);
+        $id = API::getInstance()->insertExperiment(1, 'money', '', '', '2024-03-01', '2024-03-31', [['js' => '']], 100, 'any', '', ['type' => 'goal_revenue', 'idgoal' => $idGoal], 'ab', [], [['type' => 'total_revenue']]);
+        $this->trackVisit(1, [$id => 1], self::DAY, ['/', '/thanks']);
+        $this->trackVisit(1, [$id => 1], self::DAY, ['/']);
+        $this->trackVisit(1, [$id => 2], self::DAY, ['/thanks'], 0, [], 'order:20');
+
+        $measures = API::getInstance()->getExperimentResult(1, $id)['measures'];
+
+        $this->assertSame(['Revenue per visit of goal: Thanks', 'Total revenue per visit'], array_slice(array_column($measures, 'name'), 0, 2));
+        $this->assertSame([2.5, 5.0], array_column($measures[0]['variants'], 'value'));
+        $this->assertSame([2.5, 25.0], array_column($measures[1]['variants'], 'value'));
+    }
+
+    public function testTheResultCanBeLimitedToASegment()
+    {
+        $this->trackVisit(1, [$this->idExperiment => 1], self::DAY, ['/']);
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/', '/more']);
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/', '/more', '/pricing']);
+        $api = API::getInstance();
+
+        $this->assertSame([1, 2, 0], array_column($api->getExperimentResult(1, $this->idExperiment)['variants'], 'nb_visits'));
+        $this->assertSame([0, 2, 0], array_column($api->getExperimentResult(1, $this->idExperiment, 'actions>=2')['variants'], 'nb_visits'));
+        $this->assertSame([0, 1, 0], array_column($api->getExperimentResult(1, $this->idExperiment, urlencode('actions>=3'))['variants'], 'nb_visits'));
+        $this->assertSame([0.0, 1.0, 0.0], array_map('array_sum', array_column($api->getExperimentEvolution(1, $this->idExperiment, 'actions>=3')['series'], 'values')));
+    }
+
+    public function testTheEvolutionAddsUpTheDaysOfEachVariant()
+    {
+        $idGoal = GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
+        $id = API::getInstance()->insertExperiment(1, 'over time', '', '', '2024-03-01', '2024-03-31', [['name' => 'Green', 'js' => '']], 100, 'any', '', ['type' => 'goal', 'idgoal' => $idGoal]);
+        $this->trackVisit(1, [$id => 1], '2024-03-05', ['/']);
+        $this->trackVisit(1, [$id => 1], '2024-03-05', ['/', '/thanks']);
+        $this->trackVisit(1, [$id => 2], '2024-03-05', ['/', '/thanks']);
+        $this->trackVisit(1, [$id => 1], '2024-03-07', ['/']);
+        $this->trackVisit(1, [$id => 1], '2024-03-07', ['/']);
+        $this->trackVisit(1, [$id => 2], '2024-03-07', ['/']);
+
+        $evolution = API::getInstance()->getExperimentEvolution(1, $id);
+
+        $this->assertSame(['Goal: Thanks', 'share', ['2024-03-05', '2024-03-06', '2024-03-07']], [$evolution['name'], $evolution['unit'], $evolution['days']]);
+        $this->assertSame(
+            [['variant' => 1, 'name' => 'Original', 'values' => [0.5, 0.5, 0.25]], ['variant' => 2, 'name' => 'Green', 'values' => [1.0, 1.0, 0.5]]],
+            $evolution['series']
+        );
+    }
+
+    public function testTheEvolutionShowsVisitsWithoutAPrimaryMeasureAndNothingBeforeTheFirstVisit()
+    {
+        $this->assertNull(API::getInstance()->getExperimentEvolution(1, $this->idExperiment));
+
+        $this->trackVisit(1, [$this->idExperiment => 2], '2024-03-05');
+        $this->trackVisit(1, [$this->idExperiment => 2], '2024-03-06');
+        $evolution = API::getInstance()->getExperimentEvolution(1, $this->idExperiment);
+
+        $this->assertSame(['number', [0.0, 0.0], [1.0, 2.0]], [$evolution['unit'], $evolution['series'][0]['values'], $evolution['series'][1]['values']]);
+    }
+
     public function testRevenuePerVisitComparesTheAmounts()
     {
         Db::query('UPDATE ' . Common::prefixTable('site') . ' SET ecommerce = 1 WHERE idsite = 1');
@@ -207,7 +289,8 @@ class TrackingTest extends IntegrationTestCase
         $revenue = $result['measures'][0];
         [$original, $variant] = $revenue['variants'];
 
-        $this->assertSame(['Revenue per visit', 'primary', true], [$revenue['name'], $revenue['role'], $revenue['is_amount']]);
+        $this->assertSame(['Revenue per visit', 'primary', 'money'], [$revenue['name'], $revenue['role'], $revenue['unit']]);
+        $this->assertSame('$96', $variant['value_formatted']);
         $this->assertSame([20, 20], [$original['nb_visits_with_outcome'], $variant['nb_visits_with_outcome']]);
         $this->assertEqualsWithDelta(46.0, $original['value'], 0.01);
         $this->assertEqualsWithDelta(96.0, $variant['value'], 0.01);
