@@ -31,15 +31,16 @@ class GetExperiments extends Widget
     {
         $idSite = Request::fromRequest()->getIntegerParameter('idSite', 0);
         Piwik::checkUserHasViewAccess($idSite);
-        $isAdmin = Piwik::isUserHasAdminAccess($idSite);
+        $canWrite = Piwik::isUserHasWriteAccess($idSite);
 
         return $this->renderTemplate('experiments', [
             'experiments' => API::getInstance()->getExperiments($idSite),
-            'isAdmin' => $isAdmin,
+            'canWrite' => $canWrite,
+            'canUseCode' => Piwik::isUserHasAdminAccess($idSite),
             'stopUrl' => Controller::getActionUrl('stop', $idSite),
             'deleteUrl' => Controller::getActionUrl('delete', $idSite),
             'editUrl' => Controller::getActionUrl('editExperimentForm', $idSite),
-            'nonce' => $isAdmin ? Nonce::getNonce(Controller::NONCE) : '',
+            'nonce' => $canWrite ? Nonce::getNonce(Controller::NONCE) : '',
         ]);
     }
 }

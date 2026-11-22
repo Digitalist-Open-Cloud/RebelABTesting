@@ -1,8 +1,42 @@
+{% macro measure(field, label, hint, selected, measures) %}
+    {% set choice = selected is null ? '' : (selected.type == 'goal' ? 'goal:' ~ selected.idgoal : selected.type) %}
+    <div class="row rebelABTestingMeasure">
+        <div class="col s12 m6 form-field">
+            <label for="{{ field }}">{{ label }}</label>
+            <select name="{{ field }}" id="{{ field }}" class="browser-default">
+                {% for value, name in measures %}
+                <option value="{{ value }}"{% if (value ~ '') == choice %} selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            {% if hint %}<span class="form-hint">{{ hint }}</span>{% endif %}
+        </div>
+        <div class="col s12 m3 form-field rebelABTestingMeasureEvent">
+            <label for="{{ field }}_category">{{ 'RebelABTesting_FormEventCategory'|translate }}</label>
+            <input type="text" name="{{ field }}_category" id="{{ field }}_category" value="{{ selected.category ?? '' }}" maxlength="200">
+        </div>
+        <div class="col s12 m3 form-field rebelABTestingMeasureEvent">
+            <label for="{{ field }}_action">{{ 'RebelABTesting_FormEventAction'|translate }}</label>
+            <input type="text" name="{{ field }}_action" id="{{ field }}_action" value="{{ selected.action ?? '' }}" maxlength="200">
+        </div>
+    </div>
+{% endmacro %}
+
 <form method="post" action="{{ actionUrl }}" class="rebelABTestingForm">
     <input type="hidden" name="nonce" value="{{ nonce }}">
     {% if experiment.id is defined %}<input type="hidden" name="id" value="{{ experiment.id }}">{% endif %}
 
     <h3 class="form-section-title">{{ 'RebelABTesting_FormBasicInfo'|translate }}</h3>
+    <div class="row">
+        <div class="col s12 m6 form-field">
+            <label for="kind">{{ 'RebelABTesting_FormKind'|translate }}</label>
+            <select name="kind" id="kind" class="browser-default rebelABTestingKind">
+                {% for kind in kinds %}
+                <option value="{{ kind }}"{% if kind == experiment.kind %} selected{% endif %}>{{ ('RebelABTesting_Kind_' ~ kind)|translate }}</option>
+                {% endfor %}
+            </select>
+            <span class="form-hint">{{ 'RebelABTesting_FormKindHint'|translate }}</span>
+        </div>
+    </div>
     <div class="row">
         <div class="col s12 m6 form-field">
             <label for="name">{{ 'RebelABTesting_ExperimentName'|translate }}</label>
@@ -35,6 +69,27 @@
         </div>
     </div>
 
+    <div class="rebelABTestingPlanner" data-kind="ab" data-result="{{ 'RebelABTesting_PlannerResult'|translate('{days}', '{visits}', '{groups}') }}" data-unknown="{{ 'RebelABTesting_PlannerUnknown'|translate }}">
+        <h3 class="form-section-title">{{ 'RebelABTesting_PlannerTitle'|translate }}</h3>
+        <p class="section-help">{{ 'RebelABTesting_PlannerHelp'|translate }}</p>
+        <div class="row">
+            <div class="col s12 m4 form-field">
+                <label for="planner_visits">{{ 'RebelABTesting_PlannerVisits'|translate }}</label>
+                <input type="number" id="planner_visits" class="rebelABTestingPlannerVisits" min="1">
+            </div>
+            <div class="col s12 m4 form-field">
+                <label for="planner_rate">{{ 'RebelABTesting_PlannerRate'|translate }}</label>
+                <input type="number" id="planner_rate" class="rebelABTestingPlannerRate" min="0.01" max="99" step="0.01">
+            </div>
+            <div class="col s12 m4 form-field">
+                <label for="planner_effect">{{ 'RebelABTesting_PlannerEffect'|translate }}</label>
+                <input type="number" id="planner_effect" class="rebelABTestingPlannerEffect" min="1" value="10">
+                <span class="form-hint">{{ 'RebelABTesting_PlannerEffectHint'|translate }}</span>
+            </div>
+        </div>
+        <p class="rebelABTestingPlannerResult" role="status"></p>
+    </div>
+
     <h3 class="form-section-title">{{ 'RebelABTesting_FormAudience'|translate }}</h3>
     <div class="row">
         <div class="col s12 m6 form-field">
@@ -59,19 +114,59 @@
         </div>
     </div>
 
-    <h3 class="form-section-title">{{ 'RebelABTesting_FormPrimaryGoal'|translate }}</h3>
-    <div class="row">
-        <div class="col s12 m6 form-field">
-            {% set primaryGoal = experiment.primary_goal is null ? '' : (experiment.primary_goal == 0 ? 'ecommerceOrder' : experiment.primary_goal) %}
-            <label for="primary_goal">{{ 'RebelABTesting_FormPrimaryGoal'|translate }}</label>
-            <select name="primary_goal" id="primary_goal" class="browser-default">
-                {% for value, label in goals %}
-                <option value="{{ value }}"{% if (value ~ '') == (primaryGoal ~ '') %} selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <span class="form-hint">{{ 'RebelABTesting_FormPrimaryGoalHint'|translate }}</span>
+    <div data-kind="fake_door">
+        {% set door = experiment.door ?: {selector: '', position: 'after', element: 'button', label: '', css_class: '', message: ''} %}
+        <h3 class="form-section-title">{{ 'RebelABTesting_DoorTitle'|translate }}</h3>
+        <p class="section-help">{{ 'RebelABTesting_DoorHelp'|translate }}</p>
+        <div class="row">
+            <div class="col s12 m6 form-field">
+                <label for="door_label">{{ 'RebelABTesting_DoorLabel'|translate }}</label>
+                <input type="text" name="door[label]" id="door_label" value="{{ door.label }}" maxlength="200">
+            </div>
+            <div class="col s12 m6 form-field">
+                <label for="door_message">{{ 'RebelABTesting_DoorMessage'|translate }}</label>
+                <input type="text" name="door[message]" id="door_message" value="{{ door.message }}" maxlength="500">
+                <span class="form-hint">{{ 'RebelABTesting_DoorMessageHint'|translate }}</span>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col s12 m6 form-field">
+                <label for="door_selector">{{ 'RebelABTesting_DoorSelector'|translate }}</label>
+                <input type="text" name="door[selector]" id="door_selector" value="{{ door.selector }}" maxlength="500">
+                <span class="form-hint">{{ 'RebelABTesting_DoorSelectorHint'|translate }}</span>
+            </div>
+            <div class="col s12 m6 form-field">
+                <label for="door_position">{{ 'RebelABTesting_DoorPosition'|translate }}</label>
+                <select name="door[position]" id="door_position" class="browser-default">
+                    {% for position in doorPositions %}
+                    <option value="{{ position }}"{% if position == door.position %} selected{% endif %}>{{ ('RebelABTesting_DoorPosition_' ~ position)|translate }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col s12 m6 form-field">
+                <label for="door_element">{{ 'RebelABTesting_DoorElement'|translate }}</label>
+                <select name="door[element]" id="door_element" class="browser-default">
+                    {% for element in doorElements %}
+                    <option value="{{ element }}"{% if element == door.element %} selected{% endif %}>{{ ('RebelABTesting_DoorElement_' ~ element)|translate }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col s12 m6 form-field">
+                <label for="door_css_class">{{ 'RebelABTesting_DoorCssClass'|translate }}</label>
+                <input type="text" name="door[css_class]" id="door_css_class" value="{{ door.css_class }}" maxlength="200">
+                <span class="form-hint">{{ 'RebelABTesting_DoorCssClassHint'|translate }}</span>
+            </div>
         </div>
     </div>
+
+    <div data-kind="ab">
+    <h3 class="form-section-title">{{ 'RebelABTesting_FormMeasures'|translate }}</h3>
+    {{ _self.measure('primary_measure', 'RebelABTesting_FormPrimaryMeasure'|translate, 'RebelABTesting_FormPrimaryMeasureHint'|translate, experiment.primary_measure, measures) }}
+    {% for slot in guardrailSlots %}
+    {{ _self.measure('guardrail_' ~ slot, 'RebelABTesting_FormGuardrail'|translate(slot + 1), loop.first ? 'RebelABTesting_FormGuardrailHint'|translate : '', experiment.guardrails[slot] ?? null, measures) }}
+    {% endfor %}
 
     <h3 class="form-section-title">{{ 'RebelABTesting_FormVariants'|translate }}</h3>
     <p class="section-help">{{ 'RebelABTesting_FormVariantsHelp'|translate }}</p>
@@ -83,6 +178,37 @@
                 <label>{{ 'General_Name'|translate }}</label>
                 <input type="text" name="variants[{{ loop.index0 }}][name]" value="{{ variant.name }}" maxlength="100">
             </div>
+            <h4 class="rebelABTestingSubtitle">{{ 'RebelABTesting_ChangesTitle'|translate }}</h4>
+            <p class="form-hint">{{ 'RebelABTesting_ChangesHelp'|translate }}</p>
+            <div class="rebelABTestingChanges">
+                {% for change in (variant.changes is empty ? [{selector: '', action: 'text', value: ''}] : variant.changes) %}
+                <div class="row rebelABTestingChange">
+                    <div class="col s12 m4 form-field">
+                        <label>{{ 'RebelABTesting_ChangeSelector'|translate }}</label>
+                        <input type="text" name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][selector]" value="{{ change.selector }}" maxlength="500">
+                    </div>
+                    <div class="col s12 m3 form-field">
+                        <label>{{ 'RebelABTesting_ChangeAction'|translate }}</label>
+                        <select name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][action]" class="browser-default">
+                            {% for action in actions %}
+                            <option value="{{ action }}"{% if action == change.action %} selected{% endif %}>{{ ('RebelABTesting_Action_' ~ action)|translate }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col s12 m4 form-field">
+                        <label>{{ 'RebelABTesting_ChangeValue'|translate }}</label>
+                        <input type="text" name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][value]" value="{{ change.value }}" maxlength="2000">
+                    </div>
+                    <div class="col s12 m1 form-field">
+                        <button type="button" class="btn btn-flat rebelABTestingRemoveChange" title="{{ 'RebelABTesting_ChangeRemove'|translate }}">&times;</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-flat rebelABTestingAddChange">{{ 'RebelABTesting_ChangeAdd'|translate }}</button>
+
+            {% if canUseCode %}
+            <h4 class="rebelABTestingSubtitle">{{ 'RebelABTesting_CodeTitle'|translate }}</h4>
             <div class="code-field">
                 <label>CSS</label>
                 <textarea name="variants[{{ loop.index0 }}][css]" class="code-textarea">{{ variant.css }}</textarea>
@@ -93,11 +219,13 @@
                 <textarea name="variants[{{ loop.index0 }}][js]" class="code-textarea">{{ variant.js }}</textarea>
                 <span class="form-hint">{{ 'RebelABTesting_FormExample'|translate }} <code>document.querySelector('h1').textContent = 'New headline';</code></span>
             </div>
+            {% endif %}
             <button type="button" class="btn btn-flat rebelABTestingRemoveVariant">{{ 'RebelABTesting_FormRemoveVariant'|translate }}</button>
         </fieldset>
         {% endfor %}
     </div>
     <button type="button" class="btn btn-flat rebelABTestingAddVariant">{{ 'RebelABTesting_FormAddVariant'|translate }}</button>
+    </div>
 
     <div class="form-actions">
         <input type="submit" value="{{ submitLabel }}" class="btn">

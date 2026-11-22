@@ -3,7 +3,8 @@
 A/B testing for Matomo. An experiment shows variants of a page to a share of the visitors and tells
 you which of them converts better than the original.
 
-A variant is CSS, JavaScript or both, which a tag of Matomo Tag Manager adds to the page.
+A variant is a list of changes to the page, such as another headline or a hidden banner, which a tag
+of Matomo Tag Manager makes in the browser of the visitor.
 
 ## Requirements
 
@@ -22,16 +23,49 @@ changed experiment needs no new version of the container.
 
 ## Create an experiment
 
-Go to **A/B Testing > Create a new experiment** in the reporting menu of the website. You need admin
-access to the website.
+Go to **A/B Testing > Create a new experiment** in the reporting menu of the website. You need write
+access to the website. CSS and JavaScript in a variant need admin access, and an experiment that has
+them can only be changed by an admin.
 
 - **First and last day**, in UTC. **Stop now** in the list ends an experiment before its last day.
 - **Pages**: all pages, or the pages whose address equals, contains, starts with or matches a
   regular expression. The whole address is compared, including `https://`.
 - **Share of visitors**: the percentage of visitors that take part. They are split evenly between
   the original and the variants. The others get the original and are not counted.
-- **Variants**: one to ten, each with CSS, JavaScript or both.
-- **Primary goal**: the goal the experiment is judged by. Choose it before the start.
+- **Variants**: one to ten. A variant is a list of changes, each doing one thing to the elements a
+  CSS selector matches: change the text, hide it, add a CSS class, set a style, change the image or
+  change where a link goes. Admins of the website can also give a variant CSS and JavaScript.
+- **Primary measure**: what the experiment is judged by. Choose it before the start. It is one of:
+  - a goal of the website;
+  - ecommerce orders, or the revenue per visit;
+  - an event, by its category and optionally its action;
+  - bounces, where fewer is better;
+  - visits that search the website, where fewer is better: visitors who find what they came for
+    do not need to search.
+- **Guardrails**: up to two more measures that must not get worse while the primary measure gets
+  better, for example orders when the experiment is about clicks.
+
+### How long to run
+
+The form works out the days an A/B test needs. Give it the visits a day on the pages of the
+experiment, the share of visits that reach the primary measure today, and the smallest difference you want to
+find. Set the last day accordingly, and do not end the experiment earlier because the numbers look
+good: a test that is ended on its first good day often shows a difference that is not there.
+
+## Fake door
+
+A fake door is the other kind of experiment. It adds a button or a link to something that does not
+exist yet, to see how many visitors want it before you build it.
+
+- Give the text of the button or link, the element of the page it is put next to as a CSS selector,
+  and a CSS class of your website so that it looks like your other buttons.
+- A click replaces it with your message. Tell the visitor that this does not exist yet.
+- The result shows the visits that saw it, the visits that clicked it, and the range the true share
+  lies in.
+- A click is also tracked as a Matomo event with the category "Fake door", the action "Click" and
+  the ID of the experiment as its name.
+- Pages, share of visitors, the days and the preview work as for an A/B test. There is no original
+  group: every visitor in the experiment gets the door.
 
 Several experiments can run at the same time. Keep them on different pages, or on different parts of
 a page, as two experiments that change the same thing disturb each other.
@@ -57,17 +91,22 @@ A variant is applied when the tag fires, so let the tag fire as early as the con
 Each experiment has a page in the reporting menu, under **A/B Testing**. It shows, for all the time
 the experiment ran:
 
-- the visits per variant;
-- for each goal the visits that converted, the conversion rate, the difference to the original and
-  the chance that the variant is better than the original.
+- the visitors and the visits per variant;
+- for the primary measure, the guardrails and each goal that was reached: the visits, the share of
+  the visits or the average per visit, the difference to the original and the chance that the
+  variant is better than the original.
 
-A variant is called better or worse on the primary goal when that chance is at least 95%. Below 30
-visits or 5 conversions per variant the page says there is not enough data. The other goals are
-shown without a verdict: with several goals, one of them reaches 95% by chance more often than one
-in twenty. An experiment without a primary goal gets a verdict for every goal.
+A variant is called better or worse on the primary measure and the guardrails when that chance is at
+least 95%. With too few visits the page says there is not enough data. The goals are shown without a
+verdict: with many measures, one of them reaches 95% by chance more often than one in twenty. An
+experiment without a primary measure gets a verdict for every goal.
 
-A conversion counts from the moment the visit is in the experiment. A goal reached earlier in the
-same visit is left out.
+The page warns when the visitors are split between the groups far more unevenly than chance
+explains. Then visitors are not assigned or counted as they should be, for example because a variant
+breaks the page, and the result cannot be trusted.
+
+Only what a visit does from the moment it is in the experiment counts. A goal reached earlier in the
+same visit is left out. Bounces and site searches are counted for the whole visit.
 
 The result is read from the log of visits. If Matomo deletes old logs while an experiment runs, the
 visits of the deleted days leave the result.
@@ -93,7 +132,7 @@ can check a variant before the first day.
 ## What is public
 
 The tag runs in the browser of a visitor who is not logged in to Matomo. Anyone can therefore read
-the days, the pages, the CSS and the JavaScript of an experiment while it is running. Do not put
+the days, the pages and the changes, CSS and JavaScript of an experiment while it is running. Do not put
 anything secret in them. Name, hypothesis and description are not handed out, and nothing is told
 about experiments that have ended or not started.
 
@@ -101,20 +140,25 @@ about experiments that have ended or not started.
 
 | Method | Access |
 | --- | --- |
-| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryGoal) | admin |
-| `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | admin |
-| `RebelABTesting.stopExperiment` (id, idSite) | admin |
-| `RebelABTesting.deleteExperiment` (id, idSite) | admin |
-| `RebelABTesting.getExperiment` (id, idSite) | admin |
+| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails) | write, admin with CSS or JavaScript |
+| `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | write, admin with CSS or JavaScript |
+| `RebelABTesting.stopExperiment` (id, idSite) | write |
+| `RebelABTesting.deleteExperiment` (id, idSite) | write |
+| `RebelABTesting.getExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiments` (idSite) | view |
 | `RebelABTesting.getExperimentResult` (idSite, id) | view |
 | `RebelABTesting.getExperimentData` (idSite, period, date, segment) | view |
 | `RebelABTesting.getExperimentGoalData` (idSite, period, date, segment) | view |
 | `RebelABTesting.getExperimentUniqueVisitorData` (idSite, period, date, segment), days only | view |
 
-`variants` is a list, for example `variants[0][name]=Green&variants[0][css]=...&variants[0][js]=...`.
-`targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryGoal` is the ID of a
-goal, `ecommerceOrder` or empty.
+`variants` is a list. Each variant has a `name`, a list of `changes` with `selector`, `action` (`text`,
+`hide`, `add_class`, `style`, `image` or `link`) and `value`, and optionally `css` and `js`. For example
+`variants[0][name]=Green&variants[0][changes][0][selector]=h1&variants[0][changes][0][action]=text&variants[0][changes][0][value]=Hello`.
+`targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryMeasure` has a `type`
+(`goal`, `orders`, `revenue`, `event`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
+event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab` or `fake_door`, and `door` has `selector`, `position`
+(`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
+`message`.
 
 ## Personal data
 
@@ -129,6 +173,7 @@ From the root of Matomo:
 
 ```sh
 ./console tests:run RebelABTesting
+./console tests:run-ui --plugin=RebelABTesting
 deno test --allow-read plugins/RebelABTesting/tests/js
 ```
 

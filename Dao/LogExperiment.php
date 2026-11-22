@@ -32,6 +32,7 @@ class LogExperiment
             `variant` TINYINT UNSIGNED NOT NULL,
             `assignment_id` CHAR(32) NOT NULL,
             `server_time` DATETIME NOT NULL,
+            `clicked` TINYINT UNSIGNED NOT NULL DEFAULT 0,
             PRIMARY KEY (`idlog`),
             UNIQUE KEY `visit_experiment` (`idvisit`, `idexperiment`),
             KEY `site_time` (`idsite`, `server_time`),
@@ -59,5 +60,15 @@ class LogExperiment
             implode(', ', array_fill(0, count($columns), '?'))
         );
         Db::query($sql, array_values($row));
+    }
+
+    /**
+     * Notes that the visit clicked the fake door of the experiment.
+     *
+     * @param int|string $idVisit
+     */
+    public function markClicked($idVisit, int $idExperiment)
+    {
+        Db::query('UPDATE ' . Common::prefixTable(self::TABLE) . ' SET clicked = 1 WHERE idvisit = ? AND idexperiment = ?', [$idVisit, $idExperiment]);
     }
 }

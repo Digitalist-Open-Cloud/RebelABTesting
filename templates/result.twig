@@ -9,7 +9,7 @@
                 <span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span>
                 {{ experiment.from_date }} &ndash; {{ experiment.to_date }}
             </p>
-            {% if isAdmin and experiment.hypothesis is not empty %}
+            {% if canWrite and experiment.hypothesis is not empty %}
             <p><strong>{{ 'RebelABTesting_FormHypothesis'|translate }}:</strong> {{ experiment.hypothesis }}</p>
             {% endif %}
 
@@ -23,11 +23,38 @@
             </p>
             {% endif %}
 
+            {% if experiment.kind == 'fake_door' %}
+            <h3 class="form-section-title">{{ 'RebelABTesting_Kind_fake_door'|translate }}: {{ experiment.door.label }}</h3>
+            <table class="rebelABTestingTable">
+                <thead>
+                    <tr>
+                        <th>{{ 'RebelABTesting_DoorResultVisits'|translate }}</th>
+                        <th>{{ 'RebelABTesting_DoorResultClicks'|translate }}</th>
+                        <th>{{ 'RebelABTesting_DoorResultRate'|translate }}</th>
+                        <th>{{ 'RebelABTesting_DoorResultRange'|translate }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ result.nb_visits|number }}</td>
+                        <td>{{ result.nb_clicks|number }}</td>
+                        <td>{{ (result.click_rate * 100)|number(1) }}%</td>
+                        <td>{{ (result.click_rate_range[0] * 100)|number(1) }}% &ndash; {{ (result.click_rate_range[1] * 100)|number(1) }}%</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="section-help">{{ 'RebelABTesting_DoorResultHelp'|translate }}</p>
+            {% else %}
+            {% if result.is_split_even is same as(false) %}
+            <div class="alert rebelABTestingSplitWarning">{{ 'RebelABTesting_ResultSplitUneven'|translate }}</div>
+            {% endif %}
+
             <h3 class="form-section-title">{{ 'RebelABTesting_ResultVisits'|translate }}</h3>
             <table class="rebelABTestingTable">
                 <thead>
                     <tr>
                         <th>{{ 'RebelABTesting_Variant'|translate }}</th>
+                        <th>{{ 'RebelABTesting_ResultVisitors'|translate }}</th>
                         <th>{{ 'RebelABTesting_NbVisits'|translate }}</th>
                     </tr>
                 </thead>
@@ -35,34 +62,37 @@
                     {% for variant in result.variants %}
                     <tr>
                         <td>{{ variant.name }}</td>
+                        <td>{{ variant.nb_visitors|number }}</td>
                         <td>{{ variant.nb_visits|number }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
 
-            {% for goal in result.goals %}
-            {% set judged = goal.is_primary or experiment.primary_goal is null %}
-            <h3 class="form-section-title">{% if goal.is_primary %}{{ 'RebelABTesting_ResultPrimaryGoal'|translate(goal.name) }}{% else %}{{ goal.name }}{% endif %}</h3>
-            <table class="rebelABTestingTable">
+            {% for measure in result.measures %}
+            {% set judged = measure.role != 'other' or experiment.primary_measure is null %}
+            <h3 class="form-section-title">
+                {% if measure.role == 'primary' %}{{ 'RebelABTesting_ResultPrimaryMeasure'|translate(measure.name) }}{% elseif measure.role == 'guardrail' %}{{ 'RebelABTesting_ResultGuardrail'|translate(measure.name) }}{% else %}{{ measure.name }}{% endif %}
+            </h3>
+            <table class="rebelABTestingTable rebelABTestingMeasureTable-{{ measure.role }}">
                 <thead>
                     <tr>
                         <th>{{ 'RebelABTesting_Variant'|translate }}</th>
-                        <th>{{ 'RebelABTesting_NbVisitsConverted'|translate }}</th>
-                        <th>{{ 'RebelABTesting_ResultConversionRate'|translate }}</th>
+                        <th>{{ 'RebelABTesting_ResultVisitsWithOutcome'|translate }}</th>
+                        <th>{{ (measure.is_amount ? 'RebelABTesting_ResultAmount' : 'RebelABTesting_ResultShare')|translate }}{% if measure.is_lower_better %} ({{ 'RebelABTesting_ResultLowerIsBetter'|translate }}){% endif %}</th>
                         <th>{{ 'RebelABTesting_ResultUplift'|translate }}</th>
                         <th>{{ 'RebelABTesting_ResultChance'|translate }}</th>
                         {% if judged %}<th>{{ 'RebelABTesting_ResultVerdict'|translate }}</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for variant in goal.variants %}
+                    {% for variant in measure.variants %}
                     <tr>
                         <td>{{ variant.name }}</td>
-                        <td>{{ variant.nb_visits_converted|number }}</td>
-                        <td>{{ (variant.conversion_rate * 100)|number(2) }}%</td>
+                        <td>{{ variant.nb_visits_with_outcome|number }}</td>
+                        <td>{% if measure.is_amount %}{{ variant.value|number(2) }}{% else %}{{ (variant.value * 100)|number(2) }}%{% endif %}</td>
                         <td>{% if variant.uplift is not null %}{{ variant.uplift > 0 ? '+' : '' }}{{ (variant.uplift * 100)|number(1) }}%{% endif %}</td>
-                        <td>{% if variant.chance_to_beat_original is not null %}{{ (variant.chance_to_beat_original * 100)|number(1) }}%{% endif %}</td>
+                        <td>{% if variant.chance_to_be_better is not null %}{{ (variant.chance_to_be_better * 100)|number(1) }}%{% endif %}</td>
                         {% if judged %}<td>{% if variant.verdict %}<span class="rebelABTestingVerdict rebelABTestingVerdict-{{ variant.verdict }}">{{ ('RebelABTesting_Verdict_' ~ variant.verdict)|translate }}</span>{% endif %}</td>{% endif %}
                     </tr>
                     {% endfor %}
@@ -72,7 +102,8 @@
             <div class="alert">{{ 'RebelABTesting_ResultNoConversions'|translate }}</div>
             {% endfor %}
 
-            <p class="section-help">{{ (experiment.primary_goal is null ? 'RebelABTesting_ResultHelpNoPrimaryGoal' : 'RebelABTesting_ResultHelp')|translate }}</p>
+            <p class="section-help">{{ (experiment.primary_measure is null ? 'RebelABTesting_ResultHelpNoPrimaryGoal' : 'RebelABTesting_ResultHelp')|translate }}</p>
+            {% endif %}
             {% endif %}
         </div>
     </div>

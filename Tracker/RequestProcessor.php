@@ -11,6 +11,7 @@ namespace Piwik\Plugins\RebelABTesting\Tracker;
 
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
+use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 use Piwik\Tracker\Request;
 use Piwik\Tracker\RequestProcessor as MatomoRequestProcessor;
 use Piwik\Tracker\Visit\VisitProperties;
@@ -19,7 +20,8 @@ class RequestProcessor extends MatomoRequestProcessor
 {
     /**
      * Logs the visit for each experiment the request names, when that experiment belongs to the
-     * website, is running and has the variant.
+     * website, is running and has the variant. A fake door only counts for the visits it was
+     * shown to.
      */
     public function recordLogs(VisitProperties $visitProperties, Request $request)
     {
@@ -32,6 +34,7 @@ class RequestProcessor extends MatomoRequestProcessor
         $timestamp = (int) $request->getCurrentTimestamp();
         $experiments = new Experiments();
         $log = new LogExperiment();
+        $door = Assignments::getDoorSignal($request->getParams());
 
         // ponytail: one query per experiment and request, keep them in the tracker cache if that shows up in profiles
         foreach ($assignments as $idExperiment => $assignment) {
@@ -40,8 +43,13 @@ class RequestProcessor extends MatomoRequestProcessor
             if (
                 $experiment === null
                 || Experiments::getStatus($experiment, $timestamp) !== Experiments::STATUS_RUNNING
-                || $assignment['variant'] > count($experiment['variants']) + 1
+                || $assignment['variant'] > Experiments::getMaxVariant($experiment)
             ) {
+                continue;
+            }
+
+            $isDoor = $experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR;
+            if ($isDoor && ($door === null || $door['idexperiment'] !== $idExperiment || $assignment['variant'] !== 2)) {
                 continue;
             }
 
@@ -55,6 +63,10 @@ class RequestProcessor extends MatomoRequestProcessor
                 'assignment_id' => $assignment['assignment_id'],
                 'server_time' => gmdate('Y-m-d H:i:s', $timestamp),
             ]);
+
+            if ($isDoor && $door['signal'] === Assignments::DOOR_CLICKED) {
+                $log->markClicked($visitProperties->getProperty('idvisit'), $idExperiment);
+            }
         }
     }
 }

@@ -15,8 +15,9 @@ not take over data of SimpleABTesting.
 - An experiment can be stopped before its last day.
 - A conversion counts for an experiment from the moment the visit is in it, not when it happened
   earlier in the same visit.
-- An experiment can have a primary goal, which it is judged by. The other goals are shown without
-  a verdict.
+- An experiment is judged by a primary measure: a goal, ecommerce orders, revenue per visit, an
+  event, bounces or visits that search the website. Goals are shown without a verdict.
+- An experiment can have up to two guardrails, measures that must not get worse.
 - Admins get a preview link for each variant, which shows it before the experiment starts and
   without counting the visit.
 - The list of experiments shows whether an experiment is planned, running or has ended. Users with
@@ -25,6 +26,15 @@ not take over data of SimpleABTesting.
   variants at once on later pages.
 - Matomo deletes the log of the plugin together with the visits, when old logs are deleted and when
   the data of a visitor is deleted.
+- The result warns when the visitors are split unevenly between the groups, which means that
+  assignment or tracking is broken.
+- The form works out how many days an A/B test needs.
+- Fake door: an experiment that adds a button or link to something that does not exist yet and
+  counts the visits that click it.
+- A variant is a list of changes that need no code: change a text, hide an element, add a CSS
+  class, set a style, change an image or a link.
+- Users with write access to a website can run experiments without code. CSS and JavaScript in a
+  variant need admin access.
 - Swedish translation.
 
 ### Security

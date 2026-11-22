@@ -33,6 +33,63 @@ final class StatisticsTest extends TestCase
         $this->assertEqualsWithDelta(0.767, Statistics::chanceToBeat(1000, 100, 1000, 110), 0.001);
     }
 
+    public function testAHigherAverageIsFoundWhenTheAmountsDiffer(): void
+    {
+        // 100 visits each, amounts 10 and 20 in turn against 20 and 30 in turn: averages 15 and 25.
+        $this->assertGreaterThan(0.999, Statistics::chanceOfHigherAverage(100, 1500, 25000, 100, 2500, 65000));
+        $this->assertLessThan(0.001, Statistics::chanceOfHigherAverage(100, 2500, 65000, 100, 1500, 25000));
+        $this->assertEqualsWithDelta(0.5, Statistics::chanceOfHigherAverage(100, 1500, 25000, 100, 1500, 25000), 0.0001);
+    }
+
+    public function testNothingIsSaidAboutAveragesOfFewVisitsOrWithoutAmounts(): void
+    {
+        $this->assertNull(Statistics::chanceOfHigherAverage(29, 1500, 25000, 100, 2500, 65000));
+        $this->assertNull(Statistics::chanceOfHigherAverage(100, 0, 0, 100, 0, 0));
+    }
+
+    /**
+     * @dataProvider getSplits
+     * @param int[] $visitors
+     */
+    public function testAnUnevenSplitIsUnlikely(array $visitors, float $chance): void
+    {
+        $this->assertEqualsWithDelta($chance, Statistics::chanceOfSplit($visitors), 0.0005);
+    }
+
+    public function getSplits(): array
+    {
+        // The chi-square values 3.841, 5.991, 7.815 and 9.488 are the 5% limits for 1 to 4 degrees of freedom.
+        return [
+            'even' => [[500, 500], 1.0],
+            'two groups at the limit' => [[1000 + 44, 1000 - 44], 0.049],
+            'three groups at the limit' => [[1000 + 55, 1000 - 55, 1000], 0.049],
+            'four groups at the limit' => [[1000 + 63, 1000 - 63, 1000, 1000], 0.047],
+            'five groups at the limit' => [[1000 + 69, 1000 - 69, 1000, 1000, 1000], 0.049],
+            'clearly broken' => [[1000, 800], 0.0000024],
+        ];
+    }
+
+    public function testNothingIsSaidAboutTheSplitOfFewVisitors(): void
+    {
+        $this->assertNull(Statistics::chanceOfSplit([29, 30]));
+        $this->assertNull(Statistics::chanceOfSplit([1000]));
+        $this->assertNull(Statistics::chanceOfSplit([]));
+    }
+
+    public function testTheRangeOfARateNarrowsWithMoreVisits(): void
+    {
+        // Wilson score interval of 10 out of 100.
+        [$low, $high] = Statistics::rateInterval(100, 10);
+        $this->assertEqualsWithDelta(0.0552, $low, 0.0005);
+        $this->assertEqualsWithDelta(0.1744, $high, 0.0005);
+
+        [$low, $high] = Statistics::rateInterval(10000, 1000);
+        $this->assertEqualsWithDelta(0.0943, $low, 0.0005);
+        $this->assertEqualsWithDelta(0.1060, $high, 0.0005);
+
+        $this->assertSame([0.0, 0.0], Statistics::rateInterval(0, 0));
+    }
+
     /**
      * @dataProvider getTooLittleData
      */

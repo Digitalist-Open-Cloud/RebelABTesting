@@ -29,12 +29,34 @@ export function makeEnv(opts = {}) {
     experiments: opts.experiments ?? [],
     fetchFails: opts.fetchFails ?? false,
   };
+  // The elements a fake door was put next to, by the way it was placed.
+  env.placed = [];
   env.document = {
+    readyState: "complete",
     head: { appendChild(n) { env.appended.push(n); } },
     createElement(tag) {
-      const node = { tagName: tag, remove() { env.appended = env.appended.filter((n) => n !== node); } };
+      const node = {
+        tagName: tag,
+        attributes: {},
+        remove() { env.appended = env.appended.filter((n) => n !== node); },
+        setAttribute(name, value) { node.attributes[name] = value; },
+        addEventListener(_type, listener) { node.click = () => listener({ preventDefault() {} }); },
+        replaceWith(other) { node.replacedWith = other; },
+      };
       return node;
     },
+    // The elements of the page by selector, for the changes of a variant.
+    querySelectorAll(selector) {
+      if (selector === "(") throw new Error("not a selector");
+      return (opts.page ?? {})[selector] ?? [];
+    },
+    querySelector(selector) {
+      if (selector === "(") throw new Error("not a selector");
+      return (opts.elements ?? []).includes(selector)
+        ? { insertAdjacentElement(position, node) { env.placed.push([selector, position, node]); } }
+        : null;
+    },
+    addEventListener() {},
   };
   env.fetch = (url) => {
     env.fetchCalls.push(url);

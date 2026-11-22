@@ -16,6 +16,9 @@ namespace Piwik\Plugins\RebelABTesting\Tracker;
 class Assignments
 {
     public const PARAMETER = 'rabt';
+    public const DOOR_PARAMETER = 'rabtd';
+    public const DOOR_SHOWN = 's';
+    public const DOOR_CLICKED = 'c';
 
     private const MAX_EXPERIMENTS = 10;
 
@@ -38,5 +41,21 @@ class Assignments
         }
 
         return $assignments;
+    }
+
+    /**
+     * What the request tells about a fake door: that it was shown to the visitor, or clicked.
+     *
+     * @param array<string, mixed> $params
+     * @return array{idexperiment: int, signal: string}|null
+     */
+    public static function getDoorSignal(array $params): ?array
+    {
+        $value = $params[self::DOOR_PARAMETER] ?? '';
+        if (!is_string($value) || !preg_match('/^([1-9][0-9]{0,8})-([' . self::DOOR_SHOWN . self::DOOR_CLICKED . '])$/', $value, $match)) {
+            return null;
+        }
+
+        return ['idexperiment' => (int) $match[1], 'signal' => $match[2]];
     }
 }
