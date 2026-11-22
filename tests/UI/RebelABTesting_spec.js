@@ -109,6 +109,16 @@ describe('RebelABTesting', function () {
         expect(await visible('.rebelABTestingVariants')).to.equal(false);
 
         await step('basics');
+        await page.click('.rebelABTestingKind[value=rollout]');
+        expect(await stepNames()).to.equal('1 Basics | 2 Change | 3 Where and who | 4 Measures | 5 When');
+        await step('changes');
+        // A rollout is one change: the second variant of the form and the way to add more are gone.
+        expect(await page.evaluate(() => [...document.querySelectorAll('.rebelABTestingVariant')].map((variant) => variant.offsetParent !== null))).to.deep.equal([true, false]);
+        expect(await visible('.rebelABTestingAddVariant')).to.equal(false);
+        await step('audience');
+        expect(await page.evaluate(() => document.querySelector('label[for=traffic_share]').innerText.trim())).to.equal('Share of visitors that get the change (%)');
+
+        await step('basics');
         await page.click('.rebelABTestingKind[value=watch]');
         await step('changes');
         expect(await visible('#watch_selector')).to.equal(true);

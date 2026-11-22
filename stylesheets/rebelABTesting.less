@@ -365,7 +365,7 @@
 
     .rebelABTestingKinds {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: 12px;
         margin-bottom: 8px;
     }
@@ -653,6 +653,25 @@
 
         label {
             font-weight: normal;
+            margin: 0;
+        }
+    }
+
+    .rebelABTestingRollOut {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        margin: 12px 0;
+
+        select {
+            width: auto;
+            height: auto;
+            padding: 6px 10px;
+        }
+
+        .form-hint {
+            flex-basis: 100%;
             margin: 0;
         }
     }

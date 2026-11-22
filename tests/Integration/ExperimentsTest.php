@@ -126,6 +126,82 @@ class ExperimentsTest extends IntegrationTestCase
         $this->assertSame([99, 'starts_with', 'https://example.org/checkout'], [$experiment['confidence'], $experiment['exclude_match'], $experiment['exclude_value']]);
     }
 
+    public function testARolloutIsOneChangeForAShareOfTheVisitors()
+    {
+        $id = $this->api->insertExperiment(1, 'rollout', '', '', '2024-03-01', '2024-03-31', [self::VARIANT, ['name' => 'left out']], 5, 'any', '', ['type' => 'bounce'], 'rollout');
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['rollout', 5, 1, ['type' => 'bounce']], [$experiment['kind'], $experiment['traffic_share'], count($experiment['variants']), $experiment['primary_measure']]);
+        $this->assertSame(2, Experiments::getMaxVariant($experiment));
+    }
+
+    public function testAVariantOfAnABTestIsRolledOutToEveryoneAndTheTestEnds()
+    {
+        $audience = ['visitor' => 'new', 'devices' => ['mobile'], 'campaign' => '', 'referrer' => '', 'languages' => []];
+        $changes = [['selector' => '.buy', 'action' => 'add_class', 'value' => 'green']];
+        $id = $this->api->insertExperiment(1, 'button', '', '', '2024-03-01', '2024-03-31', [['name' => 'Blue'], ['name' => 'Green', 'changes' => $changes]], 50, 'contains', '/pricing', ['type' => 'bounce'], 'ab', [], [['type' => 'search']], 99, 'contains', '/checkout', true, $audience);
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        $idRollout = $this->api->rollOutVariant(1, $id, 3);
+
+        $rollout = $this->api->getExperiment($idRollout, 1);
+        $this->assertSame(
+            ['rollout', 'button: Green (2024-03-05)', 100, '2024-03-05', '2025-03-05', 'running', false],
+            [$rollout['kind'], $rollout['name'], $rollout['traffic_share'], $rollout['from_date'], $rollout['to_date'], $rollout['status'], $rollout['notify']]
+        );
+        $this->assertSame([['name' => 'Green', 'changes' => $changes, 'redirect' => '', 'css' => '', 'js' => '']], $rollout['variants']);
+        $this->assertSame(
+            ['contains', '/pricing', 'contains', '/checkout', $audience, ['type' => 'bounce'], [['type' => 'search']], 99],
+            [$rollout['target_match'], $rollout['target_value'], $rollout['exclude_match'], $rollout['exclude_value'], $rollout['audience'], $rollout['primary_measure'], $rollout['guardrails'], $rollout['confidence']]
+        );
+        $this->assertSame('ended', $this->api->getExperiment($id, 1)['status']);
+    }
+
+    /**
+     * @dataProvider getWhatCannotBeRolledOut
+     */
+    public function testOnlyAVariantOfAnABTestCanBeRolledOut(string $kind, int $variant)
+    {
+        $id = $this->api->insertExperiment(1, 'source', '', '', '2024-03-01', '2024-03-31', [self::VARIANT], 100, 'any', '', [], $kind, ['selector' => '#menu', 'label' => 'Export', 'message' => 'Soon']);
+
+        try {
+            $this->api->rollOutVariant(1, $id, $variant);
+            $this->fail('The rollout was not refused.');
+        } catch (Exception $e) {
+            $this->assertStringContainsString('Only a variant of an A/B test', $e->getMessage());
+        }
+
+        $this->assertSame(['running', 1], [$this->api->getExperiment($id, 1)['status'], count($this->api->getExperiments(1))]);
+    }
+
+    public function getWhatCannotBeRolledOut(): array
+    {
+        return [
+            'the original' => ['ab', 1],
+            'a variant the test does not have' => ['ab', 3],
+            'a rollout' => ['rollout', 2],
+            'a fake door' => ['fake_door', 2],
+        ];
+    }
+
+    public function testRollingOutAVariantWithCodeNeedsAdminAccessAndRollingOutNeedsWriteAccess()
+    {
+        $id = $this->api->insertExperiment(1, 'code', '', '', '2024-03-01', '2024-03-31', [self::VARIANT, ['js' => 'x()']]);
+
+        foreach ([[[], [], [1], 2], [[], [], [1], 3], [[1], [], [], 3]] as $index => [$admin, $view, $write, $variant]) {
+            FakeAccess::clearAccess(false, $admin, $index === 0 ? [1] : $view, 'someone', $index === 0 ? [] : $write);
+            try {
+                $this->api->rollOutVariant(1, $id, $variant);
+                $this->assertSame(2, $index, 'A rollout was not refused.');
+            } catch (NoAccessException $e) {
+                $this->assertContains($index, [0, 1]);
+            }
+        }
+
+        FakeAccess::clearAccess(true);
+        $this->assertSame(['code', 'code: Variant 2 (2024-03-05)'], array_column($this->api->getExperiments(1), 'name'));
+    }
+
     public function testAnExperimentCanBeForAnAudience()
     {
         $given = ['visitor' => 'returning', 'devices' => ['mobile', 'watch', 'desktop'], 'campaign' => ' Spring ', 'referrer' => 'google.', 'languages' => ' SV, en-GB ,sv', 'age' => 40];

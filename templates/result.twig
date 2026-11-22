@@ -19,6 +19,20 @@
             <p><strong>{{ 'General_Description'|translate }}:</strong> {{ experiment.description }}</p>
             {% endif %}
 
+            {% if canRollOut %}
+            <form method="post" action="{{ rollOutUrl }}" class="rebelABTestingRollOut">
+                <input type="hidden" name="nonce" value="{{ nonce }}">
+                <input type="hidden" name="id" value="{{ experiment.id }}">
+                <label for="rollout_variant"><strong>{{ 'RebelABTesting_RollOutLabel'|translate }}:</strong></label>
+                <select name="variant" id="rollout_variant" class="browser-default">
+                    {% for variant in result.variants|slice(1) %}
+                    <option value="{{ variant.variant }}">{{ variant.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="rebelABTestingSecondary">{{ 'RebelABTesting_RollOutButton'|translate }}</button>
+                <span class="form-hint">{{ 'RebelABTesting_RollOutHint'|translate }}</span>
+            </form>
+            {% endif %}
             {% if previewLinks is not empty %}
             <p>
                 <strong>{{ 'RebelABTesting_ResultPreview'|translate }}:</strong>
@@ -29,7 +43,7 @@
             </p>
             {% endif %}
 
-            {% if experiment.kind != 'ab' %}
+            {% if experiment.kind in ['fake_door', 'watch'] %}
             <h3 class="form-section-title">{{ ('RebelABTesting_Kind_' ~ experiment.kind)|translate }}: {{ experiment.kind == 'watch' ? experiment.door.selector : experiment.door.label }}</h3>
             <table class="rebelABTestingTable">
                 <thead>

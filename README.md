@@ -70,9 +70,25 @@ experiment, the share of visits that reach the primary measure today, and the sm
 find. Set the last day accordingly, and do not end the experiment earlier because the numbers look
 good: a test that is ended on its first good day often shows a difference that is not there.
 
+## Roll out a change
+
+A rollout is one change that a share of the visitors gets. The others are counted
+without it, to compare with. It serves three purposes:
+
+- **Roll out step by step.** Start with a few percent and raise the share when the measures hold.
+  A visitor who has the change keeps it, and raising the share brings more visitors in.
+- **Personalise.** Give it an audience and a share of 100: every visitor of the audience gets the
+  change, and nobody else.
+- **Hold out.** A share of 95 leaves a few visitors without the change, which shows over time what
+  the change is worth.
+
+The page of an A/B test has **Show a variant to everyone**. It ends the test and starts a rollout of
+the chosen variant for the same pages and audience, for a year. Change the website itself within
+that time.
+
 ## Fake door
 
-A fake door is the other kind of experiment. It adds a button or a link to something that does not
+A fake door is a kind of experiment of its own. It adds a button or a link to something that does not
 exist yet, to see how many visitors want it before you build it.
 
 - Give the text of the button or link, the element of the page it is put next to as a CSS selector,
@@ -116,7 +132,7 @@ A variant is applied when the tag fires, so let the tag fire as early as the con
 
 ## Watch an element
 
-The third kind of experiment changes nothing. It counts the visits that see an element the page
+Watching an element changes nothing. It counts the visits that see an element the page
 already has, and the visits that click it.
 
 - Give the element as a CSS selector. All elements that match are watched as one.
@@ -193,6 +209,7 @@ about experiments that have ended or not started.
 | `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails, confidence, excludeMatch, excludeValue, notify, audience) | write, admin with CSS or JavaScript |
 | `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | write, admin with CSS or JavaScript |
 | `RebelABTesting.stopExperiment` (id, idSite) | write |
+| `RebelABTesting.rollOutVariant` (idSite, id, variant) | write, admin when the variant has CSS or JavaScript |
 | `RebelABTesting.deleteExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiments` (idSite) | view |
@@ -205,7 +222,7 @@ about experiments that have ended or not started.
 `targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryMeasure` has a `type`
 (`goal`, `goal_revenue`, `orders`, `revenue`, `conversions`, `total_revenue`, `event`, `pageviews`,
 `visit_length`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
-event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `fake_door` or `watch`. For a fake door, `door` has `selector`, `position`
+event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `rollout`, `fake_door` or `watch`. For a fake door, `door` has `selector`, `position`
 (`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
 `message`. For `watch` it has the `selector` of the element.
 

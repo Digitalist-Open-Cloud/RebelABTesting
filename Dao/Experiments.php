@@ -252,6 +252,10 @@ class Experiments
         $kind = (string) ($experiment['kind'] ?? ExperimentValidator::KIND_AB);
         $hasVariants = !ExperimentValidator::countsWhatIsShown($kind);
         $variants = $hasVariants ? ExperimentValidator::normalizeVariants($experiment['variants'] ?? null) : [];
+        if ($kind === ExperimentValidator::KIND_ROLLOUT) {
+            // A rollout is one change, which a share of the visitors gets.
+            $variants = array_slice($variants, 0, 1);
+        }
         $door = null;
         $kindError = null;
         if ($kind === ExperimentValidator::KIND_FAKE_DOOR) {
@@ -260,7 +264,7 @@ class Experiments
         } elseif ($kind === ExperimentValidator::KIND_WATCH) {
             $door = ExperimentValidator::normalizeWatch($experiment['door'] ?? null);
             $kindError = ExperimentValidator::validateWatch($door);
-        } elseif ($kind === ExperimentValidator::KIND_AB) {
+        } elseif (in_array($kind, ExperimentValidator::KINDS, true)) {
             $kindError = ExperimentValidator::validateVariants($variants);
         }
 

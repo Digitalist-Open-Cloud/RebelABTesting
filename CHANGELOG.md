@@ -56,6 +56,9 @@ not take over data of SimpleABTesting.
   all.
 - An experiment can be for an audience: new or returning visitors, devices, visitors of a campaign
   or from a referrer, and browser languages.
+- Roll out a change: an experiment that gives one change to a share of the visitors, to roll it out
+  step by step, to personalise for an audience, or to hold a few visitors out.
+- A variant of an A/B test can be shown to everyone from the page of the test.
 - Swedish translation.
 
 ### Security

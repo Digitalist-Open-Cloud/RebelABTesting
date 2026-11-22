@@ -218,6 +218,32 @@ describe('RebelABTestingWebsite', function () {
         await stop(id);
     });
 
+    it('should roll a change out to its share of the visitors and count the rest without it', async function () {
+        const id = await addExperiment('rollout', {
+            kind: 'rollout',
+            trafficShare: 30,
+            'variants[0][changes][0][selector]': 'h1',
+            'variants[0][changes][0][action]': 'text',
+            'variants[0][changes][0][value]': 'The new headline',
+        });
+        await newVisitor(0.9);
+        await open('index.html');
+        expect(await text('h1')).to.equal('Welcome to the Test Shop');
+        await counted(id, (result) => result.variants[0].nb_visits === 1 && result.variants[0].name.replace(/\s/g, '') === 'Withoutthechange');
+
+        // The share is raised to everyone. The same visitor now gets the change.
+        await testEnvironment.callApi('RebelABTesting.updateExperiment', {
+            idSite: 1, id, name: 'rollout', hypothesis: '', description: '', fromDate: day(-1), toDate: day(30), kind: 'rollout', trafficShare: 100,
+            'variants[0][changes][0][selector]': 'h1',
+            'variants[0][changes][0][action]': 'text',
+            'variants[0][changes][0][value]': 'The new headline',
+        });
+        await page.evaluate(() => localStorage.removeItem('sabt-experiments:1'));
+        await open('index.html');
+        expect(await text('h1')).to.equal('The new headline');
+        await stop(id);
+    });
+
     it('should show a preview link its variant without counting the visit', async function () {
         const id = await addExperiment('preview', {
             fromDate: day(10),

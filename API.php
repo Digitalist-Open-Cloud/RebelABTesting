@@ -10,6 +10,7 @@
 namespace Piwik\Plugins\RebelABTesting;
 
 use Exception;
+use Piwik\Date;
 use Piwik\Piwik;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
@@ -51,7 +52,8 @@ class API extends \Piwik\Plugin\API
      * @param array $primaryMeasure what the experiment is judged by: its `type` (goal, orders, revenue,
      *                              event, bounce or search) and, for a goal, its `idgoal`, or for an
      *                              event, its `category` and optionally its `action`. Empty for none
-     * @param string $kind `ab` for a test of variants, `fake_door` for a button to something that
+     * @param string $kind `ab` for a test of variants, `rollout` for one change that a share of the
+     *                     visitors gets while the rest are counted without it, `fake_door` for a button to something that
      *                     does not exist yet, to see how many visitors want it, `watch` to count the
      *                     visits that see and click an element the page already has
      * @param array $door the fake door: `selector` of the element it is put next to, `position`
@@ -169,6 +171,43 @@ class API extends \Piwik\Plugin\API
             $audience
         );
         $this->experiments->updateExperiment($id, $idSite, $fields);
+    }
+
+    /**
+     * Shows a variant of an A/B test to everyone the test was for, as a rollout of its own that runs
+     * for a year. The test is ended.
+     *
+     * @param int $variant the number of the variant: 2 for the first one
+     * @return int the ID of the rollout
+     */
+    public function rollOutVariant(int $idSite, int $id, int $variant): int
+    {
+        Piwik::checkUserHasWriteAccess($idSite);
+
+        $experiment = $this->getExistingExperiment($idSite, $id);
+        $chosen = $experiment['variants'][$variant - 2] ?? null;
+        if ($experiment['kind'] !== ExperimentValidator::KIND_AB || $chosen === null) {
+            throw new Exception(Piwik::translate('RebelABTesting_ErrorRollOut'));
+        }
+        if (ExperimentValidator::hasCode([$chosen])) {
+            Piwik::checkUserHasAdminAccess($idSite);
+        }
+
+        $name = $experiment['name'] . ': ' . ($chosen['name'] !== '' ? $chosen['name'] : Piwik::translate('RebelABTesting_VariantNumber', $variant - 1));
+        $idRollout = $this->experiments->insertExperiment($idSite, [
+            'kind' => ExperimentValidator::KIND_ROLLOUT,
+            'name' => mb_substr($name, 0, 230) . ' (' . Date::now()->toString() . ')',
+            'hypothesis' => '',
+            'description' => Piwik::translate('RebelABTesting_RolledOutFrom', $experiment['name']),
+            'from_date' => Date::now()->toString(),
+            'to_date' => Date::now()->addPeriod(1, 'year')->toString(),
+            'variants' => [$chosen],
+            'traffic_share' => 100,
+            'notify' => false,
+        ] + array_intersect_key($experiment, array_flip(['target_match', 'target_value', 'exclude_match', 'exclude_value', 'audience', 'primary_measure', 'guardrails', 'confidence'])));
+        $this->experiments->stopExperiment($id, $idSite);
+
+        return $idRollout;
     }
 
     /**

@@ -59,8 +59,16 @@
     function showKind(form) {
         var kind = form.querySelector('.rebelABTestingKind:checked').value;
         form.querySelectorAll('[data-kind]').forEach(function (section) {
-            section.hidden = section.dataset.kind !== kind;
+            section.hidden = section.dataset.kind.split(' ').indexOf(kind) === -1;
         });
+
+        // A rollout is one change. Further variants of the form are kept for another kind.
+        var isRollout = kind === 'rollout';
+        form.querySelectorAll('.rebelABTestingVariant').forEach(function (variant, index) {
+            variant.hidden = isRollout && index > 0;
+        });
+        form.querySelector('.rebelABTestingAddVariant').hidden = isRollout
+            || form.querySelectorAll('.rebelABTestingVariant').length >= Number(form.querySelector('.rebelABTestingVariants').dataset.max);
     }
 
     // The form is a row of steps, of which one is shown at a time. A kind of experiment that has

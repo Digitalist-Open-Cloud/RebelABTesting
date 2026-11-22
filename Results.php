@@ -110,8 +110,9 @@ class Results
             $add(['type' => Measures::GOAL, 'idgoal' => (int) $goal['idgoal']], self::ROLE_OTHER);
         }
 
-        // Visitors are what is split, a visitor can come back for several visits.
-        $chanceOfSplit = Statistics::chanceOfSplit(array_column($variants, 'nb_visitors'));
+        // Visitors are what is split, a visitor can come back for several visits. A rollout is not
+        // split evenly, by design.
+        $chanceOfSplit = $experiment['kind'] === ExperimentValidator::KIND_ROLLOUT ? null : Statistics::chanceOfSplit(array_column($variants, 'nb_visitors'));
 
         foreach ($variants as &$variant) {
             unset($variant['idsite']);
@@ -320,8 +321,13 @@ class Results
      */
     private function getVariantNames(array $experiment): array
     {
-        $names = [1 => Piwik::translate('RebelABTesting_Original')];
+        $isRollout = $experiment['kind'] === ExperimentValidator::KIND_ROLLOUT;
+        $names = [1 => Piwik::translate($isRollout ? 'RebelABTesting_RolloutWithout' : 'RebelABTesting_Original')];
         foreach ($experiment['variants'] as $index => $variant) {
+            if ($isRollout && $variant['name'] === '') {
+                $names[2] = Piwik::translate('RebelABTesting_RolloutWith');
+                continue;
+            }
             $names[$index + 2] = $variant['name'] !== '' ? $variant['name'] : Piwik::translate('RebelABTesting_VariantNumber', $index + 1);
         }
 

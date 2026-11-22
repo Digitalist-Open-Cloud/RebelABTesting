@@ -368,6 +368,25 @@ class TrackingTest extends IntegrationTestCase
         $this->assertSame('0', (string) Db::fetchOne('SELECT SUM(clicked) FROM ' . Common::prefixTable(LogExperiment::TABLE)));
     }
 
+    public function testARolloutComparesTheVisitsWithTheChangeWithTheRest()
+    {
+        $id = API::getInstance()->insertExperiment(1, 'rollout', '', '', '2024-03-01', '2024-03-31', [['js' => '']], 20, 'any', '', ['type' => 'bounce'], 'rollout');
+        for ($visit = 0; $visit < 80; $visit++) {
+            $this->trackVisit(1, [$id => 1], self::DAY, $visit < 60 ? ['/'] : ['/', '/more']);
+        }
+        for ($visit = 0; $visit < 30; $visit++) {
+            $this->trackVisit(1, [$id => 2], self::DAY, $visit < 6 ? ['/'] : ['/', '/more']);
+        }
+        $this->trackVisit(1, [$id => 3]);
+
+        $result = API::getInstance()->getExperimentResult(1, $id);
+
+        $this->assertSame([['Without the change', 80], ['With the change', 30]], array_map(null, array_column($result['variants'], 'name'), array_column($result['variants'], 'nb_visits')));
+        // 80 against 30 is what a rollout looks like, and no sign of a fault.
+        $this->assertNull($result['is_split_even']);
+        $this->assertSame([0.75, 0.2, 'better'], [$result['measures'][0]['variants'][0]['value'], $result['measures'][0]['variants'][1]['value'], $result['measures'][0]['variants'][1]['verdict']]);
+    }
+
     public function testAConversionBeforeTheVisitWasInTheExperimentDoesNotCount()
     {
         GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');

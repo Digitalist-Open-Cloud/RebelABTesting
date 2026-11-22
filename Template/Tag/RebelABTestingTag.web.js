@@ -11,6 +11,7 @@
       var VISIT_SECONDS = 1800;
       var FAKE_DOOR = "fake_door";
       var WATCH = "watch";
+      var ROLLOUT = "rollout";
       var DOOR_VARIANT = 2;
       var DOOR_POSITIONS = { before: "beforebegin", after: "afterend", prepend: "afterbegin", append: "beforeend" };
       var ORIGINAL = 1;
@@ -432,7 +433,14 @@
               var record = read(key);
               var isNew = !isValid(record) || record.v > maxVariant(experiment);
 
-              if (isNew) {
+              if (experiment.kind === ROLLOUT) {
+                  // A visitor keeps a number from 0 to 100, and gets the change when the share of the
+                  // rollout has reached it. Raising the share brings more visitors in.
+                  var number = isValid(record) && typeof record.r === "number" ? record.r : Math.random() * 100;
+                  var group = number < experiment.share ? ORIGINAL + 1 : ORIGINAL;
+                  isNew = isNew || record.v !== group;
+                  record = { v: group, r: number, a: isValid(record) ? record.a : randomHex32() };
+              } else if (isNew) {
                   var takesPart = Math.random() * 100 < experiment.share;
                   var variant = countsWhatIsShown(experiment)
                       ? DOOR_VARIANT : ORIGINAL + Math.floor(Math.random() * (experiment.variants.length + 1));
@@ -440,7 +448,9 @@
               }
 
               try {
-                  localStorage.setItem(key, JSON.stringify({ v: record.v, a: record.a, exp: experiment.to_date }));
+                  var kept = { v: record.v, a: record.a, exp: experiment.to_date };
+                  if (typeof record.r === "number") kept.r = record.r;
+                  localStorage.setItem(key, JSON.stringify(kept));
               } catch (e) {
                   return null;
               }

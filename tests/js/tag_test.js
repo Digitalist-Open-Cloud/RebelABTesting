@@ -577,3 +577,54 @@ Deno.test("how the visitor arrived is remembered on the next pages, and a visito
   assertEquals(stored(arrived.localStorage, 8).v, 2);
   assertEquals(arrived.appended.length, 2);
 });
+
+const rollout = (over = {}) => experiment({ kind: "rollout", share: 20, variants: [{ changes: [], redirect: "", css: "new{}", js: "" }], ...over });
+
+Deno.test("a rollout gives the change to its share of the visitors and counts the rest without it", async () => {
+  const inside = makeEnv({ experiments: [rollout()] });
+  await fireWith([0.1], inside);
+  assertEquals([stored(inside.localStorage, 7).v, stored(inside.localStorage, 7).r], [2, 10]);
+  assertEquals(inside.appended.map((n) => n.textContent), ["new{}"]);
+  assertEquals(inside._paq[0][1].slice(0, 9), "rabt=7-2-");
+
+  const outside = makeEnv({ experiments: [rollout()] });
+  await fireWith([0.5], outside);
+  assertEquals(stored(outside.localStorage, 7).v, 1);
+  assertEquals(outside.appended, []);
+  assertEquals(outside._paq[0][1].slice(0, 9), "rabt=7-1-");
+});
+
+Deno.test("raising the share of a rollout brings in visitors who were outside, and no one falls out", async () => {
+  const env = makeEnv({ experiments: [rollout()] });
+  await fireWith([0.5], env);
+  const before = stored(env.localStorage, 7);
+  assertEquals(before.v, 1);
+
+  env.localStorage.removeItem("sabt-experiments:1");
+  env.experiments = [rollout({ share: 60 })];
+  env._paq.length = 0;
+  await fireWith([0.99], env);
+
+  const after = stored(env.localStorage, 7);
+  assertEquals([after.v, after.r, after.a], [2, before.r, before.a]);
+  assertEquals(env.appended.map((n) => n.textContent), ["new{}"]);
+  assertEquals(env._paq.map((call) => call[0]), ["appendToTrackingUrl", "ping"]);
+
+  env.localStorage.removeItem("sabt-experiments:1");
+  env.experiments = [rollout({ share: 100 })];
+  await fireWith([0.99], env);
+  assertEquals(stored(env.localStorage, 7).v, 2);
+});
+
+Deno.test("a rollout to everyone of an audience leaves the others alone", async () => {
+  const forMobile = rollout({ share: 100, audience: { ...everyone, devices: ["mobile"] } });
+
+  const phone = makeEnv({ experiments: [forMobile], userAgent: iPhone });
+  await fireWith([0.99], phone);
+  assertEquals(stored(phone.localStorage, 7).v, 2);
+
+  const desktop = makeEnv({ experiments: [forMobile] });
+  await fireWith([0.01], desktop);
+  assertEquals(stored(desktop.localStorage, 7), null);
+  assertEquals(desktop.appended, []);
+});

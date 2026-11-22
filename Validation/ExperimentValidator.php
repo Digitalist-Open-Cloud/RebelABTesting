@@ -24,7 +24,8 @@ final class ExperimentValidator
     public const KIND_AB = 'ab';
     public const KIND_FAKE_DOOR = 'fake_door';
     public const KIND_WATCH = 'watch';
-    public const KINDS = [self::KIND_AB, self::KIND_FAKE_DOOR, self::KIND_WATCH];
+    public const KIND_ROLLOUT = 'rollout';
+    public const KINDS = [self::KIND_AB, self::KIND_ROLLOUT, self::KIND_FAKE_DOOR, self::KIND_WATCH];
     public const DOOR_POSITIONS = ['after', 'before', 'append', 'prepend'];
     public const DOOR_ELEMENTS = ['button', 'link'];
 

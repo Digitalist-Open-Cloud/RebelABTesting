@@ -119,6 +119,30 @@ class Controller extends \Piwik\Plugin\Controller
         $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
     }
 
+    /**
+     * Shows a variant of an A/B test to everyone, from the page of the test.
+     */
+    public function rollOut()
+    {
+        $idSite = $this->checkWriteRequest();
+        $request = Request::fromRequest();
+
+        try {
+            $idRollout = ApiRequest::processRequest('RebelABTesting.rollOutVariant', [
+                'idSite' => $idSite,
+                'id' => $request->getIntegerParameter('id', 0),
+                'variant' => $request->getIntegerParameter('variant', 0),
+            ], []);
+            $this->notify('RebelABTesting_RolledOut', Notification::CONTEXT_SUCCESS);
+        } catch (Exception $e) {
+            $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
+            $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
+            return;
+        }
+
+        $this->redirect(self::getReportingUrl($idSite, (string) $idRollout));
+    }
+
     public function delete()
     {
         $idSite = $this->checkWriteRequest();
@@ -176,6 +200,10 @@ class Controller extends \Piwik\Plugin\Controller
             'result' => $result,
             'evolution' => $evolution,
             'canWrite' => $canWrite,
+            'canRollOut' => $experiment && $experiment['kind'] === ExperimentValidator::KIND_AB && $canWrite
+                && (Piwik::isUserHasAdminAccess($this->idSite) || !ExperimentValidator::hasCode($experiment['variants'])),
+            'rollOutUrl' => self::getActionUrl('rollOut', $this->idSite),
+            'nonce' => $canWrite ? Nonce::getNonce(self::NONCE) : '',
             'previewLinks' => $experiment && $canWrite ? $this->getPreviewLinks($experiment, $result['variants'] ?? []) : [],
         ]);
     }

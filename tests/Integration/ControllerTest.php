@@ -464,6 +464,49 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('Internal', $html);
     }
 
+    public function testAVariantIsRolledOutFromThePageOfItsTest()
+    {
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        $html = (new Controller())->result();
+        $this->assertStringContainsString('action=rollOut&amp;idSite=1', $html);
+        $this->assertStringContainsString('<option value="2">Green</option>', $html);
+
+        $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'variant' => '2', 'nonce' => Nonce::getNonce(Controller::NONCE)]);
+        try {
+            (new Controller())->rollOut();
+            $this->fail('There was no redirect.');
+        } catch (Exception $e) {
+            $this->assertStringContainsString('subcategory=' . ($this->idExperiment + 1), $e->getMessage());
+        }
+
+        $experiments = (new Experiments())->getAllForSite(1);
+        $this->assertSame(['ended', 'rollout', 'running'], [$experiments[0]['status'], $experiments[1]['kind'], $experiments[1]['status']]);
+
+        $_POST = [];
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $experiments[1]['id']];
+        $rollout = (new Controller())->result();
+        $this->assertStringContainsString('Rolled out from the experiment &quot;button&quot;.', $rollout);
+        $this->assertStringNotContainsString('action=rollOut', $rollout);
+    }
+
+    public function testRollingOutNeedsTheTokenAndAccess()
+    {
+        $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'variant' => '2', 'nonce' => 'made-up']);
+        $this->refuses('rollOut', 'security check');
+
+        $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'variant' => '2', 'nonce' => Nonce::getNonce(Controller::NONCE)]);
+        // The variant has JavaScript, which is for admins. The visitor is sent back with a notice.
+        FakeAccess::clearAccess(false, [], [1], 'writer', [1]);
+        $this->redirects('rollOut');
+        FakeAccess::clearAccess(true);
+        $this->assertSame(['running'], array_column((new Experiments())->getAllForSite(1), 'status'));
+
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        FakeAccess::clearAccess(false, [], [1], 'writer', [1]);
+        $this->assertStringNotContainsString('action=rollOut', (new Controller())->result());
+    }
+
     public function testTheFormAndThePageOfAnExperimentShowItsAudience()
     {
         $id = API::getInstance()->insertExperiment(1, 'for some', '', '', '2024-03-01', '2024-03-31', [['name' => 'Green']], 100, 'any', '', [], 'ab', [], [], 95, 'none', '', true, ['visitor' => 'returning', 'devices' => ['mobile'], 'campaign' => 'spring', 'languages' => ['sv', 'nb']]);

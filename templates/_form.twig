@@ -29,9 +29,9 @@
 
     <nav class="rebelABTestingSteps" aria-label="{{ 'RebelABTesting_StepsLabel'|translate }}">
         <button type="button" class="rebelABTestingStep" data-panel="basics"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepBasics'|translate }}</button>
-        <button type="button" class="rebelABTestingStep" data-panel="changes"><span class="rebelABTestingStepNumber"></span><span data-kind="ab">{{ 'RebelABTesting_StepChanges'|translate }}</span><span data-kind="fake_door">{{ 'RebelABTesting_Kind_fake_door'|translate }}</span><span data-kind="watch">{{ 'RebelABTesting_StepWatch'|translate }}</span></button>
+        <button type="button" class="rebelABTestingStep" data-panel="changes"><span class="rebelABTestingStepNumber"></span><span data-kind="ab">{{ 'RebelABTesting_StepChanges'|translate }}</span><span data-kind="rollout">{{ 'RebelABTesting_StepChange'|translate }}</span><span data-kind="fake_door">{{ 'RebelABTesting_Kind_fake_door'|translate }}</span><span data-kind="watch">{{ 'RebelABTesting_StepWatch'|translate }}</span></button>
         <button type="button" class="rebelABTestingStep" data-panel="audience"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepAudience'|translate }}</button>
-        <button type="button" class="rebelABTestingStep" data-panel="measures" data-kind="ab"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepMeasures'|translate }}</button>
+        <button type="button" class="rebelABTestingStep" data-panel="measures" data-kind="ab rollout"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepMeasures'|translate }}</button>
         <button type="button" class="rebelABTestingStep" data-panel="schedule"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepSchedule'|translate }}</button>
     </nav>
 
@@ -122,7 +122,7 @@
             </div>
         </div>
 
-        <div data-kind="ab">
+        <div data-kind="ab rollout">
             <p class="section-help">{{ 'RebelABTesting_FormVariantsHelp'|translate }}</p>
             <div class="rebelABTestingVariants" data-max="{{ maxVariants }}">
                 {% for variant in experiment.variants %}
@@ -232,9 +232,10 @@
 
         <h3 class="form-section-title">{{ 'RebelABTesting_FormVisitors'|translate }}</h3>
         <div class="rebelABTestingField rebelABTestingNarrow">
-            <label for="traffic_share">{{ 'RebelABTesting_FormTrafficShare'|translate }}</label>
+            <label for="traffic_share"><span data-kind="ab fake_door watch">{{ 'RebelABTesting_FormTrafficShare'|translate }}</span><span data-kind="rollout">{{ 'RebelABTesting_RolloutShare'|translate }}</span></label>
             <input type="number" name="traffic_share" id="traffic_share" value="{{ experiment.traffic_share }}" min="1" max="100" required>
-            <span class="form-hint">{{ 'RebelABTesting_FormTrafficShareHint'|translate }}</span>
+            <span class="form-hint" data-kind="ab fake_door watch">{{ 'RebelABTesting_FormTrafficShareHint'|translate }}</span>
+            <span class="form-hint" data-kind="rollout">{{ 'RebelABTesting_RolloutShareHint'|translate }}</span>
         </div>
 
         <h3 class="form-section-title">{{ 'RebelABTesting_AudienceTitle'|translate }}</h3>
@@ -280,7 +281,7 @@
         </details>
     </section>
 
-    <section class="rebelABTestingPanel" data-panel="measures" data-kind="ab">
+    <section class="rebelABTestingPanel" data-panel="measures" data-kind="ab rollout">
         <h3 class="form-section-title">{{ 'RebelABTesting_FormMeasures'|translate }}</h3>
         {{ _self.measure('primary_measure', 'RebelABTesting_FormPrimaryMeasure'|translate, 'RebelABTesting_FormPrimaryMeasureHint'|translate, experiment.primary_measure, measures) }}
         <div class="rebelABTestingField rebelABTestingNarrow">

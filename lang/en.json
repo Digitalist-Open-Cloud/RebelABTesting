@@ -253,6 +253,19 @@
         "AudienceLanguagesHint": "Language codes with commas between them. sv also takes sv-fi.",
         "AudienceCampaignIs": "campaign contains \"%s\"",
         "AudienceReferrerIs": "came from an address that contains \"%s\"",
-        "AudienceLanguageIs": "browser language %s"
+        "AudienceLanguageIs": "browser language %s",
+        "ErrorRollOut": "Only a variant of an A/B test can be shown to everyone.",
+        "Kind_rollout": "Roll out a change",
+        "KindHelp_rollout": "Show a change to a share of the visitors, or to an audience, and count the rest without it.",
+        "StepChange": "Change",
+        "RolloutShare": "Share of visitors that get the change (%)",
+        "RolloutShareHint": "Start low and raise it to roll a change out step by step. 100 shows it to everyone in the audience. Below 100, the rest are counted without the change, to compare with.",
+        "RolloutWithout": "Without the change",
+        "RolloutWith": "With the change",
+        "RollOutLabel": "Show a variant to everyone",
+        "RollOutButton": "Roll out",
+        "RollOutHint": "Ends this test and starts a rollout of the variant, for the same pages and audience, for a year. Change the website itself within that time.",
+        "RolledOut": "The variant is now shown to everyone, and the test has ended.",
+        "RolledOutFrom": "Rolled out from the experiment \"%s\"."
     }
 }
