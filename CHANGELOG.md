@@ -59,6 +59,8 @@ not take over data of SimpleABTesting.
 - Roll out a change: an experiment that gives one change to a share of the visitors, to roll it out
   step by step, to personalise for an audience, or to hold a few visitors out.
 - A variant of an A/B test can be shown to everyone from the page of the test.
+- The decision about an experiment can be recorded on its page, with a note on why: use the change,
+  keep things as they are, or no conclusion.
 - Swedish translation.
 
 ### Security

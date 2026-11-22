@@ -490,6 +490,46 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringNotContainsString('action=rollOut', $rollout);
     }
 
+    public function testADecisionIsRecordedFromThePageOfTheExperimentAndShownThereAndInTheList()
+    {
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        $before = (new Controller())->result();
+        $this->assertStringContainsString('<summary>Record the decision</summary>', $before);
+        $this->assertStringContainsString('action=decide&amp;idSite=1', $before);
+
+        $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'decision' => 'keep', 'note' => 'Green <did> nothing.', 'nonce' => Nonce::getNonce(Controller::NONCE)]);
+        try {
+            (new Controller())->decide();
+            $this->fail('There was no redirect.');
+        } catch (Exception $e) {
+            $this->assertStringContainsString('subcategory=' . $this->idExperiment, $e->getMessage());
+        }
+
+        $_POST = [];
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        FakeAccess::clearAccess(false, [], [1]);
+        $after = (new Controller())->result();
+        $this->assertStringContainsString('<strong>Keep things as they are</strong>', $after);
+        $this->assertStringContainsString('Green &lt;did&gt; nothing.', $after);
+        $this->assertStringContainsString('superUserLogin, 2024-03-05 12:00:00', $after);
+        $this->assertStringNotContainsString('action=decide', $after);
+
+        $_GET = ['idSite' => '1'];
+        $this->assertStringContainsString('<td>Keep things as they are</td>', (new GetExperiments())->render());
+    }
+
+    public function testADecisionNeedsTheTokenAndWriteAccess()
+    {
+        $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'decision' => 'adopt', 'nonce' => 'made-up']);
+        $this->refuses('decide', 'security check');
+
+        $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'decision' => 'adopt', 'nonce' => Nonce::getNonce(Controller::NONCE)]);
+        FakeAccess::clearAccess(false, [], [1]);
+        $this->refuses('decide', 'checkUserHasWriteAccess');
+        $this->assertSame('', API::getInstance()->getExperiment($this->idExperiment, 1)['decision']);
+    }
+
     public function testRollingOutNeedsTheTokenAndAccess()
     {
         $this->post(['idSite' => '1'], ['id' => (string) $this->idExperiment, 'variant' => '2', 'nonce' => 'made-up']);

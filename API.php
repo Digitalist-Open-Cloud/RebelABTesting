@@ -193,7 +193,8 @@ class API extends \Piwik\Plugin\API
             Piwik::checkUserHasAdminAccess($idSite);
         }
 
-        $name = $experiment['name'] . ': ' . ($chosen['name'] !== '' ? $chosen['name'] : Piwik::translate('RebelABTesting_VariantNumber', $variant - 1));
+        $chosenName = $chosen['name'] !== '' ? $chosen['name'] : Piwik::translate('RebelABTesting_VariantNumber', $variant - 1);
+        $name = $experiment['name'] . ': ' . $chosenName;
         $idRollout = $this->experiments->insertExperiment($idSite, [
             'kind' => ExperimentValidator::KIND_ROLLOUT,
             'name' => mb_substr($name, 0, 230) . ' (' . Date::now()->toString() . ')',
@@ -206,6 +207,7 @@ class API extends \Piwik\Plugin\API
             'notify' => false,
         ] + array_intersect_key($experiment, array_flip(['target_match', 'target_value', 'exclude_match', 'exclude_value', 'audience', 'primary_measure', 'guardrails', 'confidence'])));
         $this->experiments->stopExperiment($id, $idSite);
+        $this->experiments->setDecision($id, $idSite, 'adopt', Piwik::translate('RebelABTesting_DecisionRolledOut', $chosenName));
 
         return $idRollout;
     }
@@ -217,6 +219,19 @@ class API extends \Piwik\Plugin\API
     {
         Piwik::checkUserHasWriteAccess($idSite);
         $this->experiments->stopExperiment($id, $idSite);
+    }
+
+    /**
+     * Records what was decided about an experiment and why.
+     *
+     * @param string $decision `adopt` to use the change, `keep` to keep things as they are,
+     *                         `inconclusive` when nothing could be concluded, or empty to take the
+     *                         decision back
+     */
+    public function setDecision(int $id, int $idSite, string $decision, string $note = ''): void
+    {
+        Piwik::checkUserHasWriteAccess($idSite);
+        $this->experiments->setDecision($id, $idSite, $decision, $note);
     }
 
     public function deleteExperiment(int $id, int $idSite): void
@@ -236,7 +251,7 @@ class API extends \Piwik\Plugin\API
     }
 
     /**
-     * The experiments of a website, without what their variants do.
+     * The experiments of a website and what was decided about them, without what their variants do.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -245,7 +260,7 @@ class API extends \Piwik\Plugin\API
         Piwik::checkUserHasViewAccess($idSite);
 
         return array_map(function (array $experiment): array {
-            return array_intersect_key($experiment, array_flip(['id', 'idsite', 'name', 'kind', 'from_date', 'to_date', 'status']))
+            return array_intersect_key($experiment, array_flip(['id', 'idsite', 'name', 'kind', 'from_date', 'to_date', 'status', 'decision', 'decision_note']))
                 + ['has_code' => ExperimentValidator::hasCode($experiment['variants'])];
         }, $this->experiments->getAllForSite($idSite));
     }

@@ -62,7 +62,8 @@ class ExperimentsTest extends IntegrationTestCase
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertRegExpCompat('/^[0-9a-f]{32}$/', $experiment['preview_token']);
         $this->assertSame(['superUserLogin', true, ''], [$experiment['created_by'], $experiment['notify'], $experiment['notified']]);
-        unset($experiment['preview_token'], $experiment['created_by'], $experiment['notify'], $experiment['notified']);
+        $this->assertSame(['', '', '', null], [$experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']]);
+        unset($experiment['preview_token'], $experiment['created_by'], $experiment['notify'], $experiment['notified'], $experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']);
         $this->assertEquals([
             'id' => $id,
             'idsite' => 1,
@@ -154,7 +155,40 @@ class ExperimentsTest extends IntegrationTestCase
             ['contains', '/pricing', 'contains', '/checkout', $audience, ['type' => 'bounce'], [['type' => 'search']], 99],
             [$rollout['target_match'], $rollout['target_value'], $rollout['exclude_match'], $rollout['exclude_value'], $rollout['audience'], $rollout['primary_measure'], $rollout['guardrails'], $rollout['confidence']]
         );
-        $this->assertSame('ended', $this->api->getExperiment($id, 1)['status']);
+        $source = $this->api->getExperiment($id, 1);
+        $this->assertSame(['ended', 'adopt', 'Rolled out the variant "Green".', 'writer'], [$source['status'], $source['decision'], $source['decision_note'], $source['decided_by']]);
+    }
+
+    public function testADecisionIsRecordedWithWhoMadeItAndCanBeTakenBack()
+    {
+        $id = $this->add(1, 'button', '2024-03-01', '2024-03-31');
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        $this->api->setDecision($id, 1, 'inconclusive', " Too few visits.\nTry again in spring. ");
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(
+            ['inconclusive', "Too few visits.\nTry again in spring.", 'writer', '2024-03-05 12:00:00'],
+            [$experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']]
+        );
+
+        $this->api->setDecision($id, 1, '');
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['', '', '', null], [$experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']]);
+    }
+
+    public function testADecisionIsOneOfTheChoicesAndItsNoteHasALimit()
+    {
+        $id = $this->add(1, 'button', '2024-03-01', '2024-03-31');
+
+        foreach ([['maybe', ''], ['adopt', str_repeat('a', 2001)]] as [$decision, $note]) {
+            try {
+                $this->api->setDecision($id, 1, $decision, $note);
+                $this->fail('The decision was not refused.');
+            } catch (Exception $e) {
+                $this->assertStringContainsString('decision is not one of the choices', $e->getMessage());
+            }
+        }
+        $this->assertSame('', $this->api->getExperiment($id, 1)['decision']);
     }
 
     /**
@@ -377,6 +411,7 @@ class ExperimentsTest extends IntegrationTestCase
             'add' => ['insertExperiment', [2, 'mine', '', '', '2024-05-01', '2024-05-31', [self::VARIANT]]],
             'update' => ['updateExperiment', [1, 2, 'mine', '', '', '2024-03-01', '2024-03-31', [self::VARIANT]]],
             'stop' => ['stopExperiment', [1, 2]],
+            'decide' => ['setDecision', [1, 2, 'adopt', 'mine']],
             'delete' => ['deleteExperiment', [1, 2]],
             'read' => ['getExperiment', [1, 2]],
         ];
@@ -461,10 +496,11 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAViewerSeesTheExperimentsButNotWhatTheirVariantsDo()
     {
         $id = $this->add(1, 'button', '2024-03-01', '2024-03-31');
+        $this->api->setDecision($id, 1, 'keep', 'No difference worth the work.');
         FakeAccess::clearAccess(false, [], [1]);
 
         $this->assertSame(
-            [['id' => $id, 'idsite' => 1, 'name' => 'button', 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'kind' => 'ab', 'status' => 'running', 'has_code' => false]],
+            [['id' => $id, 'idsite' => 1, 'name' => 'button', 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'kind' => 'ab', 'decision' => 'keep', 'decision_note' => 'No difference worth the work.', 'status' => 'running', 'has_code' => false]],
             $this->api->getExperiments(1)
         );
     }

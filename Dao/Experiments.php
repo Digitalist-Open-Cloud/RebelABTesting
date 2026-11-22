@@ -55,6 +55,10 @@ class Experiments
             `created_by` VARCHAR(100) NOT NULL DEFAULT '',
             `notify` TINYINT UNSIGNED NOT NULL DEFAULT 1,
             `notified` VARCHAR(40) NOT NULL DEFAULT '',
+            `decision` VARCHAR(20) NOT NULL DEFAULT '',
+            `decision_note` TEXT,
+            `decided_by` VARCHAR(100) NOT NULL DEFAULT '',
+            `decided_at` DATETIME NULL,
             PRIMARY KEY (`id`),
             UNIQUE KEY `unique_name` (`idsite`, `name`)
         ");
@@ -107,6 +111,24 @@ class Experiments
         Db::query(
             'UPDATE `' . $this->table() . '` SET stopped_at = ? WHERE id = ? AND idsite = ? AND stopped_at IS NULL',
             [Date::now()->getDatetime(), $id, $idSite]
+        );
+    }
+
+    /**
+     * Records what was decided about an experiment, by whom and when. An empty decision takes it
+     * back.
+     */
+    public function setDecision(int $id, int $idSite, string $decision, string $note): void
+    {
+        if (!in_array($decision, ExperimentValidator::DECISIONS, true) || mb_strlen($note) > ExperimentValidator::DECISION_NOTE_MAX_LENGTH) {
+            throw new Exception(Piwik::translate('RebelABTesting_ErrorDecision'));
+        }
+
+        Db::query(
+            'UPDATE `' . $this->table() . '` SET decision = ?, decision_note = ?, decided_by = ?, decided_at = ? WHERE id = ? AND idsite = ?',
+            $decision === ''
+                ? ['', '', '', null, $id, $idSite]
+                : [$decision, trim($note), Piwik::getCurrentUserLogin(), Date::now()->getDatetime(), $id, $idSite]
         );
     }
 
@@ -199,6 +221,7 @@ class Experiments
         $row['confidence'] = (int) $row['confidence'];
         $row['audience'] = Audience::normalize(json_decode((string) $row['audience'], true));
         $row['notify'] = (bool) $row['notify'];
+        $row['decision_note'] = (string) $row['decision_note'];
         $row['variants'] = ExperimentValidator::normalizeVariants(json_decode($row['variants'], true));
         $row['door'] = $row['door'] === null ? null : json_decode($row['door'], true);
         $row['status'] = self::getStatus($row, Date::now()->getTimestamp());

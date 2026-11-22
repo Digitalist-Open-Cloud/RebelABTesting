@@ -128,6 +128,40 @@
 
             <p class="section-help">{{ (experiment.primary_measure is null ? 'RebelABTesting_ResultHelpNoPrimaryGoal' : 'RebelABTesting_ResultHelp')|translate(experiment.confidence) }}</p>
             {% endif %}
+
+            <h3 class="form-section-title">{{ 'RebelABTesting_DecisionTitle'|translate }}</h3>
+            {% if experiment.decision %}
+            <p class="rebelABTestingDecision">
+                <strong>{{ ('RebelABTesting_Decision_' ~ experiment.decision)|translate }}</strong>
+                <span class="form-hint">{{ 'RebelABTesting_DecisionBy'|translate(experiment.decided_by, experiment.decided_at) }}</span>
+            </p>
+            {% if experiment.decision_note %}<p class="rebelABTestingDecisionNote">{{ experiment.decision_note }}</p>{% endif %}
+            {% elseif not canWrite %}
+            <p class="section-help">{{ 'RebelABTesting_DecisionNone'|translate }}</p>
+            {% endif %}
+            {% if canWrite %}
+            <details class="rebelABTestingMore"{% if not experiment.decision %} open{% endif %}>
+                <summary>{{ (experiment.decision ? 'RebelABTesting_DecisionChange' : 'RebelABTesting_DecisionRecord')|translate }}</summary>
+                <form method="post" action="{{ decideUrl }}" class="rebelABTestingDecide">
+                    <input type="hidden" name="nonce" value="{{ nonce }}">
+                    <input type="hidden" name="id" value="{{ experiment.id }}">
+                    <div class="rebelABTestingField rebelABTestingNarrow">
+                        <label for="decision">{{ 'RebelABTesting_DecisionWhat'|translate }}</label>
+                        <select name="decision" id="decision" class="browser-default">
+                            {% for decision in decisions %}
+                            <option value="{{ decision }}"{% if decision == experiment.decision %} selected{% endif %}>{{ (decision == '' ? 'RebelABTesting_DecisionNotYet' : 'RebelABTesting_Decision_' ~ decision)|translate }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="rebelABTestingField">
+                        <label for="decision_note">{{ 'RebelABTesting_DecisionWhy'|translate }}</label>
+                        <textarea name="note" id="decision_note" class="code-textarea rebelABTestingNote" maxlength="2000">{{ experiment.decision_note }}</textarea>
+                        <span class="form-hint">{{ 'RebelABTesting_DecisionWhyHint'|translate }}</span>
+                    </div>
+                    <button type="submit" class="rebelABTestingSecondary">{{ 'RebelABTesting_DecisionSave'|translate }}</button>
+                </form>
+            </details>
+            {% endif %}
             {% endif %}
         </div>
     </div>

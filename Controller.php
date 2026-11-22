@@ -120,6 +120,30 @@ class Controller extends \Piwik\Plugin\Controller
     }
 
     /**
+     * Records the decision about an experiment, from the page of the experiment.
+     */
+    public function decide()
+    {
+        $idSite = $this->checkWriteRequest();
+        $post = Request::fromPost();
+        $id = Request::fromRequest()->getIntegerParameter('id', 0);
+
+        try {
+            ApiRequest::processRequest('RebelABTesting.setDecision', [
+                'id' => $id,
+                'idSite' => $idSite,
+                'decision' => $post->getStringParameter('decision', ''),
+                'note' => $post->getStringParameter('note', ''),
+            ], []);
+            $this->notify('RebelABTesting_DecisionSaved', Notification::CONTEXT_SUCCESS);
+        } catch (Exception $e) {
+            $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
+        }
+
+        $this->redirect(self::getReportingUrl($idSite, (string) $id));
+    }
+
+    /**
      * Shows a variant of an A/B test to everyone, from the page of the test.
      */
     public function rollOut()
@@ -203,6 +227,8 @@ class Controller extends \Piwik\Plugin\Controller
             'canRollOut' => $experiment && $experiment['kind'] === ExperimentValidator::KIND_AB && $canWrite
                 && (Piwik::isUserHasAdminAccess($this->idSite) || !ExperimentValidator::hasCode($experiment['variants'])),
             'rollOutUrl' => self::getActionUrl('rollOut', $this->idSite),
+            'decideUrl' => self::getActionUrl('decide', $this->idSite),
+            'decisions' => ExperimentValidator::DECISIONS,
             'nonce' => $canWrite ? Nonce::getNonce(self::NONCE) : '',
             'previewLinks' => $experiment && $canWrite ? $this->getPreviewLinks($experiment, $result['variants'] ?? []) : [],
         ]);

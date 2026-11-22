@@ -45,6 +45,7 @@ class GetExperiments extends Widget
                 'status' => $experiment['status'],
                 'from_date' => $experiment['from_date'],
                 'to_date' => $experiment['to_date'],
+                'decision' => $experiment['decision'],
                 'has_code' => ExperimentValidator::hasCode($experiment['variants']),
                 'summary' => $experiment['status'] === Experiments::STATUS_PLANNED ? null : $results->getSummary($experiment),
             ];

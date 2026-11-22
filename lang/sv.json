@@ -266,6 +266,22 @@
         "RollOutButton": "Rulla ut",
         "RollOutHint": "Avslutar det här testet och startar en utrullning av varianten, för samma sidor och målgrupp, i ett år. Ändra själva webbplatsen inom den tiden.",
         "RolledOut": "Varianten visas nu för alla, och testet har avslutats.",
-        "RolledOutFrom": "Utrullad från experimentet \"%s\"."
+        "RolledOutFrom": "Utrullad från experimentet \"%s\".",
+        "ErrorDecision": "Beslutet är inte ett av valen, eller så är anteckningen längre än 2000 tecken.",
+        "DecisionTitle": "Beslut",
+        "Decision_adopt": "Använd ändringen",
+        "Decision_keep": "Behåll det som det är",
+        "Decision_inconclusive": "Ingen slutsats",
+        "DecisionNotYet": "Inte beslutat ännu",
+        "DecisionNone": "Inget har beslutats ännu.",
+        "DecisionRecord": "Anteckna beslutet",
+        "DecisionChange": "Ändra beslutet",
+        "DecisionWhat": "Vad som beslutades",
+        "DecisionWhy": "Varför, och vad vi lärde oss",
+        "DecisionWhyHint": "För den som tittar på det här experimentet om ett år.",
+        "DecisionSave": "Spara beslutet",
+        "DecisionSaved": "Beslutet har sparats.",
+        "DecisionBy": "%1$s, %2$s",
+        "DecisionRolledOut": "Rullade ut varianten \"%s\"."
     }
 }

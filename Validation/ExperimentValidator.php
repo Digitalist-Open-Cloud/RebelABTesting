@@ -20,6 +20,8 @@ final class ExperimentValidator
     public const EXCLUDE_NONE = 'none';
     public const EXCLUDES = [self::EXCLUDE_NONE, 'equals', 'contains', 'starts_with', 'regexp'];
     public const CONFIDENCES = [90, 95, 99];
+    public const DECISIONS = ['', 'adopt', 'keep', 'inconclusive'];
+    public const DECISION_NOTE_MAX_LENGTH = 2000;
 
     public const KIND_AB = 'ab';
     public const KIND_FAKE_DOOR = 'fake_door';

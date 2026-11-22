@@ -266,6 +266,22 @@
         "RollOutButton": "Roll out",
         "RollOutHint": "Ends this test and starts a rollout of the variant, for the same pages and audience, for a year. Change the website itself within that time.",
         "RolledOut": "The variant is now shown to everyone, and the test has ended.",
-        "RolledOutFrom": "Rolled out from the experiment \"%s\"."
+        "RolledOutFrom": "Rolled out from the experiment \"%s\".",
+        "ErrorDecision": "The decision is not one of the choices, or its note is longer than 2000 characters.",
+        "DecisionTitle": "Decision",
+        "Decision_adopt": "Use the change",
+        "Decision_keep": "Keep things as they are",
+        "Decision_inconclusive": "No conclusion",
+        "DecisionNotYet": "Not decided yet",
+        "DecisionNone": "Nothing has been decided yet.",
+        "DecisionRecord": "Record the decision",
+        "DecisionChange": "Change the decision",
+        "DecisionWhat": "What was decided",
+        "DecisionWhy": "Why, and what was learned",
+        "DecisionWhyHint": "For whoever looks at this experiment in a year.",
+        "DecisionSave": "Save the decision",
+        "DecisionSaved": "The decision was saved.",
+        "DecisionBy": "%1$s, %2$s",
+        "DecisionRolledOut": "Rolled out the variant \"%s\"."
     }
 }

@@ -179,6 +179,17 @@ With the RebelAuditLog plugin, adding, changing, stopping and deleting an experi
 The result is read from the log of visits. If Matomo deletes old logs while an experiment runs, the
 visits of the deleted days leave the result.
 
+## Decisions
+
+The page of an experiment ends with its decision: use the change, keep things as they are, or no
+conclusion, with a note on why and what was learned. Anyone who can change experiments can record
+it, and take it back. It is shown with who recorded it and when, and in the list of experiments.
+
+Rolling out a variant records "Use the change" for its test.
+
+Write the note for whoever looks at the experiment in a year. The list of experiments with their
+results and decisions is the record of what was tried on the website.
+
 ## Preview
 
 The page of an experiment has a link for the original and for each variant, shown to admins of the
@@ -210,6 +221,7 @@ about experiments that have ended or not started.
 | `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | write, admin with CSS or JavaScript |
 | `RebelABTesting.stopExperiment` (id, idSite) | write |
 | `RebelABTesting.rollOutVariant` (idSite, id, variant) | write, admin when the variant has CSS or JavaScript |
+| `RebelABTesting.setDecision` (id, idSite, decision, note) | write |
 | `RebelABTesting.deleteExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiments` (idSite) | view |
@@ -222,7 +234,8 @@ about experiments that have ended or not started.
 `targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryMeasure` has a `type`
 (`goal`, `goal_revenue`, `orders`, `revenue`, `conversions`, `total_revenue`, `event`, `pageviews`,
 `visit_length`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
-event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `rollout`, `fake_door` or `watch`. For a fake door, `door` has `selector`, `position`
+event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `rollout`, `fake_door` or `watch`. `decision` is `adopt`, `keep`, `inconclusive` or
+empty. For a fake door, `door` has `selector`, `position`
 (`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
 `message`. For `watch` it has the `selector` of the element.
 
