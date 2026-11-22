@@ -140,6 +140,43 @@
         plan(form);
     });
 
+    // Replaces the changes of a variant with the ones of the template that was chosen.
+    function useTemplate(select) {
+        var option = select.options[select.selectedIndex];
+        var changes = option && option.dataset.changes ? JSON.parse(option.dataset.changes) : null;
+        if (!changes) {
+            return;
+        }
+
+        var variant = select.closest('.rebelABTestingVariant');
+        var rows = variant.querySelector('.rebelABTestingChanges');
+        while (rows.children.length > 1) {
+            rows.lastElementChild.remove();
+        }
+
+        changes.forEach(function (change, index) {
+            var row = index === 0 ? rows.firstElementChild : rows.firstElementChild.cloneNode(true);
+            row.querySelector('[name$="[selector]"]').value = change.selector;
+            row.querySelector('[name$="[action]"]').value = change.action;
+            row.querySelector('[name$="[value]"]').value = change.value;
+            rows.appendChild(row);
+        });
+
+        renumber(variant.closest('.rebelABTestingVariants'));
+        var empty = Array.prototype.find.call(rows.querySelectorAll('[name$="[selector]"]'), function (field) {
+            return field.value === '';
+        });
+        if (empty) {
+            empty.focus();
+        }
+    }
+
+    document.addEventListener('change', function (event) {
+        if (event.target instanceof Element && event.target.classList.contains('rebelABTestingTemplate')) {
+            useTemplate(event.target);
+        }
+    });
+
     document.addEventListener('input', function (event) {
         var form = event.target instanceof Element ? event.target.closest('.rebelABTestingForm') : null;
         if (form) {

@@ -26,7 +26,7 @@ final class ExperimentValidator
     public const DOOR_ELEMENTS = ['button', 'link'];
 
     public const ACTION_HIDE = 'hide';
-    public const ACTIONS = ['text', self::ACTION_HIDE, 'add_class', 'style', 'image', 'link'];
+    public const ACTIONS = ['text', self::ACTION_HIDE, 'add_class', 'style', 'image', 'link', 'insert_before', 'insert_after', 'insert_first'];
     public const MAX_CHANGES = 20;
 
     private const NAME_MAX_LENGTH = 255;
@@ -90,6 +90,9 @@ final class ExperimentValidator
                     return 'RebelABTesting_ErrorChange';
                 }
             }
+            if ($variant['redirect'] !== '' && (mb_strlen($variant['redirect']) > self::VALUE_MAX_LENGTH || !self::isSafeAddress($variant['redirect']))) {
+                return 'RebelABTesting_ErrorRedirect';
+            }
         }
 
         return null;
@@ -112,6 +115,14 @@ final class ExperimentValidator
     }
 
     /**
+     * An address without a scheme stays on the website. Other schemes could run code.
+     */
+    private static function isSafeAddress(string $address): bool
+    {
+        return (bool) preg_match('~^(https?://|mailto:|tel:|(?![a-z][a-z0-9+.-]*:))~i', $address);
+    }
+
+    /**
      * @param array{selector: string, action: string, value: string} $change
      */
     private static function isValidChange(array $change): bool
@@ -131,8 +142,7 @@ final class ExperimentValidator
                 return (bool) preg_match('/^[A-Za-z0-9_-]+( [A-Za-z0-9_-]+)*$/', $change['value']);
             case 'image':
             case 'link':
-                // An address without a scheme stays on the website. Others could run code.
-                return $change['value'] !== '' && (bool) preg_match('~^(https?://|mailto:|tel:|(?![a-z][a-z0-9+.-]*:))~i', $change['value']);
+                return $change['value'] !== '' && self::isSafeAddress($change['value']);
             default:
                 return $change['value'] !== '';
         }
@@ -206,7 +216,7 @@ final class ExperimentValidator
 
     /**
      * @param mixed $variants what a request handed over
-     * @return array<int, array{name: string, changes: array<int, array{selector: string, action: string, value: string}>, css: string, js: string}>
+     * @return array<int, array{name: string, changes: array<int, array{selector: string, action: string, value: string}>, redirect: string, css: string, js: string}>
      */
     public static function normalizeVariants($variants): array
     {
@@ -233,6 +243,7 @@ final class ExperimentValidator
             $normalized[] = [
                 'name' => mb_substr(trim((string) ($variant['name'] ?? '')), 0, 100),
                 'changes' => $changes,
+                'redirect' => trim((string) ($variant['redirect'] ?? '')),
                 'css' => (string) ($variant['css'] ?? ''),
                 'js' => (string) ($variant['js'] ?? ''),
             ];

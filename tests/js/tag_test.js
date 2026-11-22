@@ -420,3 +420,67 @@ Deno.test("the visit is told to the queue Matomo uses now, not to the one from b
   assertEquals(before, []);
   assertEquals(env.window._paq.map((call) => call[0]), ["appendToTrackingUrl", "ping"]);
 });
+
+Deno.test("a text is inserted before, after or at the top of an element, and can be styled by a later change", async () => {
+  const placed = [];
+  const target = element({ insertAdjacentElement(position, node) { placed.push([position, node.className, node.textContent]); page[".rebel-experiment-insert"].push(element({ ...node, style: element().style })); } });
+  const page = { ".buy": [target], ".rebel-experiment-insert": [] };
+  const changes = [
+    { selector: ".buy", action: "insert_before", value: "Before" },
+    { selector: ".buy", action: "insert_after", value: "Free <returns>" },
+    { selector: ".buy", action: "insert_first", value: "First" },
+    { selector: ".rebel-experiment-insert", action: "style", value: "color: green" },
+  ];
+  const env = makeEnv({ experiments: [experiment({ variants: [{ changes, css: "", js: "" }] })], page });
+  await fireWith([0, 0.9], env);
+
+  assertEquals(placed, [
+    ["beforebegin", "rebel-experiment-insert", "Before"],
+    ["afterend", "rebel-experiment-insert", "Free <returns>"],
+    ["afterbegin", "rebel-experiment-insert", "First"],
+  ]);
+  assertEquals(page[".rebel-experiment-insert"].map((e) => e.style.cssText), Array(3).fill("color: black;color: green"));
+});
+
+Deno.test("a variant sends the visitor to its page, with what the address carries", async () => {
+  const variants = [{ changes: [{ selector: "h1", action: "text", value: "not on this page" }], redirect: "/pricing-b?plan=2", css: "", js: "" }];
+  const env = makeEnv({ experiments: [experiment({ variants })], url: "https://shop.example/pricing?utm_campaign=spring&plan=1#top", page: { "h1": [element()] } });
+  await fireWith([0, 0.9], env);
+
+  assertEquals(env.sentTo, "https://shop.example/pricing-b?plan=2&utm_campaign=spring#top");
+  assertEquals(stored(env.localStorage, 7).v, 2);
+  // Matomo is told on the page the visitor arrives at. A request from this page would be cut off.
+  assertEquals(env._paq, []);
+  assertEquals(env.localStorage.getItem("sabt-told"), null);
+});
+
+Deno.test("the original and a visitor who is already on the page of the variant stay where they are", async () => {
+  const variants = [{ changes: [], redirect: "https://shop.example/pricing-b", css: "", js: "" }];
+
+  const original = makeEnv({ experiments: [experiment({ variants })] });
+  await fireWith([0, 0.1], original);
+  assertEquals(original.sentTo, undefined);
+
+  const arrived = makeEnv({ experiments: [experiment({ variants })], url: "https://shop.example/pricing-b?utm_campaign=spring" });
+  await fireWith([0, 0.9], arrived);
+  assertEquals(arrived.sentTo, undefined);
+  assertEquals(arrived._paq.map((call) => call[0]), ["appendToTrackingUrl", "ping"]);
+});
+
+Deno.test("each visit is told to Matomo once, also when the experiments are kept from an earlier page", async () => {
+  const cache = JSON.stringify({ t: Date.now(), e: [experiment()] });
+  const assignment = JSON.stringify({ v: 2, a: A, exp: today(5) });
+  const env = makeEnv({ localStorage: makeStorage({ "sabt-experiments:1": cache, "sabt:7": assignment }) });
+
+  await fireWith([], env);
+  assertEquals(env._paq, [["appendToTrackingUrl", `rabt=7-2-${A}`], ["ping"]]);
+
+  env._paq.length = 0;
+  await fireWith([], env);
+  assertEquals(env._paq, [["appendToTrackingUrl", `rabt=7-2-${A}`]]);
+
+  env._paq.length = 0;
+  env.localStorage.setItem("sabt-told", String(Date.now() - 31 * 60 * 1000));
+  await fireWith([], env);
+  assertEquals(env._paq, [["appendToTrackingUrl", `rabt=7-2-${A}`], ["ping"]]);
+});

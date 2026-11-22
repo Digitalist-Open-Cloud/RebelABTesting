@@ -47,7 +47,7 @@ class ControllerTest extends IntegrationTestCase
         Date::$now = strtotime('2024-03-05 12:00:00 UTC');
         $this->idGoal = GoalsApi::getInstance()->addGoal(2, 'Signed <up>', 'url', 'thanks', 'contains');
         GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
-        $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', 'A secret plan', 'Internal', '2024-03-01', '2024-03-31', [['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing');
+        $this->idExperiment = API::getInstance()->insertExperiment(1, 'button', 'A secret plan', 'Internal', '2024-03-01', '2024-03-31', [['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'redirect' => '', 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing');
         $_GET = $_POST = [];
         $_SERVER['REQUEST_METHOD'] = 'GET';
     }
@@ -86,7 +86,7 @@ class ControllerTest extends IntegrationTestCase
                 'share' => 50,
                 'match' => 'contains',
                 'value' => '/pricing',
-                'variants' => [['changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'css' => 'h1{}', 'js' => "a('<b>')"]],
+                'variants' => [['changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'redirect' => '', 'css' => 'h1{}', 'js' => "a('<b>')"]],
             ]]],
             $this->getPublic(1)
         );
@@ -185,8 +185,8 @@ class ControllerTest extends IntegrationTestCase
         $this->assertSame([['type' => 'event', 'category' => 'Video', 'action' => 'Play']], $experiment['guardrails']);
         $this->assertSame(
             [
-                ['name' => 'One', 'changes' => [['selector' => '.buy', 'action' => 'add_class', 'value' => 'green']], 'css' => '', 'js' => "// two\nlines('<b>')"],
-                ['name' => '', 'changes' => [], 'css' => 'b{}', 'js' => ''],
+                ['name' => 'One', 'changes' => [['selector' => '.buy', 'action' => 'add_class', 'value' => 'green']], 'redirect' => '', 'css' => '', 'js' => "// two\nlines('<b>')"],
+                ['name' => '', 'changes' => [], 'redirect' => '', 'css' => 'b{}', 'js' => ''],
             ],
             $experiment['variants']
         );
@@ -323,6 +323,8 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('action="?module=RebelABTesting&amp;action=addExperiment&amp;idSite=1&amp;period=week&amp;date=2024-03-05"', $create);
         $this->assertStringContainsString('name="from_date" id="from_date" value="2024-03-05"', $create);
         $this->assertStringContainsString('name="variants[0][css]"', $create);
+        $this->assertStringContainsString('name="variants[0][redirect]" value=""', $create);
+        $this->assertStringContainsString('<option value="banner" data-changes="[{&quot;selector&quot;:&quot;body&quot;,&quot;action&quot;:&quot;insert_first&quot;,&quot;value&quot;:&quot;Free shipping this week&quot;}', $create);
         $this->assertStringContainsString('<option value="ab" selected>A/B test</option>', $create);
         $this->assertStringContainsString('data-result="Run for at least {days} days: {visits} visits in each of the {groups} groups.', $create);
         $this->assertStringContainsString('name="door[selector]"', $create);
@@ -332,7 +334,7 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringNotContainsString('Revenue per visit', $create);
         $this->assertStringNotContainsString('Signed', $create);
 
-        API::getInstance()->updateExperiment($this->idExperiment, 1, 'button', 'A secret plan', '', '2024-03-01', '2024-03-31', [['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing', ['type' => 'search'], 'ab', [], [['type' => 'event', 'category' => 'Video "HD"', 'action' => '']]);
+        API::getInstance()->updateExperiment($this->idExperiment, 1, 'button', 'A secret plan', '', '2024-03-01', '2024-03-31', [['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'redirect' => '', 'css' => 'h1{}', 'js' => "a('<b>')"]], 50, 'contains', '/pricing', ['type' => 'search'], 'ab', [], [['type' => 'event', 'category' => 'Video "HD"', 'action' => '']]);
         $edit = (new Controller())->editExperimentForm();
         $this->assertStringContainsString('<option value="search" selected>', $edit);
         $this->assertStringContainsString('<option value="event" selected>', $edit);

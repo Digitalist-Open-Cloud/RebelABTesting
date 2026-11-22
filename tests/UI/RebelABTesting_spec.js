@@ -58,6 +58,22 @@ describe('RebelABTesting', function () {
         expect(await names()).to.deep.equal(['variants[1][changes][0][selector]=']);
     });
 
+    it('should fill in the changes of a template', async function () {
+        const rows = () => page.evaluate(() => [...document.querySelectorAll('.rebelABTestingVariant:nth-child(2) .rebelABTestingChange')]
+            .map((row) => ['selector', 'action', 'value'].map((field) => row.querySelector(`[name$="[${field}]"]`).value).join(' / ')));
+
+        await page.select('.rebelABTestingVariant:nth-child(2) .rebelABTestingTemplate', 'banner');
+        expect(await rows()).to.deep.equal([
+            'body / insert_first / Free shipping this week',
+            '.rebel-experiment-insert / style / background: #fff3cd; color: #222222; padding: 10px; text-align: center',
+        ]);
+        expect(await count('[name="variants[1][changes][1][value]"]')).to.equal(1);
+
+        await page.select('.rebelABTestingVariant:nth-child(2) .rebelABTestingTemplate', 'hide');
+        expect(await rows()).to.deep.equal([' / hide / ']);
+        expect(await page.evaluate(() => document.activeElement.name)).to.equal('variants[1][changes][0][selector]');
+    });
+
     it('should show the fields of the kind of experiment', async function () {
         const visible = (selector) => page.evaluate((s) => document.querySelector(s).offsetParent !== null, selector);
 

@@ -19,7 +19,7 @@ use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 class ExperimentsTest extends IntegrationTestCase
 {
     private const JS = "// greet\nif (a < b && c > \"d\") { alert('hi'); }";
-    private const VARIANT = ['name' => '', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New']], 'css' => '', 'js' => ''];
+    private const VARIANT = ['name' => '', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New']], 'redirect' => '', 'css' => '', 'js' => ''];
 
     /**
      * @var API
@@ -53,7 +53,7 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAnExperimentIsStoredAndReadAsItWasWritten()
     {
         $changes = [['selector' => 'h1 > a', 'action' => 'text', 'value' => 'Buy "now" & <save>'], ['selector' => '.ad', 'action' => 'hide', 'value' => '']];
-        $variants = [['name' => 'Green', 'changes' => $changes, 'css' => 'h1 > a { color: green; }', 'js' => self::JS], ['name' => '', 'changes' => [], 'css' => '', 'js' => 'b()']];
+        $variants = [['name' => 'Green', 'changes' => $changes, 'redirect' => '', 'css' => 'h1 > a { color: green; }', 'js' => self::JS], ['name' => '', 'changes' => [], 'redirect' => '', 'css' => '', 'js' => 'b()']];
 
         $idGoal = GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
 

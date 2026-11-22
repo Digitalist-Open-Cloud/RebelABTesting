@@ -82,8 +82,8 @@ final class ExperimentValidatorTest extends TestCase
     {
         $this->assertSame(
             [
-                ['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New'], ['selector' => '.ad', 'action' => 'hide', 'value' => '']], 'css' => 'a{}', 'js' => ''],
-                ['name' => '', 'changes' => [], 'css' => '', 'js' => 'x()'],
+                ['name' => 'Green', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New'], ['selector' => '.ad', 'action' => 'hide', 'value' => '']], 'redirect' => '', 'css' => 'a{}', 'js' => ''],
+                ['name' => '', 'changes' => [], 'redirect' => '', 'css' => '', 'js' => 'x()'],
             ],
             ExperimentValidator::normalizeVariants([
                 [
@@ -162,8 +162,34 @@ final class ExperimentValidatorTest extends TestCase
             'a link that runs code' => ['link', 'javascript:alert(1)', false],
             'a link that runs code, in capitals' => ['link', 'JavaScript:alert(1)', false],
             'an image from data' => ['image', 'data:text/html,<script>x()</script>', false],
+            'a text after an element' => ['insert_after', 'Free <returns>', true],
+            'a text before an element' => ['insert_before', 'New', true],
+            'a text at the top of an element' => ['insert_first', 'Free shipping', true],
+            'no text to insert' => ['insert_after', '', false],
             'an unknown action' => ['html', '<script>x()</script>', false],
             'a selector that is too long' => ['hide', '', false, 'a' . str_repeat('b', 500)],
+        ];
+    }
+
+    /**
+     * @dataProvider getRedirects
+     */
+    public function testAVariantCanSendToAnotherPage(string $address, bool $isValid): void
+    {
+        $variants = ExperimentValidator::normalizeVariants([['redirect' => $address]]);
+
+        $this->assertSame(trim($address), $variants[0]['redirect']);
+        $this->assertSame($isValid ? null : 'RebelABTesting_ErrorRedirect', ExperimentValidator::validateVariants($variants));
+    }
+
+    public function getRedirects(): array
+    {
+        return [
+            'no other page' => ['', true],
+            'a page of the website' => [' /pricing-b?plan=2 ', true],
+            'a page elsewhere' => ['https://shop.example.org/pricing-b', true],
+            'an address that runs code' => ['javascript:alert(1)', false],
+            'too long' => ['/' . str_repeat('a', 2000), false],
         ];
     }
 
@@ -195,7 +221,7 @@ final class ExperimentValidatorTest extends TestCase
 
     public function testAnExperimentHasOneToTenVariants(): void
     {
-        $variant = ['name' => '', 'changes' => [], 'css' => '', 'js' => ''];
+        $variant = ['name' => '', 'changes' => [], 'redirect' => '', 'css' => '', 'js' => ''];
 
         $this->assertNull(ExperimentValidator::validateVariants([$variant]));
         $this->assertNull(ExperimentValidator::validateVariants(array_fill(0, 10, $variant)));

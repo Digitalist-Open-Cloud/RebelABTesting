@@ -5,6 +5,7 @@
       var CACHE_SECONDS = 300;
       var PREVIEW_KEY = "sabt-preview";
       var SHOWN_PREFIX = "sabt-shown:";
+      var TOLD_KEY = "sabt-told";
       var VISIT_SECONDS = 1800;
       var FAKE_DOOR = "fake_door";
       var WATCH = "watch";
@@ -53,7 +54,7 @@
           if (cache && Array.isArray(cache.e)) {
               // The experiments of an earlier page are used at once, so that nothing flashes.
               // A change in Matomo reaches the visitor on a page after the next fetch.
-              run(cache.e, false);
+              run(cache.e);
               if (Date.now() - cache.t > CACHE_SECONDS * 1000) {
                   fetchExperiments(store);
               }
@@ -63,7 +64,7 @@
           var reveal = hide(hideTimeout);
           fetchExperiments(function (experiments) {
               store(experiments);
-              run(experiments, true);
+              run(experiments);
               reveal();
           }, reveal);
 
@@ -117,7 +118,7 @@
               return reveal;
           }
 
-          function run(experiments, waited) {
+          function run(experiments) {
               var today = new Date().toISOString().slice(0, 10);
               var isNew = false;
 
@@ -135,8 +136,9 @@
                       if (assignment.v === DOOR_VARIANT) showDoor(experiment, true);
                   } else if (experiment.kind === WATCH) {
                       if (assignment.v === DOOR_VARIANT) watch(experiment);
-                  } else {
-                      apply(experiment.variants[assignment.v - ORIGINAL - 1]);
+                  } else if (apply(experiment.variants[assignment.v - ORIGINAL - 1])) {
+                      // The visitor is on the way to the page of the variant, which tells Matomo.
+                      return;
                   }
               }
 
@@ -144,8 +146,20 @@
               if (!active) return;
 
               tell(["appendToTrackingUrl", "rabt=" + active]);
-              // The page view may already be sent, without the experiment.
-              if (isNew || waited) tell(["ping"]);
+              // The page view may already be sent, without the experiments. A ping makes sure that
+              // the visit is counted, once and whenever the visitor gets into an experiment.
+              var wasTold = wasToldThisVisit();
+              if (isNew || !wasTold) tell(["ping"]);
+          }
+
+          function wasToldThisVisit() {
+              try {
+                  var told = Date.now() - Number(localStorage.getItem(TOLD_KEY)) < VISIT_SECONDS * 1000;
+                  localStorage.setItem(TOLD_KEY, String(Date.now()));
+                  return told;
+              } catch (e) {
+                  return false;
+              }
           }
 
           // Adds the button or link of a fake door, once the element it belongs to is there.
@@ -251,16 +265,35 @@
               return countsWhatIsShown(experiment) ? DOOR_VARIANT : experiment.variants.length + ORIGINAL;
           }
 
-          // The original has no variant to apply.
+          // The original has no variant to apply. True when the visitor is sent to another page.
           function apply(variant) {
-              if (!variant) return;
+              if (!variant) return false;
               try {
+                  if (variant.redirect && sendTo(variant.redirect)) return true;
                   applyChanges(variant.changes || []);
                   insert("style", variant.css);
                   insert("script", variant.js);
               } catch (e) {
                   console.error("Error in the variant of an experiment", e);
               }
+              return false;
+          }
+
+          // Sends the visitor to the page of a variant, with what the address of this page carries,
+          // such as the parameters of a campaign. False when the visitor is already there.
+          function sendTo(address) {
+              var target;
+              var current = new URL(window.location.href);
+              try { target = new URL(address, current.href); } catch (e) { return false; }
+              if (target.origin + target.pathname === current.origin + current.pathname) return false;
+
+              current.searchParams.forEach(function (value, name) {
+                  if (!target.searchParams.has(name)) target.searchParams.append(name, value);
+              });
+              if (!target.hash) target.hash = current.hash;
+
+              window.location.replace(target.href);
+              return true;
           }
 
           // Changes the elements each change points at. While the page is still loading, elements
@@ -300,7 +333,18 @@
                   case "style": element.style.cssText += ";" + change.value; break;
                   case "image": element.setAttribute("src", change.value); element.removeAttribute("srcset"); break;
                   case "link": element.setAttribute("href", change.value); break;
+                  case "insert_before": insertText(element, "beforebegin", change.value); break;
+                  case "insert_after": insertText(element, "afterend", change.value); break;
+                  case "insert_first": insertText(element, "afterbegin", change.value); break;
               }
+          }
+
+          // A later change of the variant can point at what is inserted, by its class.
+          function insertText(element, position, text) {
+              var inserted = document.createElement("div");
+              inserted.className = "rebel-experiment-insert";
+              inserted.textContent = text;
+              element.insertAdjacentElement(position, inserted);
           }
 
           function matches(experiment) {

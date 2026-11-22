@@ -61,6 +61,7 @@ class Controller extends \Piwik\Plugin\Controller
             'measures' => Measures::getChoices($idSite),
             'guardrailSlots' => range(0, Measures::MAX_GUARDRAILS - 1),
             'actions' => ExperimentValidator::ACTIONS,
+            'templates' => Templates::getAll(),
             'canUseCode' => Piwik::isUserHasAdminAccess($idSite),
             'nonce' => Nonce::getNonce(self::NONCE),
             'matches' => ExperimentValidator::MATCHES,
@@ -185,7 +186,7 @@ class Controller extends \Piwik\Plugin\Controller
                 'match' => $experiment['target_match'],
                 'value' => $experiment['target_value'],
                 'variants' => array_map(function (array $variant): array {
-                    return ['changes' => $variant['changes'], 'css' => $variant['css'], 'js' => $variant['js']];
+                    return ['changes' => $variant['changes'], 'redirect' => $variant['redirect'], 'css' => $variant['css'], 'js' => $variant['js']];
                 }, $experiment['variants']),
             ];
         }

@@ -190,6 +190,16 @@
                 <label>{{ 'General_Name'|translate }}</label>
                 <input type="text" name="variants[{{ loop.index0 }}][name]" value="{{ variant.name }}" maxlength="100">
             </div>
+            <div class="form-field">
+                <label>{{ 'RebelABTesting_TemplateStart'|translate }}</label>
+                <select class="browser-default rebelABTestingTemplate">
+                    <option value="">{{ 'RebelABTesting_TemplateNone'|translate }}</option>
+                    {% for key, template in templates %}
+                    <option value="{{ key }}" data-changes="{{ template.changes|json_encode }}">{{ template.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="form-hint">{{ 'RebelABTesting_TemplateHint'|translate }}</span>
+            </div>
             <h4 class="rebelABTestingSubtitle">{{ 'RebelABTesting_ChangesTitle'|translate }}</h4>
             <p class="form-hint">{{ 'RebelABTesting_ChangesHelp'|translate }}</p>
             <div class="rebelABTestingChanges">
@@ -218,6 +228,13 @@
                 {% endfor %}
             </div>
             <button type="button" class="btn btn-flat rebelABTestingAddChange">{{ 'RebelABTesting_ChangeAdd'|translate }}</button>
+
+            <h4 class="rebelABTestingSubtitle">{{ 'RebelABTesting_RedirectTitle'|translate }}</h4>
+            <div class="form-field">
+                <label>{{ 'RebelABTesting_RedirectAddress'|translate }}</label>
+                <input type="text" name="variants[{{ loop.index0 }}][redirect]" value="{{ variant.redirect }}" maxlength="2000">
+                <span class="form-hint">{{ 'RebelABTesting_RedirectHint'|translate }}</span>
+            </div>
 
             {% if canUseCode %}
             <h4 class="rebelABTestingSubtitle">{{ 'RebelABTesting_CodeTitle'|translate }}</h4>

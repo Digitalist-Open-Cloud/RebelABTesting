@@ -69,7 +69,11 @@ export function makeEnv(opts = {}) {
   env.window = {
     _paq: env._paq,
     localStorage: env.localStorage,
-    location: { href: opts.url ?? "https://shop.example/pricing", hash: opts.hash ?? "" },
+    location: {
+      href: opts.url ?? "https://shop.example/pricing",
+      hash: opts.hash ?? "",
+      replace(address) { env.sentTo = address; },
+    },
   };
   return env;
 }
