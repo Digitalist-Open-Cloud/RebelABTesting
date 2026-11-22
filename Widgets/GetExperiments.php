@@ -22,8 +22,8 @@ class GetExperiments extends Widget
     public static function configure(WidgetConfig $config)
     {
         $config->setCategoryId('RebelABTesting_RebelABTesting');
-        $config->setSubcategoryId('RebelABTesting_ExistingExperiments');
-        $config->setName('RebelABTesting_ExistingExperiments');
+        $config->setSubcategoryId('RebelABTesting_ManageExperiments');
+        $config->setName('RebelABTesting_ManageExperiments');
         $config->setOrder(1);
     }
 

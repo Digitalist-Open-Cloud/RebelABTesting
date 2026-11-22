@@ -41,7 +41,7 @@ class Results
         $bind = [$experiment['id'], $experiment['idsite']];
         $log = Common::prefixTable(LogExperiment::TABLE);
 
-        if ($experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR) {
+        if (ExperimentValidator::countsWhatIsShown($experiment['kind'])) {
             $door = Db::fetchRow("SELECT COUNT(*) AS nb_visits, COALESCE(SUM(clicked), 0) AS nb_clicks FROM $log WHERE idexperiment = ? AND idsite = ?", $bind);
             $visits = (int) $door['nb_visits'];
             $clicks = (int) $door['nb_clicks'];

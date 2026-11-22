@@ -23,8 +23,8 @@
             </p>
             {% endif %}
 
-            {% if experiment.kind == 'fake_door' %}
-            <h3 class="form-section-title">{{ 'RebelABTesting_Kind_fake_door'|translate }}: {{ experiment.door.label }}</h3>
+            {% if experiment.kind != 'ab' %}
+            <h3 class="form-section-title">{{ ('RebelABTesting_Kind_' ~ experiment.kind)|translate }}: {{ experiment.kind == 'watch' ? experiment.door.selector : experiment.door.label }}</h3>
             <table class="rebelABTestingTable">
                 <thead>
                     <tr>

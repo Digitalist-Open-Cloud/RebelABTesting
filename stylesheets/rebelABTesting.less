@@ -259,4 +259,308 @@
             padding: 0 12px;
         }
     }
+
+    // The form of an experiment: steps, of which one is shown at a time.
+    .rebelABTestingSteps {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        border-bottom: 1px solid #e0e0e0;
+        margin: 8px 0 24px 0;
+    }
+
+    .rebelABTestingStep {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border: 0;
+        border-bottom: 3px solid transparent;
+        background: none;
+        font-size: 14px;
+        color: #555;
+        cursor: pointer;
+
+        &:hover,
+        &:focus {
+            color: #1565c0;
+            background: #f5f5f5;
+        }
+    }
+
+    .rebelABTestingStep-current {
+        color: #1565c0;
+        font-weight: bold;
+        border-bottom-color: #1565c0;
+
+        .rebelABTestingStepNumber {
+            background: #1565c0;
+            color: #fff;
+        }
+    }
+
+    .rebelABTestingStepNumber {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        color: #333;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .rebelABTestingPanel {
+        max-width: 880px;
+        min-height: 260px;
+    }
+
+    .rebelABTestingField {
+        margin-bottom: 18px;
+
+        label {
+            display: block;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select {
+            display: block;
+            width: 100%;
+            height: auto;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            margin: 0;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            font-size: 14px;
+        }
+    }
+
+    .rebelABTestingOptional {
+        font-weight: normal;
+        color: #757575;
+    }
+
+    .rebelABTestingNarrow {
+        max-width: 280px;
+    }
+
+    .rebelABTestingColumns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 24px;
+    }
+
+    .rebelABTestingColumns-3 {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .rebelABTestingKinds {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    // Matomo draws the radio button in the text that follows it.
+    .rebelABTestingKindChoice {
+        display: block;
+        padding: 14px 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+
+        &:hover {
+            border-color: #1565c0;
+        }
+    }
+
+    .rebelABTestingKindChoice:has(input:checked) {
+        border-color: #1565c0;
+        background: #f1f6fc;
+    }
+
+    .rebelABTestingKindName {
+        display: block;
+        font-weight: bold;
+        font-size: 14px;
+        color: #222;
+    }
+
+    .rebelABTestingKindHelp {
+        display: block;
+        font-size: 12px;
+        color: #555;
+        line-height: 1.4;
+        margin: 4px 0 0 35px;
+    }
+
+    fieldset.rebelABTestingVariant {
+        padding: 16px;
+        background: #fafafa;
+    }
+
+    .rebelABTestingVariantHead {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+
+        input[type="text"] {
+            flex: 1;
+            height: auto;
+            margin: 0;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            background: #fff;
+            box-sizing: border-box;
+        }
+    }
+
+    .rebelABTestingVariantTitle {
+        font-weight: bold;
+        font-size: 15px;
+        white-space: nowrap;
+    }
+
+    .rebelABTestingTemplateField {
+        max-width: 420px;
+    }
+
+    .rebelABTestingChangeHead,
+    .rebelABTestingChange {
+        display: grid;
+        grid-template-columns: 3fr 3fr 4fr 32px;
+        gap: 8px;
+        align-items: start;
+    }
+
+    .rebelABTestingChangeHead {
+        font-size: 12px;
+        font-weight: bold;
+        color: #555;
+        margin-bottom: 4px;
+    }
+
+    .rebelABTestingChange {
+        margin-bottom: 8px;
+
+        input[type="text"],
+        select {
+            width: 100%;
+            height: auto;
+            margin: 0;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            background: #fff;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+    }
+
+    .rebelABTestingIconButton {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 50%;
+        background: none;
+        color: #757575;
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover,
+        &:focus {
+            background: #eee;
+            color: #b71c1c;
+        }
+    }
+
+    .rebelABTestingLink {
+        border: 0;
+        background: none;
+        padding: 4px 0;
+        color: #1565c0;
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: none;
+
+        &:hover,
+        &:focus {
+            text-decoration: underline;
+        }
+    }
+
+    details.rebelABTestingMore {
+        margin: 16px 0;
+        border-top: 1px solid #e0e0e0;
+        padding-top: 10px;
+
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            color: #1565c0;
+            margin-bottom: 10px;
+        }
+    }
+
+    .rebelABTestingFooter {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 24px;
+        padding-top: 16px;
+        border-top: 1px solid #e0e0e0;
+
+        .btn {
+            margin: 0;
+        }
+    }
+
+    .rebelABTestingFooterSpace {
+        flex: 1;
+    }
+
+    .rebelABTestingSecondary {
+        padding: 8px 18px;
+        border: 1px solid #1565c0;
+        border-radius: 2px;
+        background: #fff;
+        color: #1565c0;
+        font-size: 13px;
+        text-transform: uppercase;
+        cursor: pointer;
+
+        &:hover,
+        &:focus {
+            background: #f1f6fc;
+        }
+    }
+
+    @media (max-width: 800px) {
+        .rebelABTestingColumns,
+        .rebelABTestingColumns-3,
+        .rebelABTestingKinds {
+            grid-template-columns: 1fr;
+        }
+
+        .rebelABTestingChangeHead {
+            display: none;
+        }
+
+        .rebelABTestingChange {
+            grid-template-columns: 1fr 32px;
+        }
+    }
 }

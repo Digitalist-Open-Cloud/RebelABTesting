@@ -35,6 +35,10 @@ not take over data of SimpleABTesting.
   class, set a style, change an image or a link.
 - Users with write access to a website can run experiments without code. CSS and JavaScript in a
   variant need admin access.
+- Watch an element: an experiment that changes nothing and counts the visits that see and click
+  an element the page already has.
+- The tag takes the address of Matomo with a path, for a Matomo that is installed in a directory.
+- A test website in `tests/site` to try experiments on.
 - Swedish translation.
 
 ### Security
@@ -68,6 +72,12 @@ not take over data of SimpleABTesting.
   pages. `stopExperiment`, `getExperiments` and `getExperimentResult` are new, and
   `getExperimentPublic` and `getExperimentReportData` are removed.
 - The segments `experimentId` and `experimentVariant` read the log of the plugin.
+- The reports of visits and conversions per period are removed, with `getExperimentData`,
+  `getExperimentGoalData` and `getExperimentUniqueVisitorData`. The page of an experiment shows its
+  result for the whole run.
+- The page "Insert experiment" is removed. The list of experiments tells how to add the tag.
+- The list of experiments is called "Manage experiments", and the form to create or change an
+  experiment is in steps.
 - The database tables are `rebel_ab_testing_experiments` and `rebel_ab_testing_log`.
 - The plugin needs PHP 8.2 or newer.
 - `insertExperiment` returns the ID of the experiment.

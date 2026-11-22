@@ -5,23 +5,24 @@
       var CACHE_SECONDS = 300;
       var PREVIEW_KEY = "sabt-preview";
       var SHOWN_PREFIX = "sabt-shown:";
+      var TOLD_KEY = "sabt-told";
       var VISIT_SECONDS = 1800;
       var FAKE_DOOR = "fake_door";
+      var WATCH = "watch";
       var DOOR_VARIANT = 2;
       var DOOR_POSITIONS = { before: "beforebegin", after: "afterend", prepend: "afterbegin", append: "beforeend" };
       var ORIGINAL = 1;
       var NOT_TAKING_PART = 0;
 
       this.fire = function () {
-          var origin = parameters.get("matomoOrigin");
+          var matomoUrl = String(parameters.get("matomoUrl") || "").replace(/\/+$/, "");
           var container = parameters.get("container");
           var idSite = container && container.idsite;
           var hideTimeout = parseInt(parameters.get("hideTimeout", 500), 10) || 0;
-          var _paq = (window._paq = window._paq || []);
           var cacheKey = CACHE_PREFIX + idSite;
           var cache;
 
-          if (!origin || !idSite) return;
+          if (!matomoUrl || !idSite) return;
 
           var preview = getPreview();
           if (preview) {
@@ -53,7 +54,7 @@
           if (cache && Array.isArray(cache.e)) {
               // The experiments of an earlier page are used at once, so that nothing flashes.
               // A change in Matomo reaches the visitor on a page after the next fetch.
-              run(cache.e, false);
+              run(cache.e);
               if (Date.now() - cache.t > CACHE_SECONDS * 1000) {
                   fetchExperiments(store);
               }
@@ -63,9 +64,15 @@
           var reveal = hide(hideTimeout);
           fetchExperiments(function (experiments) {
               store(experiments);
-              run(experiments, true);
+              run(experiments);
               reveal();
           }, reveal);
+
+          // Matomo replaces its queue when it has loaded, so the queue is looked up for each call.
+          // A call to a queue that was kept from before would never be sent.
+          function tell(call) {
+              (window._paq = window._paq || []).push(call);
+          }
 
           function store(experiments) {
               try {
@@ -88,7 +95,7 @@
           }
 
           function fetchExperiments(done, failed, extra) {
-              var url = origin + "/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=" + encodeURIComponent(idSite) + (extra || "");
+              var url = matomoUrl + "/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=" + encodeURIComponent(idSite) + (extra || "");
               fetch(url, { method: "GET", credentials: "omit" })
                   .then(function (response) { return response.json(); })
                   .then(function (data) { done(data && Array.isArray(data.experiments) ? data.experiments : []); })
@@ -111,7 +118,7 @@
               return reveal;
           }
 
-          function run(experiments, waited) {
+          function run(experiments) {
               var today = new Date().toISOString().slice(0, 10);
               var isNew = false;
 
@@ -123,21 +130,36 @@
 
                   var assignment = getAssignment(experiment);
                   if (!assignment) return;
-                  isNew = isNew || (assignment.isNew && experiment.kind !== FAKE_DOOR);
+                  isNew = isNew || (assignment.isNew && !countsWhatIsShown(experiment));
 
                   if (experiment.kind === FAKE_DOOR) {
                       if (assignment.v === DOOR_VARIANT) showDoor(experiment, true);
-                  } else {
-                      apply(experiment.variants[assignment.v - ORIGINAL - 1]);
+                  } else if (experiment.kind === WATCH) {
+                      if (assignment.v === DOOR_VARIANT) watch(experiment);
+                  } else if (apply(experiment.variants[assignment.v - ORIGINAL - 1])) {
+                      // The visitor is on the way to the page of the variant, which tells Matomo.
+                      return;
                   }
               }
 
               var active = activeAssignments(today);
               if (!active) return;
 
-              _paq.push(["appendToTrackingUrl", "rabt=" + active]);
-              // The page view may already be sent, without the experiment.
-              if (isNew || waited) _paq.push(["ping"]);
+              tell(["appendToTrackingUrl", "rabt=" + active]);
+              // The page view may already be sent, without the experiments. A ping makes sure that
+              // the visit is counted, once and whenever the visitor gets into an experiment.
+              var wasTold = wasToldThisVisit();
+              if (isNew || !wasTold) tell(["ping"]);
+          }
+
+          function wasToldThisVisit() {
+              try {
+                  var told = Date.now() - Number(localStorage.getItem(TOLD_KEY)) < VISIT_SECONDS * 1000;
+                  localStorage.setItem(TOLD_KEY, String(Date.now()));
+                  return told;
+              } catch (e) {
+                  return false;
+              }
           }
 
           // Adds the button or link of a fake door, once the element it belongs to is there.
@@ -160,7 +182,7 @@
                       message.setAttribute("role", "status");
                       message.textContent = door.message;
                       element.replaceWith(message);
-                      if (counted) tellAboutDoor(experiment.id, "c");
+                      if (counted) tellAboutDoor(experiment.id, "c", "Fake door");
                   });
                   target.insertAdjacentElement(DOOR_POSITIONS[door.position] || "afterend", element);
 
@@ -171,6 +193,52 @@
               if (!place() && document.readyState === "loading") {
                   document.addEventListener("DOMContentLoaded", place);
               }
+          }
+
+          // Tells Matomo when an element the page already has comes into view and when it is
+          // clicked. Nothing on the page is changed.
+          function watch(experiment) {
+              function start() {
+                  var elements;
+                  try { elements = document.querySelectorAll(experiment.door.selector); } catch (e) { return true; }
+                  if (!elements.length) return false;
+
+                  var seen = function () {
+                      if (!wasShownThisVisit(experiment.id)) tellAboutDoor(experiment.id, "s");
+                  };
+                  var observer = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(function (entries) {
+                      for (var i = 0; i < entries.length; i++) {
+                          if (entries[i].isIntersecting) {
+                              observer.disconnect();
+                              seen();
+                              return;
+                          }
+                      }
+                  });
+                  var clicked = false;
+
+                  for (var i = 0; i < elements.length; i++) {
+                      if (observer) observer.observe(elements[i]);
+                      elements[i].addEventListener("click", function () {
+                          if (clicked) return;
+                          clicked = true;
+                          tellAboutDoor(experiment.id, "c", "Watched element");
+                      });
+                  }
+                  // A browser that cannot tell what is in view counts the page it is on.
+                  if (!observer) seen();
+                  return true;
+              }
+
+              if (!start() && document.readyState === "loading") {
+                  document.addEventListener("DOMContentLoaded", start);
+              }
+          }
+
+          // A fake door and a watched element have no original: the visitors in the experiment
+          // all get it, and a visit counts when it is shown to it.
+          function countsWhatIsShown(experiment) {
+              return experiment.kind === FAKE_DOOR || experiment.kind === WATCH;
           }
 
           // A visit is told once that the door was shown, not on each of its pages.
@@ -185,29 +253,47 @@
               }
           }
 
-          function tellAboutDoor(id, what) {
+          function tellAboutDoor(id, what, eventCategory) {
               var active = activeAssignments(new Date().toISOString().slice(0, 10));
-              _paq.push(["appendToTrackingUrl", "rabt=" + active + "&rabtd=" + id + "-" + what]);
-              _paq.push(what === "c" ? ["trackEvent", "Fake door", "Click", String(id)] : ["ping"]);
-              _paq.push(["appendToTrackingUrl", "rabt=" + active]);
+              tell(["appendToTrackingUrl", "rabt=" + active + "&rabtd=" + id + "-" + what]);
+              tell(what === "c" ? ["trackEvent", eventCategory, "Click", String(id)] : ["ping"]);
+              tell(["appendToTrackingUrl", "rabt=" + active]);
           }
 
-          // The highest variant a visitor can have. A fake door has no original: the visitors in
-          // the experiment all get the door.
+          // The highest variant a visitor can have.
           function maxVariant(experiment) {
-              return experiment.kind === FAKE_DOOR ? DOOR_VARIANT : experiment.variants.length + ORIGINAL;
+              return countsWhatIsShown(experiment) ? DOOR_VARIANT : experiment.variants.length + ORIGINAL;
           }
 
-          // The original has no variant to apply.
+          // The original has no variant to apply. True when the visitor is sent to another page.
           function apply(variant) {
-              if (!variant) return;
+              if (!variant) return false;
               try {
+                  if (variant.redirect && sendTo(variant.redirect)) return true;
                   applyChanges(variant.changes || []);
                   insert("style", variant.css);
                   insert("script", variant.js);
               } catch (e) {
                   console.error("Error in the variant of an experiment", e);
               }
+              return false;
+          }
+
+          // Sends the visitor to the page of a variant, with what the address of this page carries,
+          // such as the parameters of a campaign. False when the visitor is already there.
+          function sendTo(address) {
+              var target;
+              var current = new URL(window.location.href);
+              try { target = new URL(address, current.href); } catch (e) { return false; }
+              if (target.origin + target.pathname === current.origin + current.pathname) return false;
+
+              current.searchParams.forEach(function (value, name) {
+                  if (!target.searchParams.has(name)) target.searchParams.append(name, value);
+              });
+              if (!target.hash) target.hash = current.hash;
+
+              window.location.replace(target.href);
+              return true;
           }
 
           // Changes the elements each change points at. While the page is still loading, elements
@@ -247,7 +333,18 @@
                   case "style": element.style.cssText += ";" + change.value; break;
                   case "image": element.setAttribute("src", change.value); element.removeAttribute("srcset"); break;
                   case "link": element.setAttribute("href", change.value); break;
+                  case "insert_before": insertText(element, "beforebegin", change.value); break;
+                  case "insert_after": insertText(element, "afterend", change.value); break;
+                  case "insert_first": insertText(element, "afterbegin", change.value); break;
               }
+          }
+
+          // A later change of the variant can point at what is inserted, by its class.
+          function insertText(element, position, text) {
+              var inserted = document.createElement("div");
+              inserted.className = "rebel-experiment-insert";
+              inserted.textContent = text;
+              element.insertAdjacentElement(position, inserted);
           }
 
           function matches(experiment) {
@@ -280,7 +377,7 @@
 
               if (isNew) {
                   var takesPart = Math.random() * 100 < experiment.share;
-                  var variant = experiment.kind === FAKE_DOOR
+                  var variant = countsWhatIsShown(experiment)
                       ? DOOR_VARIANT : ORIGINAL + Math.floor(Math.random() * (experiment.variants.length + 1));
                   record = { v: takesPart ? variant : NOT_TAKING_PART, a: randomHex32() };
               }

@@ -86,6 +86,19 @@ A variant is applied when the tag fires, so let the tag fire as early as the con
   It fetches them again every five minutes. A change to an experiment, or stopping it, therefore
   reaches a visitor up to five minutes and one page later. Visits are not counted after the stop.
 
+## Watch an element
+
+The third kind of experiment changes nothing. It counts the visits that see an element the page
+already has, and the visits that click it.
+
+- Give the element as a CSS selector. All elements that match are watched as one.
+- A visit has seen the element when it comes into view, not when it is merely on the page.
+- The result shows the visits that saw it, the visits that clicked it, and the share.
+- A click is also tracked as a Matomo event with the category "Watched element".
+
+Use it to learn how much an element is used before you test a change to it. The share is also the
+number the form asks for when it works out how long an A/B test has to run.
+
 ## Results
 
 Each experiment has a page in the reporting menu, under **A/B Testing**. It shows, for all the time
@@ -121,13 +134,11 @@ can check a variant before the first day.
 - A previewed visit is not counted.
 - The link carries a secret of the experiment. Anyone who has the link can see the variant.
 
-## Reports and segments
+## Segments
 
-- **A/B Testing > Experiments report** and **Experiment goals** show visits and conversions per
-  experiment and variant for the period chosen in Matomo.
-- Any other report can be compared between variants with the segments **Experiment ID** and
-  **Experiment variant**, for example `experimentId==3;experimentVariant==2`. Variant 1 is the
-  original. The ID of an experiment is in the list of experiments.
+Any report of Matomo can be compared between variants with the segments **Experiment ID** and
+**Experiment variant**, for example `experimentId==3;experimentVariant==2`. Variant 1 is the
+original. The ID of an experiment is in the list of experiments.
 
 ## What is public
 
@@ -147,18 +158,15 @@ about experiments that have ended or not started.
 | `RebelABTesting.getExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiments` (idSite) | view |
 | `RebelABTesting.getExperimentResult` (idSite, id) | view |
-| `RebelABTesting.getExperimentData` (idSite, period, date, segment) | view |
-| `RebelABTesting.getExperimentGoalData` (idSite, period, date, segment) | view |
-| `RebelABTesting.getExperimentUniqueVisitorData` (idSite, period, date, segment), days only | view |
 
 `variants` is a list. Each variant has a `name`, a list of `changes` with `selector`, `action` (`text`,
 `hide`, `add_class`, `style`, `image` or `link`) and `value`, and optionally `css` and `js`. For example
 `variants[0][name]=Green&variants[0][changes][0][selector]=h1&variants[0][changes][0][action]=text&variants[0][changes][0][value]=Hello`.
 `targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryMeasure` has a `type`
 (`goal`, `orders`, `revenue`, `event`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
-event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab` or `fake_door`, and `door` has `selector`, `position`
+event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `fake_door` or `watch`. For a fake door, `door` has `selector`, `position`
 (`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
-`message`.
+`message`. For `watch` it has the `selector` of the element.
 
 ## Personal data
 
@@ -176,6 +184,23 @@ From the root of Matomo:
 ./console tests:run-ui --plugin=RebelABTesting
 deno test --allow-read plugins/RebelABTesting/tests/js
 ```
+
+### The test website
+
+`tests/site` is a small website to try experiments on: a start page with a headline, a banner, an
+image, a buy button and a newsletter box far down, a pricing page, and a thank you page. The UI
+tests run the tag of the plugin on it.
+
+Open it in a browser through the web server of Matomo:
+
+- With a container of Matomo Tag Manager that has the tag, as on a real website:
+  `<matomo>/plugins/RebelABTesting/tests/site/index.html?mtm=/js/container_<id>.js`
+- Without Tag Manager, with the tracker and the tag straight from Matomo:
+  `<matomo>/plugins/RebelABTesting/tests/site/index.html?matomo=&idsite=<id of the website>`
+
+The foot of each page shows the variant the browser got. Open a private window to be a new visitor.
+Limit your experiments to addresses that contain `/tests/site/`, so that they stay on the test
+website.
 
 ## Credits
 

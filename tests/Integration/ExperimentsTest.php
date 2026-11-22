@@ -19,7 +19,7 @@ use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 class ExperimentsTest extends IntegrationTestCase
 {
     private const JS = "// greet\nif (a < b && c > \"d\") { alert('hi'); }";
-    private const VARIANT = ['name' => '', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New']], 'css' => '', 'js' => ''];
+    private const VARIANT = ['name' => '', 'changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New']], 'redirect' => '', 'css' => '', 'js' => ''];
 
     /**
      * @var API
@@ -53,7 +53,7 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAnExperimentIsStoredAndReadAsItWasWritten()
     {
         $changes = [['selector' => 'h1 > a', 'action' => 'text', 'value' => 'Buy "now" & <save>'], ['selector' => '.ad', 'action' => 'hide', 'value' => '']];
-        $variants = [['name' => 'Green', 'changes' => $changes, 'css' => 'h1 > a { color: green; }', 'js' => self::JS], ['name' => '', 'changes' => [], 'css' => '', 'js' => 'b()']];
+        $variants = [['name' => 'Green', 'changes' => $changes, 'redirect' => '', 'css' => 'h1 > a { color: green; }', 'js' => self::JS], ['name' => '', 'changes' => [], 'redirect' => '', 'css' => '', 'js' => 'b()']];
 
         $idGoal = GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
 
@@ -114,6 +114,14 @@ class ExperimentsTest extends IntegrationTestCase
 
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertSame(['fake_door', $door, [], null, []], [$experiment['kind'], $experiment['door'], $experiment['variants'], $experiment['primary_measure'], $experiment['guardrails']]);
+    }
+
+    public function testAWatchedElementIsStoredWithItsSelectorOnly()
+    {
+        $id = $this->api->insertExperiment(1, 'watch', '', '', '2024-03-01', '2024-03-31', [['js' => 'ignored()']], 100, 'any', '', ['type' => 'bounce'], 'watch', ['selector' => '.signup', 'label' => 'ignored']);
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['watch', ['selector' => '.signup'], [], null], [$experiment['kind'], $experiment['door'], $experiment['variants'], $experiment['primary_measure']]);
     }
 
     public function testEachExperimentHasItsOwnSecretForPreviews()
@@ -215,6 +223,7 @@ class ExperimentsTest extends IntegrationTestCase
             'a goal the website does not have' => [['measure' => ['type' => 'goal', 'idgoal' => 99]], 'A measure is'],
             'an event without a category' => [['measure' => ['type' => 'event', 'action' => 'Play']], 'A measure is'],
             'an unknown measure' => [['measure' => ['type' => 'happiness']], 'A measure is'],
+            'a watched element without a selector' => [['kind' => 'watch', 'door' => []], 'element to watch'],
             'an unknown kind' => [['kind' => 'survey'], 'Unknown kind'],
             'a fake door without its fields' => [['kind' => 'fake_door', 'door' => ['label' => 'Export']], 'A fake door needs'],
             'a goal that is not a number' => [['measure' => ['type' => 'goal', 'idgoal' => '1 OR 1']], 'A measure is'],
@@ -355,9 +364,6 @@ class ExperimentsTest extends IntegrationTestCase
         $requests = [
             'getExperiments' => [2],
             'getExperimentResult' => [2, $id],
-            'getExperimentData' => [2, 'day', '2024-03-05'],
-            'getExperimentGoalData' => [2, 'day', '2024-03-05'],
-            'getExperimentUniqueVisitorData' => [2, 'day', '2024-03-05'],
         ];
         foreach ($requests as $method => $parameters) {
             try {

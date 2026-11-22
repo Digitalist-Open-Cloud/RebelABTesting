@@ -264,6 +264,20 @@ class TrackingTest extends IntegrationTestCase
         $this->assertGreaterThan(0.5, $result['click_rate_range'][1]);
     }
 
+    public function testAWatchedElementCountsTheVisitsThatSawItAndTheirClicks()
+    {
+        $id = API::getInstance()->insertExperiment(1, 'watch', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', [], 'watch', ['selector' => '.signup']);
+        $assigned = $id . '-2-' . self::ASSIGNMENT;
+
+        $this->trackVisit(1, $assigned);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing'], 0, [0 => ['rabtd' => $id . '-s'], 1 => ['rabtd' => $id . '-c']]);
+
+        $result = API::getInstance()->getExperimentResult(1, $id);
+
+        $this->assertSame([2, 1, 0.5], [$result['nb_visits'], $result['nb_clicks'], $result['click_rate']]);
+    }
+
     public function testASignalForAFakeDoorDoesNotClickAnABTest()
     {
         $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/'], 0, ['rabtd' => $this->idExperiment . '-c']);
@@ -278,42 +292,10 @@ class TrackingTest extends IntegrationTestCase
         $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/pricing', '/thanks']);
         $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/thanks']);
 
-        $api = API::getInstance();
-        $result = $api->getExperimentResult(1, $this->idExperiment);
+        $result = API::getInstance()->getExperimentResult(1, $this->idExperiment);
 
         $this->assertSame(3, $result['variants'][1]['nb_visits']);
         $this->assertSame(2, $result['measures'][0]['variants'][1]['nb_visits_with_outcome']);
-        $this->assertSame(
-            ['button' => ['nb_visits_converted' => 2, 'variants' => ['2' => 2]]],
-            $this->flatten($api->getExperimentGoalData(1, 'day', self::DAY), 'nb_visits_converted', function ($idSubtable) use ($api) {
-                return $api->getExperimentGoalData(1, 'day', self::DAY, null, $idSubtable);
-            })
-        );
-    }
-
-    public function testTheReportsCountVisitsAndConversionsPerVariant()
-    {
-        GoalsApi::getInstance()->addGoal(1, 'Thanks', 'url', 'thanks', 'contains');
-
-        $this->trackVisit(1, [$this->idExperiment => 1], self::DAY, ['/', '/pricing']);
-        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/', '/thanks']);
-        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/thanks']);
-        $this->trackVisit(1, [], self::DAY, ['/thanks']);
-
-        $api = API::getInstance();
-        $this->assertSame(
-            ['button' => ['nb_visits' => 3, 'variants' => ['1' => 1, '2' => 2]]],
-            $this->flatten($api->getExperimentData(1, 'day', self::DAY), 'nb_visits', function ($idSubtable) use ($api) {
-                return $api->getExperimentData(1, 'day', self::DAY, null, $idSubtable);
-            })
-        );
-        $this->assertSame(
-            ['button' => ['nb_conversions' => 2, 'variants' => ['2' => 2]]],
-            $this->flatten($api->getExperimentGoalData(1, 'week', self::DAY), 'nb_conversions', function ($idSubtable) use ($api) {
-                return $api->getExperimentGoalData(1, 'week', self::DAY, null, $idSubtable);
-            })
-        );
-        $this->assertSame(0, $api->getExperimentData(2, 'day', self::DAY)->getRowsCount());
     }
 
     public function testTheLogOfAVisitIsDeletedWithTheVisit()
@@ -342,25 +324,6 @@ class TrackingTest extends IntegrationTestCase
         $list = array_slice([['name' => 'Green', 'css' => '', 'js' => ''], ['name' => '', 'css' => '', 'js' => '']], 0, $variants);
 
         return API::getInstance()->insertExperiment(1, $name, '', '', '2024-03-01', '2024-03-31', $list);
-    }
-
-    /**
-     * @param \Piwik\DataTable $table
-     * @return array<string, array<string, mixed>> the metric of each experiment and of its variants
-     */
-    private function flatten($table, string $metric, callable $getSubtable): array
-    {
-        $result = [];
-        foreach ($table->getRows() as $row) {
-            $variants = [];
-            foreach ($getSubtable($row->getIdSubDataTable())->getRows() as $variant) {
-                $variants[(string) $variant->getColumn('label')] = (int) $variant->getColumn($metric);
-            }
-            ksort($variants);
-            $result[$row->getColumn('label')] = [$metric => (int) $row->getColumn($metric), 'variants' => $variants];
-        }
-
-        return $result;
     }
 
     /**

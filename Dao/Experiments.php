@@ -146,7 +146,7 @@ class Experiments
      */
     public static function getMaxVariant(array $experiment): int
     {
-        return $experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR ? 2 : count($experiment['variants']) + 1;
+        return ExperimentValidator::countsWhatIsShown($experiment['kind']) ? 2 : count($experiment['variants']) + 1;
     }
 
     /**
@@ -207,16 +207,26 @@ class Experiments
             'guardrails' => json_encode($experiment['guardrails'] ?? []),
         ];
         $kind = (string) ($experiment['kind'] ?? ExperimentValidator::KIND_AB);
-        $isDoor = $kind === ExperimentValidator::KIND_FAKE_DOOR;
-        $variants = $isDoor ? [] : ExperimentValidator::normalizeVariants($experiment['variants'] ?? null);
-        $door = $isDoor ? ExperimentValidator::normalizeDoor($experiment['door'] ?? null) : null;
+        $hasVariants = !ExperimentValidator::countsWhatIsShown($kind);
+        $variants = $hasVariants ? ExperimentValidator::normalizeVariants($experiment['variants'] ?? null) : [];
+        $door = null;
+        $kindError = null;
+        if ($kind === ExperimentValidator::KIND_FAKE_DOOR) {
+            $door = ExperimentValidator::normalizeDoor($experiment['door'] ?? null);
+            $kindError = ExperimentValidator::validateDoor($door);
+        } elseif ($kind === ExperimentValidator::KIND_WATCH) {
+            $door = ExperimentValidator::normalizeWatch($experiment['door'] ?? null);
+            $kindError = ExperimentValidator::validateWatch($door);
+        } elseif ($kind === ExperimentValidator::KIND_AB) {
+            $kindError = ExperimentValidator::validateVariants($variants);
+        }
 
         $error = ExperimentValidator::validateName($values['name'])
             ?? ExperimentValidator::validateDates($values['from_date'], $values['to_date'])
             ?? ExperimentValidator::validateTrafficShare($values['traffic_share'])
             ?? ExperimentValidator::validateTarget($values['target_match'], $values['target_value'])
             ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelABTesting_ErrorKind')
-            ?? ($door === null ? ExperimentValidator::validateVariants($variants) : ExperimentValidator::validateDoor($door));
+            ?? $kindError;
 
         if ($error !== null) {
             throw new Exception(Piwik::translate($error));
@@ -228,7 +238,7 @@ class Experiments
         $values['variants'] = json_encode($variants);
         $values['kind'] = $kind;
         $values['door'] = $door === null ? null : json_encode($door);
-        if ($isDoor) {
+        if (!$hasVariants) {
             $values['primary_measure'] = null;
             $values['guardrails'] = '[]';
         }

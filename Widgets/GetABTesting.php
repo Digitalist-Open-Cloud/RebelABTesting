@@ -43,7 +43,7 @@ class GetABTesting extends Widget
                 'guardrails' => [],
                 'kind' => 'ab',
                 'door' => ['selector' => '', 'position' => 'after', 'element' => 'button', 'label' => '', 'css_class' => '', 'message' => ''],
-                'variants' => [['name' => '', 'changes' => [], 'css' => '', 'js' => '']],
+                'variants' => [['name' => '', 'changes' => [], 'redirect' => '', 'css' => '', 'js' => '']],
             ],
             'actionUrl' => Controller::getActionUrl('addExperiment', $idSite),
         ]);

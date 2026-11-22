@@ -34,6 +34,8 @@ export function makeEnv(opts = {}) {
   env.document = {
     readyState: "complete",
     head: { appendChild(n) { env.appended.push(n); } },
+    // What a browser calls to tell that watched elements came into view.
+    intersections: [],
     createElement(tag) {
       const node = {
         tagName: tag,
@@ -67,7 +69,11 @@ export function makeEnv(opts = {}) {
   env.window = {
     _paq: env._paq,
     localStorage: env.localStorage,
-    location: { href: opts.url ?? "https://shop.example/pricing", hash: opts.hash ?? "" },
+    location: {
+      href: opts.url ?? "https://shop.example/pricing",
+      hash: opts.hash ?? "",
+      replace(address) { env.sentTo = address; },
+    },
   };
   return env;
 }
@@ -76,7 +82,7 @@ export function loadTag(env, params = {}) {
   const src = Deno.readTextFileSync(new URL("Template/Tag/RebelABTestingTag.web.js", root));
   const Tag = new Function("window", "document", "localStorage", "sessionStorage", "crypto", "fetch", "return " + src.trim().replace(/;$/, ""))(
     env.window, env.document, env.localStorage, env.sessionStorage, env.crypto, env.fetch);
-  const all = { matomoOrigin: "https://m.example", container: { idsite: 1 }, hideTimeout: 500, ...params };
+  const all = { matomoUrl: "https://m.example/", container: { idsite: 1 }, hideTimeout: 500, ...params };
   const tag = new Tag({ get: (name, fallback) => (name in all ? all[name] : fallback) }, {});
   return {
     async fire() {

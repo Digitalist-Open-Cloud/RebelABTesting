@@ -10,8 +10,6 @@
 namespace Piwik\Plugins\RebelABTesting;
 
 use Exception;
-use Piwik\Archive;
-use Piwik\DataTable;
 use Piwik\Piwik;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
@@ -54,10 +52,12 @@ class API extends \Piwik\Plugin\API
      *                              event, bounce or search) and, for a goal, its `idgoal`, or for an
      *                              event, its `category` and optionally its `action`. Empty for none
      * @param string $kind `ab` for a test of variants, `fake_door` for a button to something that
-     *                     does not exist yet, to see how many visitors want it
+     *                     does not exist yet, to see how many visitors want it, `watch` to count the
+     *                     visits that see and click an element the page already has
      * @param array $door the fake door: `selector` of the element it is put next to, `position`
      *                    (after, before, append or prepend), `element` (button or link), `label`,
-     *                    `css_class` and the `message` shown after a click
+     *                    `css_class` and the `message` shown after a click. For `watch`: the `selector` of the
+     *                    element to watch
      * @param array $guardrails up to two measures that must not get worse
      * @return int the ID of the experiment
      */
@@ -68,7 +68,7 @@ class API extends \Piwik\Plugin\API
         string $description,
         string $fromDate,
         string $toDate,
-        array $variants,
+        array $variants = [],
         int $trafficShare = 100,
         string $targetMatch = 'any',
         string $targetValue = '',
@@ -96,7 +96,7 @@ class API extends \Piwik\Plugin\API
         string $description,
         string $fromDate,
         string $toDate,
-        array $variants,
+        array $variants = [],
         int $trafficShare = 100,
         string $targetMatch = 'any',
         string $targetValue = '',
@@ -166,46 +166,6 @@ class API extends \Piwik\Plugin\API
         }
 
         return (new Results())->get($experiment);
-    }
-
-    /**
-     * Visits per experiment. The subtable of an experiment has its variants.
-     *
-     * @param string|null $segment
-     * @param bool|int $idSubtable
-     */
-    public function getExperimentData(int $idSite, string $period, string $date, $segment = null, $idSubtable = false): DataTable
-    {
-        Piwik::checkUserHasViewAccess($idSite);
-
-        return Archive::createDataTableFromArchive(Archiver::RECORD_NAME, $idSite, $period, $date, $segment, false, false, $idSubtable);
-    }
-
-    /**
-     * Conversions per experiment. The subtable of an experiment has its variants, and the subtable of
-     * a variant its goals.
-     *
-     * @param string|null $segment
-     * @param bool|int $idSubtable
-     */
-    public function getExperimentGoalData(int $idSite, string $period, string $date, $segment = null, $idSubtable = false): DataTable
-    {
-        Piwik::checkUserHasViewAccess($idSite);
-
-        return Archive::createDataTableFromArchive(Archiver::RECORD_NAME_GOALS, $idSite, $period, $date, $segment, false, false, $idSubtable);
-    }
-
-    /**
-     * Unique visitors per experiment and variant. There is only data for a day, as visitors of
-     * several days cannot be added up.
-     *
-     * @param string|null $segment
-     */
-    public function getExperimentUniqueVisitorData(int $idSite, string $period, string $date, $segment = null): DataTable
-    {
-        Piwik::checkUserHasViewAccess($idSite);
-
-        return Archive::createDataTableFromArchive(Archiver::RECORD_NAME_UNIQUE_VISITORS, $idSite, $period, $date, $segment);
     }
 
     /**

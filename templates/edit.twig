@@ -1,17 +1,8 @@
-{% extends 'admin.twig' %}
-
-{% set title %}{{ 'RebelABTesting_EditExperiment'|translate }}{% endset %}
-
-{% block topcontrols %}
-    {% include "@CoreHome/_siteSelectHeader.twig" %}
-{% endblock %}
-
-{% block content %}
 <div class="rebelABTestingPlugin">
     <div class="card">
         <div class="card-content">
             <h2>{{ 'RebelABTesting_EditExperiment'|translate }}</h2>
-            <a href="{{ backUrl }}" class="back-link">&laquo; {{ 'RebelABTesting_FormBack'|translate }}</a>
+            <a href="{{ backUrl }}" class="back-link rebelABTestingBack">&laquo; {{ 'RebelABTesting_FormBack'|translate }}</a>
             {% if experiment is empty %}
             <div class="alert">{{ 'RebelABTesting_ExperimentNotFound'|translate }}</div>
             {% else %}
@@ -20,4 +11,3 @@
         </div>
     </div>
 </div>
-{% endblock %}

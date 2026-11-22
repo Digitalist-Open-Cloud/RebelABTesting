@@ -20,12 +20,13 @@ final class ExperimentValidator
 
     public const KIND_AB = 'ab';
     public const KIND_FAKE_DOOR = 'fake_door';
-    public const KINDS = [self::KIND_AB, self::KIND_FAKE_DOOR];
+    public const KIND_WATCH = 'watch';
+    public const KINDS = [self::KIND_AB, self::KIND_FAKE_DOOR, self::KIND_WATCH];
     public const DOOR_POSITIONS = ['after', 'before', 'append', 'prepend'];
     public const DOOR_ELEMENTS = ['button', 'link'];
 
     public const ACTION_HIDE = 'hide';
-    public const ACTIONS = ['text', self::ACTION_HIDE, 'add_class', 'style', 'image', 'link'];
+    public const ACTIONS = ['text', self::ACTION_HIDE, 'add_class', 'style', 'image', 'link', 'insert_before', 'insert_after', 'insert_first'];
     public const MAX_CHANGES = 20;
 
     private const NAME_MAX_LENGTH = 255;
@@ -89,6 +90,9 @@ final class ExperimentValidator
                     return 'RebelABTesting_ErrorChange';
                 }
             }
+            if ($variant['redirect'] !== '' && (mb_strlen($variant['redirect']) > self::VALUE_MAX_LENGTH || !self::isSafeAddress($variant['redirect']))) {
+                return 'RebelABTesting_ErrorRedirect';
+            }
         }
 
         return null;
@@ -111,6 +115,14 @@ final class ExperimentValidator
     }
 
     /**
+     * An address without a scheme stays on the website. Other schemes could run code.
+     */
+    private static function isSafeAddress(string $address): bool
+    {
+        return (bool) preg_match('~^(https?://|mailto:|tel:|(?![a-z][a-z0-9+.-]*:))~i', $address);
+    }
+
+    /**
      * @param array{selector: string, action: string, value: string} $change
      */
     private static function isValidChange(array $change): bool
@@ -130,11 +142,36 @@ final class ExperimentValidator
                 return (bool) preg_match('/^[A-Za-z0-9_-]+( [A-Za-z0-9_-]+)*$/', $change['value']);
             case 'image':
             case 'link':
-                // An address without a scheme stays on the website. Others could run code.
-                return $change['value'] !== '' && (bool) preg_match('~^(https?://|mailto:|tel:|(?![a-z][a-z0-9+.-]*:))~i', $change['value']);
+                return $change['value'] !== '' && self::isSafeAddress($change['value']);
             default:
                 return $change['value'] !== '';
         }
+    }
+
+    /**
+     * Whether the experiment only counts the visits its tag tells about: the ones a fake door was
+     * shown to, or that saw a watched element. Such an experiment has no original and no variants.
+     */
+    public static function countsWhatIsShown(string $kind): bool
+    {
+        return in_array($kind, [self::KIND_FAKE_DOOR, self::KIND_WATCH], true);
+    }
+
+    /**
+     * @param mixed $watch what a request handed over
+     * @return array{selector: string}
+     */
+    public static function normalizeWatch($watch): array
+    {
+        return ['selector' => trim(is_array($watch) && is_scalar($watch['selector'] ?? null) ? (string) $watch['selector'] : '')];
+    }
+
+    /**
+     * @param array{selector: string} $watch
+     */
+    public static function validateWatch(array $watch): ?string
+    {
+        return $watch['selector'] === '' || mb_strlen($watch['selector']) > self::SELECTOR_MAX_LENGTH ? 'RebelABTesting_ErrorWatch' : null;
     }
 
     /**
@@ -179,7 +216,7 @@ final class ExperimentValidator
 
     /**
      * @param mixed $variants what a request handed over
-     * @return array<int, array{name: string, changes: array<int, array{selector: string, action: string, value: string}>, css: string, js: string}>
+     * @return array<int, array{name: string, changes: array<int, array{selector: string, action: string, value: string}>, redirect: string, css: string, js: string}>
      */
     public static function normalizeVariants($variants): array
     {
@@ -206,6 +243,7 @@ final class ExperimentValidator
             $normalized[] = [
                 'name' => mb_substr(trim((string) ($variant['name'] ?? '')), 0, 100),
                 'changes' => $changes,
+                'redirect' => trim((string) ($variant['redirect'] ?? '')),
                 'css' => (string) ($variant['css'] ?? ''),
                 'js' => (string) ($variant['js'] ?? ''),
             ];
