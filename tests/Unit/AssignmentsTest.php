@@ -1,12 +1,12 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\Tests\Unit;
+namespace Piwik\Plugins\RebelExperiments\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Piwik\Plugins\RebelABTesting\Tracker\Assignments;
+use Piwik\Plugins\RebelExperiments\Tracker\Assignments;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 final class AssignmentsTest extends TestCase
@@ -17,7 +17,7 @@ final class AssignmentsTest extends TestCase
     {
         $this->assertSame(
             [7 => ['variant' => 2, 'assignment_id' => self::A], 12 => ['variant' => 1, 'assignment_id' => self::A]],
-            Assignments::fromRequestParams(['rabt' => '7-2-' . self::A . ',12-1-' . self::A])
+            Assignments::fromRequestParams(['rexp' => '7-2-' . self::A . ',12-1-' . self::A])
         );
     }
 
@@ -27,7 +27,7 @@ final class AssignmentsTest extends TestCase
      */
     public function testWhatIsNotWellFormedIsLeftOut($value): void
     {
-        $this->assertSame([], Assignments::fromRequestParams(['rabt' => $value]));
+        $this->assertSame([], Assignments::fromRequestParams(['rexp' => $value]));
     }
 
     public function getValuesThatAreNotWellFormed(): array
@@ -45,11 +45,11 @@ final class AssignmentsTest extends TestCase
 
     public function testTheSignalOfAFakeDoorIsRead(): void
     {
-        $this->assertSame(['idexperiment' => 7, 'signal' => 's'], Assignments::getDoorSignal(['rabtd' => '7-s']));
-        $this->assertSame(['idexperiment' => 12, 'signal' => 'c'], Assignments::getDoorSignal(['rabtd' => '12-c']));
+        $this->assertSame(['idexperiment' => 7, 'signal' => 's'], Assignments::getDoorSignal(['rexpd' => '7-s']));
+        $this->assertSame(['idexperiment' => 12, 'signal' => 'c'], Assignments::getDoorSignal(['rexpd' => '12-c']));
 
         foreach (['', '7', '7-x', '0-s', '7-s-c', ['7-s'], "7-s' OR 1"] as $value) {
-            $this->assertNull(Assignments::getDoorSignal(['rabtd' => $value]));
+            $this->assertNull(Assignments::getDoorSignal(['rexpd' => $value]));
         }
         $this->assertNull(Assignments::getDoorSignal([]));
     }
@@ -66,6 +66,6 @@ final class AssignmentsTest extends TestCase
             $entries[] = $id . '-1-' . self::A;
         }
 
-        $this->assertSame(range(1, 10), array_keys(Assignments::fromRequestParams(['rabt' => implode(',', $entries)])));
+        $this->assertSame(range(1, 10), array_keys(Assignments::fromRequestParams(['rexp' => implode(',', $entries)])));
     }
 }

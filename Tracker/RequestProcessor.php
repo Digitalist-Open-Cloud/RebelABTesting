@@ -7,11 +7,11 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Tracker;
+namespace Piwik\Plugins\RebelExperiments\Tracker;
 
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 use Piwik\Tracker\Request;
 use Piwik\Tracker\RequestProcessor as MatomoRequestProcessor;
 use Piwik\Tracker\Visit\VisitProperties;

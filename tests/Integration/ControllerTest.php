@@ -1,6 +1,6 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\tests\Integration;
+namespace Piwik\Plugins\RebelExperiments\tests\Integration;
 
 use Exception;
 use Piwik\Date;
@@ -9,11 +9,11 @@ use Piwik\Nonce;
 use Piwik\Piwik;
 use Piwik\Plugin\WidgetsProvider;
 use Piwik\Plugins\Goals\API as GoalsApi;
-use Piwik\Plugins\RebelABTesting\API;
-use Piwik\Plugins\RebelABTesting\Controller;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Widgets\GetABTesting;
-use Piwik\Plugins\RebelABTesting\Widgets\GetExperiments;
+use Piwik\Plugins\RebelExperiments\API;
+use Piwik\Plugins\RebelExperiments\Controller;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Widgets\GetNewExperiment;
+use Piwik\Plugins\RebelExperiments\Widgets\GetExperiments;
 use Piwik\Container\StaticContainer;
 use Piwik\Tests\Framework\Fixture;
 use Piwik\Tests\Framework\Mock\FakeAccess;
@@ -21,7 +21,7 @@ use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 use Piwik\Widget\WidgetConfig;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 class ControllerTest extends IntegrationTestCase
@@ -121,11 +121,11 @@ class ControllerTest extends IntegrationTestCase
         $html = (new Controller())->result();
         $this->assertStringContainsString('Fake door: Compare plans', $html);
         $this->assertStringContainsString('Visits that clicked it', $html);
-        $this->assertStringContainsString('#rabt-preview=' . $experiment['id'] . '-2-' . $experiment['preview_token'], $html);
+        $this->assertStringContainsString('#rexp-preview=' . $experiment['id'] . '-2-' . $experiment['preview_token'], $html);
 
         $_GET = ['idSite' => '2', 'id' => (string) $experiment['id']];
         $edit = (new Controller())->editExperimentForm();
-        $this->assertStringContainsString('value="fake_door" class="rebelABTestingKind" checked>', $edit);
+        $this->assertStringContainsString('value="fake_door" class="rebelExperimentsKind" checked>', $edit);
         $this->assertStringContainsString('name="door[label]" id="door_label" value="Compare plans"', $edit);
         $this->assertStringContainsString('<option value="prepend" selected>', $edit);
     }
@@ -144,11 +144,11 @@ class ControllerTest extends IntegrationTestCase
         $_GET = ['idSite' => '2', 'idExperiment' => (string) $experiment['id']];
         $html = (new Controller())->result();
         $this->assertStringContainsString('Watch an element: .signup', $html);
-        $this->assertStringNotContainsString('rabt-preview', $html);
+        $this->assertStringNotContainsString('rexp-preview', $html);
 
         $_GET = ['idSite' => '2', 'id' => (string) $experiment['id']];
         $edit = (new Controller())->editExperimentForm();
-        $this->assertStringContainsString('value="watch" class="rebelABTestingKind" checked>', $edit);
+        $this->assertStringContainsString('value="watch" class="rebelExperimentsKind" checked>', $edit);
         $this->assertStringContainsString('name="watch[selector]" id="watch_selector" value=".signup"', $edit);
         $this->assertStringContainsString('name="door[selector]" id="door_selector" value=""', $edit);
     }
@@ -179,7 +179,7 @@ class ControllerTest extends IntegrationTestCase
             (new Controller())->addExperiment();
             $this->fail('There was no redirect.');
         } catch (Exception $e) {
-            $this->assertStringContainsString('subcategory=RebelABTesting_ManageExperiments', $e->getMessage());
+            $this->assertStringContainsString('subcategory=RebelExperiments_ManageExperiments', $e->getMessage());
         }
 
         $experiment = (new Experiments())->getAllForSite(2)[0];
@@ -201,7 +201,7 @@ class ControllerTest extends IntegrationTestCase
     {
         $seen = [];
         foreach (['insertExperiment', 'updateExperiment', 'stopExperiment', 'deleteExperiment'] as $method) {
-            Piwik::addAction('API.RebelABTesting.' . $method . '.end', function () use (&$seen, $method) {
+            Piwik::addAction('API.RebelExperiments.' . $method . '.end', function () use (&$seen, $method) {
                 $seen[] = $method;
             });
         }
@@ -300,7 +300,7 @@ class ControllerTest extends IntegrationTestCase
 
     public function getAdminWidgets(): array
     {
-        return [[GetABTesting::class]];
+        return [[GetNewExperiment::class]];
     }
 
     public function testTheListIsForUsersOfTheWebsite()
@@ -317,7 +317,7 @@ class ControllerTest extends IntegrationTestCase
     {
         $_GET = ['idSite' => '2'];
 
-        $this->assertStringContainsString('Add the tag &quot;Rebel A/B Testing&quot; once', (new GetExperiments())->render());
+        $this->assertStringContainsString('Add the tag &quot;Rebel Experiments&quot; once', (new GetExperiments())->render());
 
         FakeAccess::clearAccess(false, [], [2]);
         $this->assertStringNotContainsString('Add the tag', (new GetExperiments())->render());
@@ -331,7 +331,7 @@ class ControllerTest extends IntegrationTestCase
 
         $html = (new GetExperiments())->render();
 
-        $this->assertStringContainsString('category=RebelABTesting_RebelABTesting&amp;subcategory=' . $this->idExperiment . '">button</a>', $html);
+        $this->assertStringContainsString('category=RebelExperiments_RebelExperiments&amp;subcategory=' . $this->idExperiment . '">button</a>', $html);
         $this->assertStringContainsString('Running', $html);
         $this->assertStringNotContainsString('other-site', $html);
         $this->assertStringNotContainsString('<form', $html);
@@ -355,14 +355,14 @@ class ControllerTest extends IntegrationTestCase
         $_GET = ['idSite' => '1', 'id' => (string) $this->idExperiment, 'period' => 'week', 'date' => '2024-03-05'];
         $nonce = 'name="nonce" value="' . Nonce::getNonce(Controller::NONCE) . '"';
 
-        $create = (new GetABTesting())->render();
+        $create = (new GetNewExperiment())->render();
         $this->assertStringContainsString($nonce, $create);
-        $this->assertStringContainsString('action="?module=RebelABTesting&amp;action=addExperiment&amp;idSite=1&amp;period=week&amp;date=2024-03-05"', $create);
+        $this->assertStringContainsString('action="?module=RebelExperiments&amp;action=addExperiment&amp;idSite=1&amp;period=week&amp;date=2024-03-05"', $create);
         $this->assertStringContainsString('name="from_date" id="from_date" value="2024-03-05"', $create);
         $this->assertStringContainsString('name="variants[0][css]"', $create);
         $this->assertStringContainsString('name="variants[0][redirect]" value=""', $create);
         $this->assertStringContainsString('<option value="banner" data-changes="[{&quot;selector&quot;:&quot;body&quot;,&quot;action&quot;:&quot;insert_first&quot;,&quot;value&quot;:&quot;Free shipping this week&quot;}', $create);
-        $this->assertStringContainsString('value="ab" class="rebelABTestingKind" checked>', $create);
+        $this->assertStringContainsString('value="ab" class="rebelExperimentsKind" checked>', $create);
         $this->assertStringContainsString('data-result="Run for at least {days} days: {visits} visits in each of the {groups} groups.', $create);
         $this->assertStringContainsString('name="door[selector]"', $create);
         $this->assertSame(3, substr_count($create, '<option value="" selected>None</option>'));
@@ -396,7 +396,7 @@ class ControllerTest extends IntegrationTestCase
         FakeAccess::clearAccess(false, [], [], 'writer', [1]);
 
         $_GET = ['idSite' => '1'];
-        $create = (new GetABTesting())->render();
+        $create = (new GetNewExperiment())->render();
         $this->assertStringContainsString('name="variants[0][changes][0][selector]"', $create);
         $this->assertStringNotContainsString('[css]', $create);
         $this->assertStringNotContainsString('[js]', $create);
@@ -419,7 +419,7 @@ class ControllerTest extends IntegrationTestCase
 
         $pages = [];
         foreach (StaticContainer::get(WidgetsProvider::class)->getWidgetConfigs() as $config) {
-            if ($config->getModule() === 'RebelABTesting' && $config->getAction() === 'result') {
+            if ($config->getModule() === 'RebelExperiments' && $config->getAction() === 'result') {
                 $pages[] = [$config->getName(), $config->getParameters()['idExperiment']];
             }
         }
@@ -438,7 +438,7 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('Original', $html);
         $this->assertStringContainsString('Green', $html);
         $this->assertStringNotContainsString('A secret plan', $html);
-        $this->assertStringNotContainsString('rabt-preview', $html);
+        $this->assertStringNotContainsString('rexp-preview', $html);
     }
 
     public function testAnAdminGetsAPreviewLinkForEachVariant()
@@ -449,8 +449,8 @@ class ControllerTest extends IntegrationTestCase
 
         $html = (new Controller())->result();
 
-        $this->assertStringContainsString('#rabt-preview=' . $this->idExperiment . '-1-' . $experiment['preview_token'] . '"', $html);
-        $this->assertStringContainsString('#rabt-preview=' . $this->idExperiment . '-2-' . $experiment['preview_token'] . '"', $html);
+        $this->assertStringContainsString('#rexp-preview=' . $this->idExperiment . '-1-' . $experiment['preview_token'] . '"', $html);
+        $this->assertStringContainsString('#rexp-preview=' . $this->idExperiment . '-2-' . $experiment['preview_token'] . '"', $html);
     }
 
     public function testThePageOfAnExperimentShowsItsDescriptionToThoseWhoCanChangeIt()
@@ -657,6 +657,6 @@ class ControllerTest extends IntegrationTestCase
     {
         parent::configureFixture($fixture);
 
-        $fixture->extraPluginsToLoad = ['RebelABTesting'];
+        $fixture->extraPluginsToLoad = ['RebelExperiments'];
     }
 }

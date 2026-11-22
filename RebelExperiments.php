@@ -7,20 +7,20 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Piwik\Category\Subcategory;
 use Piwik\Common;
 use Piwik\Piwik;
 use Piwik\Plugin;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
 use Piwik\Request;
 use Piwik\Widget\WidgetConfig;
 
-class RebelABTesting extends Plugin
+class RebelExperiments extends Plugin
 {
-    private const CATEGORY = 'RebelABTesting_RebelABTesting';
+    private const CATEGORY = 'RebelExperiments_RebelExperiments';
 
     public function registerEvents()
     {
@@ -35,14 +35,14 @@ class RebelABTesting extends Plugin
 
     public function getStylesheetFiles(&$stylesheets)
     {
-        $stylesheets[] = 'plugins/RebelABTesting/stylesheets/menuIcon.less';
-        $stylesheets[] = 'plugins/RebelABTesting/stylesheets/rebelABTesting.less';
+        $stylesheets[] = 'plugins/RebelExperiments/stylesheets/menuIcon.less';
+        $stylesheets[] = 'plugins/RebelExperiments/stylesheets/rebelExperiments.less';
     }
 
     public function getJavaScriptFiles(&$files)
     {
-        $files[] = 'plugins/RebelABTesting/javascripts/experimentForm.js';
-        $files[] = 'plugins/RebelABTesting/javascripts/evolutionChart.js';
+        $files[] = 'plugins/RebelExperiments/javascripts/experimentForm.js';
+        $files[] = 'plugins/RebelExperiments/javascripts/evolutionChart.js';
     }
 
     public function getTablesInstalled(&$tables)
@@ -73,7 +73,7 @@ class RebelABTesting extends Plugin
             $config->setCategoryId(self::CATEGORY);
             $config->setSubcategoryId((string) $experiment['id']);
             $config->setName($experiment['name']);
-            $config->setModule('RebelABTesting');
+            $config->setModule('RebelExperiments');
             $config->setAction('result');
             $config->setParameters(['idExperiment' => $experiment['id']]);
             $config->setIsNotWidgetizable();

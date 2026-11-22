@@ -1,7 +1,7 @@
 {
-    "RebelABTesting": {
-        "RebelABTesting": "A/B Testing",
-        "TagName": "Rebel A/B Testing",
+    "RebelExperiments": {
+        "RebelExperiments": "Experiments",
+        "TagName": "Rebel Experiments",
         "TagDescription": "Runs the experiments of this website that are in progress. Add it once, with a trigger that fires on every page.",
         "TagMatomoOrigin": "Address of Matomo",
         "TagMatomoOriginDescription": "The address of your Matomo, for example https://analytics.example.org or https://example.org/matomo. The tag fetches the experiments from it.",
@@ -207,7 +207,7 @@
         "ActionValue_insert_before": "The text to insert",
         "ActionValue_insert_after": "The text to insert",
         "ActionValue_insert_first": "The text to insert",
-        "TagHelp": "Add the tag \"Rebel A/B Testing\" once to a container in Matomo Tag Manager, with a trigger that fires on every page, and publish the container. The tag runs every experiment of the website that is in progress.",
+        "TagHelp": "Add the tag \"Rebel Experiments\" once to a container in Matomo Tag Manager, with a trigger that fires on every page, and publish the container. The tag runs every experiment of the website that is in progress.",
         "ErrorConfidence": "How sure to be must be 90, 95 or 99.",
         "MeasureGoalRevenue": "Revenue per visit of goal: %s",
         "Measure_conversions": "Visits that reach any goal",

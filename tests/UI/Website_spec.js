@@ -1,37 +1,37 @@
 // Runs the tag of the plugin on the test website, in Matomo's test environment, and checks what
 // the visitor sees and what Matomo counts.
-describe('RebelABTestingWebsite', function () {
-    this.fixture = 'Piwik\\Plugins\\RebelABTesting\\tests\\Fixtures\\SiteWithGoal';
+describe('RebelExperimentsWebsite', function () {
+    this.fixture = 'Piwik\\Plugins\\RebelExperiments\\tests\\Fixtures\\SiteWithGoal';
 
-    const site = (name, extra = '') => `${config.piwikUrl}plugins/RebelABTesting/tests/site/${name}?matomo=/tests/PHPUnit/proxy&idsite=1${extra}`;
+    const site = (name, extra = '') => `${config.piwikUrl}plugins/RebelExperiments/tests/site/${name}?matomo=/tests/PHPUnit/proxy&idsite=1${extra}`;
     const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
     const text = (selector) => page.evaluate((s) => [...document.querySelectorAll(s)].map((e) => e.textContent.trim()).join(' | '), selector);
 
     before(async function () {
-        testEnvironment.pluginsToLoad = ['RebelABTesting'];
+        testEnvironment.pluginsToLoad = ['RebelExperiments'];
         testEnvironment.save();
 
         // The database of the fixture can be kept from an earlier run, with its experiments.
-        for (const experiment of await testEnvironment.callApi('RebelABTesting.getExperiments', { idSite: 1 })) {
-            await testEnvironment.callApi('RebelABTesting.deleteExperiment', { idSite: 1, id: experiment.id });
+        for (const experiment of await testEnvironment.callApi('RebelExperiments.getExperiments', { idSite: 1 })) {
+            await testEnvironment.callApi('RebelExperiments.deleteExperiment', { idSite: 1, id: experiment.id });
         }
     });
 
     // An experiment that runs now. What is given is added to the fields every experiment has.
     async function addExperiment(name, fields) {
-        const response = await testEnvironment.callApi('RebelABTesting.insertExperiment', {
+        const response = await testEnvironment.callApi('RebelExperiments.insertExperiment', {
             idSite: 1, name, hypothesis: '', description: '', fromDate: day(-1), toDate: day(30), ...fields,
         });
         return response.value;
     }
 
-    const getResult = (id) => testEnvironment.callApi('RebelABTesting.getExperimentResult', { idSite: 1, id });
-    const stop = (id) => testEnvironment.callApi('RebelABTesting.stopExperiment', { idSite: 1, id });
+    const getResult = (id) => testEnvironment.callApi('RebelExperiments.getExperimentResult', { idSite: 1, id });
+    const stop = (id) => testEnvironment.callApi('RebelExperiments.stopExperiment', { idSite: 1, id });
 
     // A browser that has never been on the website as far as the tag can tell, and that draws the given number wherever the
     // tag draws one: below 0.5 the original of two groups, above it the variant.
     async function newVisitor(random) {
-        await page.goto(`${config.piwikUrl}plugins/RebelABTesting/tests/site/site.css`);
+        await page.goto(`${config.piwikUrl}plugins/RebelExperiments/tests/site/site.css`);
         await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
         await page.webpage._client.send('Network.clearBrowserCookies');
         await page.evaluateOnNewDocument((value) => { Math.random = () => value; }, random);
@@ -204,7 +204,7 @@ describe('RebelABTestingWebsite', function () {
         await newVisitor(0.9);
         await open('index.html');
         expect(await text('h1')).to.equal('Welcome to the Test Shop');
-        expect(await page.evaluate((key) => localStorage.getItem(key), `sabt:${id}`)).to.equal(null);
+        expect(await page.evaluate((key) => localStorage.getItem(key), `rexp:${id}`)).to.equal(null);
 
         await newVisitor(0.9);
         await open('index.html', '&utm_campaign=Spring-sale');
@@ -232,13 +232,13 @@ describe('RebelABTestingWebsite', function () {
         await counted(id, (result) => result.variants[0].nb_visits === 1 && result.variants[0].name.replace(/\s/g, '') === 'Withoutthechange');
 
         // The share is raised to everyone. The same visitor now gets the change.
-        await testEnvironment.callApi('RebelABTesting.updateExperiment', {
+        await testEnvironment.callApi('RebelExperiments.updateExperiment', {
             idSite: 1, id, name: 'rollout', hypothesis: '', description: '', fromDate: day(-1), toDate: day(30), kind: 'rollout', trafficShare: 100,
             'variants[0][changes][0][selector]': 'h1',
             'variants[0][changes][0][action]': 'text',
             'variants[0][changes][0][value]': 'The new headline',
         });
-        await page.evaluate(() => localStorage.removeItem('sabt-experiments:1'));
+        await page.evaluate(() => localStorage.removeItem('rexp-experiments:1'));
         await open('index.html');
         expect(await text('h1')).to.equal('The new headline');
         await stop(id);
@@ -251,13 +251,13 @@ describe('RebelABTestingWebsite', function () {
             'variants[0][changes][0][action]': 'text',
             'variants[0][changes][0][value]': 'Not public yet',
         });
-        const experiment = await testEnvironment.callApi('RebelABTesting.getExperiment', { idSite: 1, id });
+        const experiment = await testEnvironment.callApi('RebelExperiments.getExperiment', { idSite: 1, id });
         await newVisitor(0.1);
 
         await open('index.html');
         expect(await text('h1')).to.equal('Welcome to the Test Shop');
 
-        await open('pricing.html', `#rabt-preview=${id}-2-${experiment.preview_token}`);
+        await open('pricing.html', `#rexp-preview=${id}-2-${experiment.preview_token}`);
         await open('index.html');
         expect(await text('h1')).to.equal('Not public yet');
 

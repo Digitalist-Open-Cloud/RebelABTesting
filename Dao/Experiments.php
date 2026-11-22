@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Dao;
+namespace Piwik\Plugins\RebelExperiments\Dao;
 
 use Exception;
 use Piwik\Common;
@@ -15,12 +15,12 @@ use Piwik\Date;
 use Piwik\Db;
 use Piwik\DbHelper;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Audience;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Audience;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 
 class Experiments
 {
-    public const TABLE = 'rebel_ab_testing_experiments';
+    public const TABLE = 'rebel_experiments';
 
     public const STATUS_PLANNED = 'planned';
     public const STATUS_RUNNING = 'running';
@@ -121,7 +121,7 @@ class Experiments
     public function setDecision(int $id, int $idSite, string $decision, string $note): void
     {
         if (!in_array($decision, ExperimentValidator::DECISIONS, true) || mb_strlen($note) > ExperimentValidator::DECISION_NOTE_MAX_LENGTH) {
-            throw new Exception(Piwik::translate('RebelABTesting_ErrorDecision'));
+            throw new Exception(Piwik::translate('RebelExperiments_ErrorDecision'));
         }
 
         Db::query(
@@ -243,7 +243,7 @@ class Experiments
             Db::query($query, $params);
         } catch (Exception $e) {
             if (Db::get()->isErrNo($e, self::DUPLICATE_ENTRY)) {
-                throw new Exception(Piwik::translate('RebelABTesting_ErrorNameExists'));
+                throw new Exception(Piwik::translate('RebelExperiments_ErrorNameExists'));
             }
             throw $e;
         }
@@ -298,7 +298,7 @@ class Experiments
             ?? ExperimentValidator::validateExclude($values['exclude_match'], $values['exclude_value'])
             ?? ExperimentValidator::validateConfidence($values['confidence'])
             ?? Audience::validate($audience)
-            ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelABTesting_ErrorKind')
+            ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelExperiments_ErrorKind')
             ?? $kindError;
 
         if ($error !== null) {

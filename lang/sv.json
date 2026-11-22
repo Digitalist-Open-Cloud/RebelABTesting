@@ -1,7 +1,7 @@
 {
-    "RebelABTesting": {
-        "RebelABTesting": "A/B-testning",
-        "TagName": "Rebel A/B Testing",
+    "RebelExperiments": {
+        "RebelExperiments": "Experiment",
+        "TagName": "Rebel Experiments",
         "TagDescription": "Kör de experiment som pågår på den här webbplatsen. Lägg till den en gång, med en trigger som utlöses på varje sida.",
         "TagMatomoOrigin": "Adress till Matomo",
         "TagMatomoOriginDescription": "Adressen till din Matomo, till exempel https://analytics.example.org eller https://example.org/matomo. Taggen hämtar experimenten därifrån.",
@@ -207,7 +207,7 @@
         "ActionValue_insert_before": "Texten att infoga",
         "ActionValue_insert_after": "Texten att infoga",
         "ActionValue_insert_first": "Texten att infoga",
-        "TagHelp": "Lägg till taggen \"Rebel A/B Testing\" en gång i en container i Matomo Tag Manager, med en trigger som utlöses på varje sida, och publicera containern. Taggen kör alla experiment som pågår på webbplatsen.",
+        "TagHelp": "Lägg till taggen \"Rebel Experiments\" en gång i en container i Matomo Tag Manager, med en trigger som utlöses på varje sida, och publicera containern. Taggen kör alla experiment som pågår på webbplatsen.",
         "ErrorConfidence": "Hur säker man ska vara måste vara 90, 95 eller 99.",
         "MeasureGoalRevenue": "Intäkt per besök för mål: %s",
         "Measure_conversions": "Besök som når något mål",

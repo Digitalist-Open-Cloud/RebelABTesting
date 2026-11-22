@@ -1,13 +1,13 @@
 (function () {
   return function (parameters, TagManager) {
-      var KEY_PREFIX = "sabt:";
-      var CACHE_PREFIX = "sabt-experiments:";
+      var KEY_PREFIX = "rexp:";
+      var CACHE_PREFIX = "rexp-experiments:";
       var CACHE_SECONDS = 300;
-      var PREVIEW_KEY = "sabt-preview";
-      var SHOWN_PREFIX = "sabt-shown:";
-      var TOLD_KEY = "sabt-told";
-      var FIRST_SEEN_KEY = "sabt-first-seen";
-      var ARRIVAL_KEY = "sabt-arrival";
+      var PREVIEW_KEY = "rexp-preview";
+      var SHOWN_PREFIX = "rexp-shown:";
+      var TOLD_KEY = "rexp-told";
+      var FIRST_SEEN_KEY = "rexp-first-seen";
+      var ARRIVAL_KEY = "rexp-arrival";
       var VISIT_SECONDS = 1800;
       var FAKE_DOOR = "fake_door";
       var WATCH = "watch";
@@ -85,10 +85,10 @@
               } catch (e) { /* the next page fetches again */ }
           }
 
-          // A preview link ends with #rabt-preview=<experiment>-<variant>-<secret>. It lasts for
-          // the tab, and #rabt-preview=off ends it.
+          // A preview link ends with #rexp-preview=<experiment>-<variant>-<secret>. It lasts for
+          // the tab, and #rexp-preview=off ends it.
           function getPreview() {
-              var inAddress = /[#&]rabt-preview=([^&]*)/.exec(window.location.hash || "");
+              var inAddress = /[#&]rexp-preview=([^&]*)/.exec(window.location.hash || "");
               var value = inAddress && inAddress[1];
               try {
                   if (value) sessionStorage.setItem(PREVIEW_KEY, value);
@@ -100,7 +100,7 @@
           }
 
           function fetchExperiments(done, failed, extra) {
-              var url = matomoUrl + "/index.php?module=RebelABTesting&action=getExperimentsPublic&idSite=" + encodeURIComponent(idSite) + (extra || "");
+              var url = matomoUrl + "/index.php?module=RebelExperiments&action=getExperimentsPublic&idSite=" + encodeURIComponent(idSite) + (extra || "");
               fetch(url, { method: "GET", credentials: "omit" })
                   .then(function (response) { return response.json(); })
                   .then(function (data) { done(data && Array.isArray(data.experiments) ? data.experiments : []); })
@@ -152,7 +152,7 @@
               var active = activeAssignments(today);
               if (!active) return;
 
-              tell(["appendToTrackingUrl", "rabt=" + active]);
+              tell(["appendToTrackingUrl", "rexp=" + active]);
               // The page view may already be sent, without the experiments. A ping makes sure that
               // the visit is counted, once and whenever the visitor gets into an experiment.
               var wasTold = wasToldThisVisit();
@@ -262,9 +262,9 @@
 
           function tellAboutDoor(id, what, eventCategory) {
               var active = activeAssignments(new Date().toISOString().slice(0, 10));
-              tell(["appendToTrackingUrl", "rabt=" + active + "&rabtd=" + id + "-" + what]);
+              tell(["appendToTrackingUrl", "rexp=" + active + "&rexpd=" + id + "-" + what]);
               tell(what === "c" ? ["trackEvent", eventCategory, "Click", String(id)] : ["ping"]);
-              tell(["appendToTrackingUrl", "rabt=" + active]);
+              tell(["appendToTrackingUrl", "rexp=" + active]);
           }
 
           // The highest variant a visitor can have.

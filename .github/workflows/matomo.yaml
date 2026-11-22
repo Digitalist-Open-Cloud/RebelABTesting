@@ -22,7 +22,7 @@ jobs:
       - name: Run tests
         uses: Digitalist-Open-Cloud/Matomo-github-action-tests@main
         with:
-          plugin-name: 'RebelABTesting'
+          plugin-name: 'RebelExperiments'
           php-version: ${{ matrix.php }}
           test-type: 'PluginTests'
           mysql-engine: 'Mariadb'

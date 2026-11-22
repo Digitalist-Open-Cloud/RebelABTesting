@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Exception;
 use Piwik\API\Request as ApiRequest;
@@ -16,18 +16,18 @@ use Piwik\Date;
 use Piwik\Nonce;
 use Piwik\Notification;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 use Piwik\Request;
 use Piwik\Site;
 use Piwik\Url;
 
 class Controller extends \Piwik\Plugin\Controller
 {
-    public const NONCE = 'RebelABTesting.experiment';
+    public const NONCE = 'RebelExperiments.experiment';
 
-    private const LIST_PAGE = 'RebelABTesting_ManageExperiments';
-    private const CREATE_PAGE = 'RebelABTesting_CreateNewExperiment';
+    private const LIST_PAGE = 'RebelExperiments_ManageExperiments';
+    private const CREATE_PAGE = 'RebelExperiments_CreateNewExperiment';
 
     /**
      * @return int the requested website when the user may write to it, otherwise 0
@@ -49,7 +49,7 @@ class Controller extends \Piwik\Plugin\Controller
 
     public static function getActionUrl(string $action, int $idSite): string
     {
-        return '?' . http_build_query(['module' => 'RebelABTesting', 'action' => $action] + self::getPageParameters($idSite));
+        return '?' . http_build_query(['module' => 'RebelExperiments', 'action' => $action] + self::getPageParameters($idSite));
     }
 
     /**
@@ -81,8 +81,8 @@ class Controller extends \Piwik\Plugin\Controller
         $idSite = $this->checkWriteRequest();
 
         try {
-            ApiRequest::processRequest('RebelABTesting.insertExperiment', ['idSite' => $idSite] + $this->getExperimentFields(), []);
-            $this->notify('RebelABTesting_ExperimentCreated', Notification::CONTEXT_SUCCESS);
+            ApiRequest::processRequest('RebelExperiments.insertExperiment', ['idSite' => $idSite] + $this->getExperimentFields(), []);
+            $this->notify('RebelExperiments_ExperimentCreated', Notification::CONTEXT_SUCCESS);
         } catch (Exception $e) {
             $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
             $this->redirect(self::getReportingUrl($idSite, self::CREATE_PAGE));
@@ -98,8 +98,8 @@ class Controller extends \Piwik\Plugin\Controller
         $id = Request::fromRequest()->getIntegerParameter('id', 0);
 
         try {
-            ApiRequest::processRequest('RebelABTesting.updateExperiment', ['id' => $id, 'idSite' => $idSite] + $this->getExperimentFields(), []);
-            $this->notify('RebelABTesting_ExperimentUpdated', Notification::CONTEXT_SUCCESS);
+            ApiRequest::processRequest('RebelExperiments.updateExperiment', ['id' => $id, 'idSite' => $idSite] + $this->getExperimentFields(), []);
+            $this->notify('RebelExperiments_ExperimentUpdated', Notification::CONTEXT_SUCCESS);
         } catch (Exception $e) {
             $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
             $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
@@ -113,8 +113,8 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $idSite = $this->checkWriteRequest();
 
-        ApiRequest::processRequest('RebelABTesting.stopExperiment', ['id' => Request::fromRequest()->getIntegerParameter('id', 0), 'idSite' => $idSite], []);
-        $this->notify('RebelABTesting_ExperimentStopped', Notification::CONTEXT_SUCCESS);
+        ApiRequest::processRequest('RebelExperiments.stopExperiment', ['id' => Request::fromRequest()->getIntegerParameter('id', 0), 'idSite' => $idSite], []);
+        $this->notify('RebelExperiments_ExperimentStopped', Notification::CONTEXT_SUCCESS);
 
         $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
     }
@@ -129,13 +129,13 @@ class Controller extends \Piwik\Plugin\Controller
         $id = Request::fromRequest()->getIntegerParameter('id', 0);
 
         try {
-            ApiRequest::processRequest('RebelABTesting.setDecision', [
+            ApiRequest::processRequest('RebelExperiments.setDecision', [
                 'id' => $id,
                 'idSite' => $idSite,
                 'decision' => $post->getStringParameter('decision', ''),
                 'note' => $post->getStringParameter('note', ''),
             ], []);
-            $this->notify('RebelABTesting_DecisionSaved', Notification::CONTEXT_SUCCESS);
+            $this->notify('RebelExperiments_DecisionSaved', Notification::CONTEXT_SUCCESS);
         } catch (Exception $e) {
             $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
         }
@@ -152,12 +152,12 @@ class Controller extends \Piwik\Plugin\Controller
         $request = Request::fromRequest();
 
         try {
-            $idRollout = ApiRequest::processRequest('RebelABTesting.rollOutVariant', [
+            $idRollout = ApiRequest::processRequest('RebelExperiments.rollOutVariant', [
                 'idSite' => $idSite,
                 'id' => $request->getIntegerParameter('id', 0),
                 'variant' => $request->getIntegerParameter('variant', 0),
             ], []);
-            $this->notify('RebelABTesting_RolledOut', Notification::CONTEXT_SUCCESS);
+            $this->notify('RebelExperiments_RolledOut', Notification::CONTEXT_SUCCESS);
         } catch (Exception $e) {
             $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
             $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
@@ -171,8 +171,8 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $idSite = $this->checkWriteRequest();
 
-        ApiRequest::processRequest('RebelABTesting.deleteExperiment', ['id' => Request::fromRequest()->getIntegerParameter('id', 0), 'idSite' => $idSite], []);
-        $this->notify('RebelABTesting_ExperimentDeleted', Notification::CONTEXT_SUCCESS);
+        ApiRequest::processRequest('RebelExperiments.deleteExperiment', ['id' => Request::fromRequest()->getIntegerParameter('id', 0), 'idSite' => $idSite], []);
+        $this->notify('RebelExperiments_ExperimentDeleted', Notification::CONTEXT_SUCCESS);
 
         $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
     }
@@ -342,12 +342,12 @@ class Controller extends \Piwik\Plugin\Controller
             return [];
         }
         if ($experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR) {
-            $variants = [['name' => Piwik::translate('RebelABTesting_Kind_fake_door'), 'variant' => 2]];
+            $variants = [['name' => Piwik::translate('RebelExperiments_Kind_fake_door'), 'variant' => 2]];
         }
 
         $links = [];
         foreach ($variants as $variant) {
-            $links[$variant['name']] = $page . '#rabt-preview=' . $experiment['id'] . '-' . $variant['variant'] . '-' . $experiment['preview_token'];
+            $links[$variant['name']] = $page . '#rexp-preview=' . $experiment['id'] . '-' . $variant['variant'] . '-' . $experiment['preview_token'];
         }
 
         return $links;
@@ -372,7 +372,7 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $notification = new Notification(Piwik::translate($message));
         $notification->context = $context;
-        Notification\Manager::notify('RebelABTesting_result', $notification);
+        Notification\Manager::notify('RebelExperiments_result', $notification);
     }
 
     /**
@@ -399,7 +399,7 @@ class Controller extends \Piwik\Plugin\Controller
 
         return Url::getCurrentUrlWithoutQueryString()
             . '?' . http_build_query(['module' => 'CoreHome', 'action' => 'index'] + $page)
-            . '#?' . http_build_query($page + ['category' => 'RebelABTesting_RebelABTesting', 'subcategory' => $subcategory]);
+            . '#?' . http_build_query($page + ['category' => 'RebelExperiments_RebelExperiments', 'subcategory' => $subcategory]);
     }
 
     private function redirect(string $url): void

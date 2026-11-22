@@ -30,51 +30,51 @@
         return visitsPerGroup && inExperiment > 0 ? Math.ceil(visitsPerGroup * groups / inExperiment) : null;
     }
 
-    window.RebelABTesting = { requiredVisits: requiredVisits, requiredDays: requiredDays };
+    window.RebelExperiments = { requiredVisits: requiredVisits, requiredDays: requiredDays };
 
     if (typeof document === 'undefined') {
         return;
     }
 
     function renumber(list) {
-        var variants = list.querySelectorAll('.rebelABTestingVariant');
+        var variants = list.querySelectorAll('.rebelExperimentsVariant');
 
         variants.forEach(function (variant, index) {
-            variant.querySelector('.rebelABTestingVariantNumber').textContent = String(index + 1);
+            variant.querySelector('.rebelExperimentsVariantNumber').textContent = String(index + 1);
             variant.querySelectorAll('[name]').forEach(function (field) {
                 field.name = field.name.replace(/^variants\[\d+\]/, 'variants[' + index + ']');
             });
-            variant.querySelectorAll('.rebelABTestingChange').forEach(function (change, changeIndex) {
+            variant.querySelectorAll('.rebelExperimentsChange').forEach(function (change, changeIndex) {
                 change.querySelectorAll('[name]').forEach(function (field) {
                     field.name = field.name.replace(/\[changes\]\[\d+\]/, '[changes][' + changeIndex + ']');
                 });
             });
-            variant.querySelector('.rebelABTestingRemoveVariant').hidden = variants.length === 1;
+            variant.querySelector('.rebelExperimentsRemoveVariant').hidden = variants.length === 1;
         });
 
-        var form = list.closest('.rebelABTestingForm');
-        form.querySelector('.rebelABTestingAddVariant').hidden = variants.length >= Number(list.dataset.max);
+        var form = list.closest('.rebelExperimentsForm');
+        form.querySelector('.rebelExperimentsAddVariant').hidden = variants.length >= Number(list.dataset.max);
     }
 
     function showKind(form) {
-        var kind = form.querySelector('.rebelABTestingKind:checked').value;
+        var kind = form.querySelector('.rebelExperimentsKind:checked').value;
         form.querySelectorAll('[data-kind]').forEach(function (section) {
             section.hidden = section.dataset.kind.split(' ').indexOf(kind) === -1;
         });
 
         // A rollout is one change. Further variants of the form are kept for another kind.
         var isRollout = kind === 'rollout';
-        form.querySelectorAll('.rebelABTestingVariant').forEach(function (variant, index) {
+        form.querySelectorAll('.rebelExperimentsVariant').forEach(function (variant, index) {
             variant.hidden = isRollout && index > 0;
         });
-        form.querySelector('.rebelABTestingAddVariant').hidden = isRollout
-            || form.querySelectorAll('.rebelABTestingVariant').length >= Number(form.querySelector('.rebelABTestingVariants').dataset.max);
+        form.querySelector('.rebelExperimentsAddVariant').hidden = isRollout
+            || form.querySelectorAll('.rebelExperimentsVariant').length >= Number(form.querySelector('.rebelExperimentsVariants').dataset.max);
     }
 
     // The form is a row of steps, of which one is shown at a time. A kind of experiment that has
     // nothing to say in a step does not have it.
     function steps(form) {
-        return Array.prototype.filter.call(form.querySelectorAll('.rebelABTestingStep'), function (step) {
+        return Array.prototype.filter.call(form.querySelectorAll('.rebelExperimentsStep'), function (step) {
             return !step.hidden;
         });
     }
@@ -86,21 +86,21 @@
         })[0] || all[0];
 
         form.dataset.panel = current.dataset.panel;
-        form.classList.add('rebelABTestingForm-stepped');
-        form.querySelectorAll('.rebelABTestingPanel').forEach(function (panel) {
+        form.classList.add('rebelExperimentsForm-stepped');
+        form.querySelectorAll('.rebelExperimentsPanel').forEach(function (panel) {
             panel.hidden = panel.dataset.panel !== current.dataset.panel;
         });
         all.forEach(function (step, index) {
-            step.querySelector('.rebelABTestingStepNumber').textContent = String(index + 1);
-            step.classList.toggle('rebelABTestingStep-current', step === current);
+            step.querySelector('.rebelExperimentsStepNumber').textContent = String(index + 1);
+            step.classList.toggle('rebelExperimentsStep-current', step === current);
             if (step === current) {
                 step.setAttribute('aria-current', 'step');
             } else {
                 step.removeAttribute('aria-current');
             }
         });
-        form.querySelector('.rebelABTestingPrevious').hidden = current === all[0];
-        form.querySelector('.rebelABTestingNext').hidden = current === all[all.length - 1];
+        form.querySelector('.rebelExperimentsPrevious').hidden = current === all[0];
+        form.querySelector('.rebelExperimentsNext').hidden = current === all[all.length - 1];
     }
 
     function move(form, by) {
@@ -117,7 +117,7 @@
 
     // What a change is made with depends on what it does, and hiding needs nothing.
     function showChangeFields(form) {
-        form.querySelectorAll('.rebelABTestingChange').forEach(function (change) {
+        form.querySelectorAll('.rebelExperimentsChange').forEach(function (change) {
             var action = change.querySelector('select');
             var value = change.querySelector('[name$="[value]"]');
             var placeholder = action.options[action.selectedIndex].dataset.placeholder;
@@ -126,36 +126,36 @@
         });
 
         var isAnyPage = form.querySelector('#target_match').value === 'any';
-        form.querySelector('.rebelABTestingTargetValue').hidden = isAnyPage;
-        form.querySelector('.rebelABTestingExcludeValue').hidden = form.querySelector('#exclude_match').value === 'none';
+        form.querySelector('.rebelExperimentsTargetValue').hidden = isAnyPage;
+        form.querySelector('.rebelExperimentsExcludeValue').hidden = form.querySelector('#exclude_match').value === 'none';
     }
 
     function plan(form) {
-        var planner = form.querySelector('.rebelABTestingPlanner');
+        var planner = form.querySelector('.rebelExperimentsPlanner');
         var number = function (selector) {
             return parseFloat(form.querySelector(selector).value);
         };
-        var groups = form.querySelectorAll('.rebelABTestingVariant').length + 1;
-        var visits = requiredVisits(number('.rebelABTestingPlannerRate') / 100, number('.rebelABTestingPlannerEffect') / 100, number('#confidence'));
-        var days = requiredDays(visits, groups, number('.rebelABTestingPlannerVisits'), number('#traffic_share') / 100);
+        var groups = form.querySelectorAll('.rebelExperimentsVariant').length + 1;
+        var visits = requiredVisits(number('.rebelExperimentsPlannerRate') / 100, number('.rebelExperimentsPlannerEffect') / 100, number('#confidence'));
+        var days = requiredDays(visits, groups, number('.rebelExperimentsPlannerVisits'), number('#traffic_share') / 100);
 
-        planner.querySelector('.rebelABTestingPlannerResult').textContent = days
+        planner.querySelector('.rebelExperimentsPlannerResult').textContent = days
             ? planner.dataset.result.replace('{days}', days).replace('{visits}', visits.toLocaleString()).replace('{groups}', groups)
             : planner.dataset.unknown;
     }
 
     // The category and action of an event are only asked for when an event is chosen.
     function showEventFields(form) {
-        form.querySelectorAll('.rebelABTestingMeasure').forEach(function (measure) {
+        form.querySelectorAll('.rebelExperimentsMeasure').forEach(function (measure) {
             var isEvent = measure.querySelector('select').value === 'event';
-            measure.querySelectorAll('.rebelABTestingMeasureEvent').forEach(function (field) {
+            measure.querySelectorAll('.rebelExperimentsMeasureEvent').forEach(function (field) {
                 field.hidden = !isEvent;
             });
         });
     }
 
     function refresh(form) {
-        renumber(form.querySelector('.rebelABTestingVariants'));
+        renumber(form.querySelector('.rebelExperimentsVariants'));
         showKind(form);
         showPanel(form, form.dataset.panel);
         showChangeFields(form);
@@ -174,55 +174,55 @@
 
     document.addEventListener('click', function (event) {
         var button = event.target instanceof Element
-            ? event.target.closest('.rebelABTestingForm button, .rebelABTestingForm input[type=submit]')
+            ? event.target.closest('.rebelExperimentsForm button, .rebelExperimentsForm input[type=submit]')
             : null;
         if (!button) {
             return;
         }
 
-        var form = button.closest('.rebelABTestingForm');
-        var list = form.querySelector('.rebelABTestingVariants');
+        var form = button.closest('.rebelExperimentsForm');
+        var list = form.querySelector('.rebelExperimentsVariants');
         var changes;
         var copy;
 
-        if (button.classList.contains('rebelABTestingStep')) {
+        if (button.classList.contains('rebelExperimentsStep')) {
             showPanel(form, button.dataset.panel);
             return;
         }
-        if (button.classList.contains('rebelABTestingPrevious') || button.classList.contains('rebelABTestingNext')) {
-            move(form, button.classList.contains('rebelABTestingNext') ? 1 : -1);
+        if (button.classList.contains('rebelExperimentsPrevious') || button.classList.contains('rebelExperimentsNext')) {
+            move(form, button.classList.contains('rebelExperimentsNext') ? 1 : -1);
             return;
         }
         if (button.type === 'submit') {
             // A field that is not filled in right is shown, so that the browser can point at it.
             var invalid = form.querySelector(':invalid');
             if (invalid) {
-                showPanel(form, invalid.closest('.rebelABTestingPanel').dataset.panel);
+                showPanel(form, invalid.closest('.rebelExperimentsPanel').dataset.panel);
             }
             return;
         }
 
-        if (button.classList.contains('rebelABTestingAddVariant')) {
+        if (button.classList.contains('rebelExperimentsAddVariant')) {
             copy = list.lastElementChild.cloneNode(true);
-            copy.querySelectorAll('.rebelABTestingChange:not(:first-child)').forEach(function (change) {
+            copy.querySelectorAll('.rebelExperimentsChange:not(:first-child)').forEach(function (change) {
                 change.remove();
             });
             clear(copy);
             list.appendChild(copy);
-        } else if (button.classList.contains('rebelABTestingRemoveVariant')) {
-            button.closest('.rebelABTestingVariant').remove();
-        } else if (button.classList.contains('rebelABTestingAddChange')) {
-            changes = button.closest('.rebelABTestingVariant').querySelector('.rebelABTestingChanges');
+        } else if (button.classList.contains('rebelExperimentsRemoveVariant')) {
+            button.closest('.rebelExperimentsVariant').remove();
+        } else if (button.classList.contains('rebelExperimentsAddChange')) {
+            changes = button.closest('.rebelExperimentsVariant').querySelector('.rebelExperimentsChanges');
             copy = changes.lastElementChild.cloneNode(true);
             clear(copy);
             changes.appendChild(copy);
-        } else if (button.classList.contains('rebelABTestingRemoveChange')) {
-            changes = button.closest('.rebelABTestingChanges');
+        } else if (button.classList.contains('rebelExperimentsRemoveChange')) {
+            changes = button.closest('.rebelExperimentsChanges');
             // The last row stays, empty, so that there is one to fill in.
             if (changes.children.length === 1) {
                 clear(changes.firstElementChild);
             } else {
-                button.closest('.rebelABTestingChange').remove();
+                button.closest('.rebelExperimentsChange').remove();
             }
         } else {
             return;
@@ -240,8 +240,8 @@
             return;
         }
 
-        var variant = select.closest('.rebelABTestingVariant');
-        var rows = variant.querySelector('.rebelABTestingChanges');
+        var variant = select.closest('.rebelExperimentsVariant');
+        var rows = variant.querySelector('.rebelExperimentsChanges');
         while (rows.children.length > 1) {
             rows.lastElementChild.remove();
         }
@@ -254,8 +254,8 @@
             rows.appendChild(row);
         });
 
-        renumber(variant.closest('.rebelABTestingVariants'));
-        showChangeFields(variant.closest('.rebelABTestingForm'));
+        renumber(variant.closest('.rebelExperimentsVariants'));
+        showChangeFields(variant.closest('.rebelExperimentsForm'));
         var empty = Array.prototype.find.call(rows.querySelectorAll('[name$="[selector]"]'), function (field) {
             return field.value === '';
         });
@@ -267,18 +267,18 @@
     // The form to edit an experiment takes the place of the list, and the list comes back by
     // loading the page again.
     document.addEventListener('click', function (event) {
-        var link = event.target instanceof Element ? event.target.closest('.rebelABTestingEdit, .rebelABTestingBack') : null;
+        var link = event.target instanceof Element ? event.target.closest('.rebelExperimentsEdit, .rebelExperimentsBack') : null;
         if (!link) {
             return;
         }
         event.preventDefault();
 
-        if (link.classList.contains('rebelABTestingBack')) {
+        if (link.classList.contains('rebelExperimentsBack')) {
             window.location.reload();
             return;
         }
 
-        var list = link.closest('.rebelABTestingPlugin');
+        var list = link.closest('.rebelExperimentsPlugin');
         fetch(link.href, { credentials: 'same-origin' })
             .then(function (response) {
                 return response.text();
@@ -292,13 +292,13 @@
     });
 
     document.addEventListener('change', function (event) {
-        if (event.target instanceof Element && event.target.classList.contains('rebelABTestingTemplate')) {
+        if (event.target instanceof Element && event.target.classList.contains('rebelExperimentsTemplate')) {
             useTemplate(event.target);
         }
     });
 
     document.addEventListener('input', function (event) {
-        var form = event.target instanceof Element ? event.target.closest('.rebelABTestingForm') : null;
+        var form = event.target instanceof Element ? event.target.closest('.rebelExperimentsForm') : null;
         if (form) {
             refresh(form);
         }
@@ -306,7 +306,7 @@
 
     // The fields of the other kind are hidden as soon as the form is on the page.
     function prepareNewForms() {
-        document.querySelectorAll('.rebelABTestingForm:not([data-ready])').forEach(function (form) {
+        document.querySelectorAll('.rebelExperimentsForm:not([data-ready])').forEach(function (form) {
             form.dataset.ready = '1';
             refresh(form);
         });

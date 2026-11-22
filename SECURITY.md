@@ -5,6 +5,6 @@
 Please do not report security vulnerabilities through public GitHub issues.
 
 Report them privately via GitHub's private vulnerability reporting:
-<https://github.com/Digitalist-Open-Cloud/RebelABTesting/security/advisories/new>
+<https://github.com/Digitalist-Open-Cloud/RebelExperiments/security/advisories/new>
 
 Include a description of the issue, steps to reproduce, and the affected version(s).

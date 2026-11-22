@@ -1,12 +1,12 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\Tests\Unit;
+namespace Piwik\Plugins\RebelExperiments\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Piwik\Plugins\RebelABTesting\Statistics;
+use Piwik\Plugins\RebelExperiments\Statistics;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 final class StatisticsTest extends TestCase

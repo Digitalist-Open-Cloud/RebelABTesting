@@ -81,7 +81,7 @@ export function makeEnv(opts = {}) {
 }
 
 export function loadTag(env, params = {}) {
-  const src = Deno.readTextFileSync(new URL("Template/Tag/RebelABTestingTag.web.js", root));
+  const src = Deno.readTextFileSync(new URL("Template/Tag/RebelExperimentsTag.web.js", root));
   const Tag = new Function("window", "document", "localStorage", "sessionStorage", "crypto", "fetch", "navigator", "return " + src.trim().replace(/;$/, ""))(
     env.window, env.document, env.localStorage, env.sessionStorage, env.crypto, env.fetch, env.navigator);
   const all = { matomoUrl: "https://m.example/", container: { idsite: 1 }, hideTimeout: 500, ...params };

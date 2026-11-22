@@ -1,19 +1,19 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\tests\Integration;
+namespace Piwik\Plugins\RebelExperiments\tests\Integration;
 
 use Exception;
 use Piwik\Date;
 use Piwik\NoAccessException;
 use Piwik\Plugins\Goals\API as GoalsApi;
-use Piwik\Plugins\RebelABTesting\API;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\API;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
 use Piwik\Tests\Framework\Fixture;
 use Piwik\Tests\Framework\Mock\FakeAccess;
 use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 class ExperimentsTest extends IntegrationTestCase
@@ -538,6 +538,6 @@ class ExperimentsTest extends IntegrationTestCase
     {
         parent::configureFixture($fixture);
 
-        $fixture->extraPluginsToLoad = ['RebelABTesting'];
+        $fixture->extraPluginsToLoad = ['RebelExperiments'];
     }
 }

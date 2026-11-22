@@ -1,31 +1,31 @@
 {% set chart = evolution.chart %}
-<h3 class="form-section-title">{{ 'RebelABTesting_EvolutionTitle'|translate(evolution.name) }}</h3>
-<p class="section-help">{{ 'RebelABTesting_EvolutionHelp'|translate }}</p>
-<div class="rebelABTestingChart" data-days="{{ evolution.days|json_encode }}" data-xs="{{ chart.xs|json_encode }}" data-lines="{{ chart.lines|json_encode }}">
-    <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="{{ 'RebelABTesting_EvolutionTitle'|translate(evolution.name) }}">
+<h3 class="form-section-title">{{ 'RebelExperiments_EvolutionTitle'|translate(evolution.name) }}</h3>
+<p class="section-help">{{ 'RebelExperiments_EvolutionHelp'|translate }}</p>
+<div class="rebelExperimentsChart" data-days="{{ evolution.days|json_encode }}" data-xs="{{ chart.xs|json_encode }}" data-lines="{{ chart.lines|json_encode }}">
+    <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="{{ 'RebelExperiments_EvolutionTitle'|translate(evolution.name) }}">
         {% for line in chart.grid %}
-        <line class="rebelABTestingChartGrid" x1="{{ chart.left }}" x2="{{ chart.right }}" y1="{{ line.y }}" y2="{{ line.y }}"/>
-        <text class="rebelABTestingChartAxis" x="{{ chart.left - 8 }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
+        <line class="rebelExperimentsChartGrid" x1="{{ chart.left }}" x2="{{ chart.right }}" y1="{{ line.y }}" y2="{{ line.y }}"/>
+        <text class="rebelExperimentsChartAxis" x="{{ chart.left - 8 }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
         {% endfor %}
-        <text class="rebelABTestingChartAxis" x="{{ chart.left }}" y="{{ chart.bottom + 18 }}">{{ evolution.days|first }}</text>
+        <text class="rebelExperimentsChartAxis" x="{{ chart.left }}" y="{{ chart.bottom + 18 }}">{{ evolution.days|first }}</text>
         {% if evolution.days|length > 1 %}
-        <text class="rebelABTestingChartAxis" x="{{ chart.right }}" y="{{ chart.bottom + 18 }}" text-anchor="end">{{ evolution.days|last }}</text>
+        <text class="rebelExperimentsChartAxis" x="{{ chart.right }}" y="{{ chart.bottom + 18 }}" text-anchor="end">{{ evolution.days|last }}</text>
         {% endif %}
-        <line class="rebelABTestingChartCrosshair" y1="0" y2="{{ chart.bottom }}" hidden/>
+        <line class="rebelExperimentsChartCrosshair" y1="0" y2="{{ chart.bottom }}" hidden/>
         {% for line in chart.lines %}
         {% if line.last %}
-        <polyline class="rebelABTestingChartLine" points="{{ line.points }}" stroke="{{ line.colour }}"/>
-        <circle class="rebelABTestingChartEnd" cx="{{ line.last.x }}" cy="{{ line.last.y }}" r="4" fill="{{ line.colour }}"/>
+        <polyline class="rebelExperimentsChartLine" points="{{ line.points }}" stroke="{{ line.colour }}"/>
+        <circle class="rebelExperimentsChartEnd" cx="{{ line.last.x }}" cy="{{ line.last.y }}" r="4" fill="{{ line.colour }}"/>
         {% if chart.lines|length <= 4 %}
-        <text class="rebelABTestingChartLabel" x="{{ line.last.x + 10 }}" y="{{ line.label_y + 4 }}">{{ line.name }}</text>
+        <text class="rebelExperimentsChartLabel" x="{{ line.last.x + 10 }}" y="{{ line.label_y + 4 }}">{{ line.name }}</text>
         {% endif %}
         {% endif %}
         {% endfor %}
     </svg>
-    <div class="rebelABTestingChartTip" hidden></div>
-    <ul class="rebelABTestingChartLegend">
+    <div class="rebelExperimentsChartTip" hidden></div>
+    <ul class="rebelExperimentsChartLegend">
         {% for line in chart.lines %}
-        <li><span class="rebelABTestingChartSwatch" style="background: {{ line.colour }}"></span>{{ line.name }}{% if line.last %}: {{ line.labels|last }}{% endif %}</li>
+        <li><span class="rebelExperimentsChartSwatch" style="background: {{ line.colour }}"></span>{{ line.name }}{% if line.last %}: {{ line.labels|last }}{% endif %}</li>
         {% endfor %}
     </ul>
 </div>

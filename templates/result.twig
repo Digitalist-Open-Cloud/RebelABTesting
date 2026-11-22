@@ -1,57 +1,57 @@
-<div class="rebelABTestingPlugin">
+<div class="rebelExperimentsPlugin">
     <div class="card">
         <div class="card-content">
             {% if experiment is empty %}
-            <div class="alert">{{ 'RebelABTesting_ExperimentNotFound'|translate }}</div>
+            <div class="alert">{{ 'RebelExperiments_ExperimentNotFound'|translate }}</div>
             {% else %}
             <h2>{{ experiment.name }}</h2>
             <p>
-                <span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span>
+                <span class="rebelExperimentsStatus rebelExperimentsStatus-{{ experiment.status }}">{{ ('RebelExperiments_Status_' ~ experiment.status)|translate }}</span>
                 {{ experiment.from_date }} &ndash; {{ experiment.to_date }}
             </p>
             {% if audience %}
-            <p><strong>{{ 'RebelABTesting_AudienceTitle'|translate }}:</strong> {{ audience }}</p>
+            <p><strong>{{ 'RebelExperiments_AudienceTitle'|translate }}:</strong> {{ audience }}</p>
             {% endif %}
             {% if canWrite and experiment.hypothesis is not empty %}
-            <p><strong>{{ 'RebelABTesting_FormHypothesis'|translate }}:</strong> {{ experiment.hypothesis }}</p>
+            <p><strong>{{ 'RebelExperiments_FormHypothesis'|translate }}:</strong> {{ experiment.hypothesis }}</p>
             {% endif %}
             {% if canWrite and experiment.description is not empty %}
             <p><strong>{{ 'General_Description'|translate }}:</strong> {{ experiment.description }}</p>
             {% endif %}
 
             {% if canRollOut %}
-            <form method="post" action="{{ rollOutUrl }}" class="rebelABTestingRollOut">
+            <form method="post" action="{{ rollOutUrl }}" class="rebelExperimentsRollOut">
                 <input type="hidden" name="nonce" value="{{ nonce }}">
                 <input type="hidden" name="id" value="{{ experiment.id }}">
-                <label for="rollout_variant"><strong>{{ 'RebelABTesting_RollOutLabel'|translate }}:</strong></label>
+                <label for="rollout_variant"><strong>{{ 'RebelExperiments_RollOutLabel'|translate }}:</strong></label>
                 <select name="variant" id="rollout_variant" class="browser-default">
                     {% for variant in result.variants|slice(1) %}
                     <option value="{{ variant.variant }}">{{ variant.name }}</option>
                     {% endfor %}
                 </select>
-                <button type="submit" class="rebelABTestingSecondary">{{ 'RebelABTesting_RollOutButton'|translate }}</button>
-                <span class="form-hint">{{ 'RebelABTesting_RollOutHint'|translate }}</span>
+                <button type="submit" class="rebelExperimentsSecondary">{{ 'RebelExperiments_RollOutButton'|translate }}</button>
+                <span class="form-hint">{{ 'RebelExperiments_RollOutHint'|translate }}</span>
             </form>
             {% endif %}
             {% if previewLinks is not empty %}
             <p>
-                <strong>{{ 'RebelABTesting_ResultPreview'|translate }}:</strong>
+                <strong>{{ 'RebelExperiments_ResultPreview'|translate }}:</strong>
                 {% for name, link in previewLinks %}
                 <a href="{{ link }}" target="_blank" rel="noreferrer noopener">{{ name }}</a>{% if not loop.last %} &middot; {% endif %}
                 {% endfor %}
-                <span class="form-hint">{{ 'RebelABTesting_ResultPreviewHelp'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_ResultPreviewHelp'|translate }}</span>
             </p>
             {% endif %}
 
             {% if experiment.kind in ['fake_door', 'watch'] %}
-            <h3 class="form-section-title">{{ ('RebelABTesting_Kind_' ~ experiment.kind)|translate }}: {{ experiment.kind == 'watch' ? experiment.door.selector : experiment.door.label }}</h3>
-            <table class="rebelABTestingTable">
+            <h3 class="form-section-title">{{ ('RebelExperiments_Kind_' ~ experiment.kind)|translate }}: {{ experiment.kind == 'watch' ? experiment.door.selector : experiment.door.label }}</h3>
+            <table class="rebelExperimentsTable">
                 <thead>
                     <tr>
-                        <th>{{ 'RebelABTesting_DoorResultVisits'|translate }}</th>
-                        <th>{{ 'RebelABTesting_DoorResultClicks'|translate }}</th>
-                        <th>{{ 'RebelABTesting_DoorResultRate'|translate }}</th>
-                        <th>{{ 'RebelABTesting_DoorResultRange'|translate }}</th>
+                        <th>{{ 'RebelExperiments_DoorResultVisits'|translate }}</th>
+                        <th>{{ 'RebelExperiments_DoorResultClicks'|translate }}</th>
+                        <th>{{ 'RebelExperiments_DoorResultRate'|translate }}</th>
+                        <th>{{ 'RebelExperiments_DoorResultRange'|translate }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,19 +63,19 @@
                     </tr>
                 </tbody>
             </table>
-            <p class="section-help">{{ 'RebelABTesting_DoorResultHelp'|translate }}</p>
+            <p class="section-help">{{ 'RebelExperiments_DoorResultHelp'|translate }}</p>
             {% else %}
             {% if result.is_split_even is same as(false) %}
-            <div class="alert rebelABTestingSplitWarning">{{ 'RebelABTesting_ResultSplitUneven'|translate }}</div>
+            <div class="alert rebelExperimentsSplitWarning">{{ 'RebelExperiments_ResultSplitUneven'|translate }}</div>
             {% endif %}
 
-            <h3 class="form-section-title">{{ 'RebelABTesting_ResultVisits'|translate }}</h3>
-            <table class="rebelABTestingTable">
+            <h3 class="form-section-title">{{ 'RebelExperiments_ResultVisits'|translate }}</h3>
+            <table class="rebelExperimentsTable">
                 <thead>
                     <tr>
-                        <th>{{ 'RebelABTesting_Variant'|translate }}</th>
-                        <th>{{ 'RebelABTesting_ResultVisitors'|translate }}</th>
-                        <th>{{ 'RebelABTesting_NbVisits'|translate }}</th>
+                        <th>{{ 'RebelExperiments_Variant'|translate }}</th>
+                        <th>{{ 'RebelExperiments_ResultVisitors'|translate }}</th>
+                        <th>{{ 'RebelExperiments_NbVisits'|translate }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -90,23 +90,23 @@
             </table>
 
             {% if evolution %}
-            {% include '@RebelABTesting/_evolution.twig' %}
+            {% include '@RebelExperiments/_evolution.twig' %}
             {% endif %}
 
             {% for measure in result.measures %}
             {% set judged = measure.role != 'other' or experiment.primary_measure is null %}
             <h3 class="form-section-title">
-                {% if measure.role == 'primary' %}{{ 'RebelABTesting_ResultPrimaryMeasure'|translate(measure.name) }}{% elseif measure.role == 'guardrail' %}{{ 'RebelABTesting_ResultGuardrail'|translate(measure.name) }}{% else %}{{ measure.name }}{% endif %}
+                {% if measure.role == 'primary' %}{{ 'RebelExperiments_ResultPrimaryMeasure'|translate(measure.name) }}{% elseif measure.role == 'guardrail' %}{{ 'RebelExperiments_ResultGuardrail'|translate(measure.name) }}{% else %}{{ measure.name }}{% endif %}
             </h3>
-            <table class="rebelABTestingTable rebelABTestingMeasureTable-{{ measure.role }}">
+            <table class="rebelExperimentsTable rebelExperimentsMeasureTable-{{ measure.role }}">
                 <thead>
                     <tr>
-                        <th>{{ 'RebelABTesting_Variant'|translate }}</th>
-                        <th>{{ 'RebelABTesting_ResultVisitsWithOutcome'|translate }}</th>
-                        <th>{{ (measure.unit == 'share' ? 'RebelABTesting_ResultShare' : 'RebelABTesting_ResultAmount')|translate }}{% if measure.is_lower_better %} ({{ 'RebelABTesting_ResultLowerIsBetter'|translate }}){% endif %}</th>
-                        <th>{{ 'RebelABTesting_ResultUplift'|translate }}</th>
-                        <th>{{ 'RebelABTesting_ResultChance'|translate }}</th>
-                        {% if judged %}<th>{{ 'RebelABTesting_ResultVerdict'|translate }}</th>{% endif %}
+                        <th>{{ 'RebelExperiments_Variant'|translate }}</th>
+                        <th>{{ 'RebelExperiments_ResultVisitsWithOutcome'|translate }}</th>
+                        <th>{{ (measure.unit == 'share' ? 'RebelExperiments_ResultShare' : 'RebelExperiments_ResultAmount')|translate }}{% if measure.is_lower_better %} ({{ 'RebelExperiments_ResultLowerIsBetter'|translate }}){% endif %}</th>
+                        <th>{{ 'RebelExperiments_ResultUplift'|translate }}</th>
+                        <th>{{ 'RebelExperiments_ResultChance'|translate }}</th>
+                        {% if judged %}<th>{{ 'RebelExperiments_ResultVerdict'|translate }}</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -117,48 +117,48 @@
                         <td>{{ variant.value_formatted }}</td>
                         <td>{% if variant.uplift is not null %}{{ variant.uplift > 0 ? '+' : '' }}{{ (variant.uplift * 100)|number(1) }}%{% endif %}</td>
                         <td>{% if variant.chance_to_be_better is not null %}{{ (variant.chance_to_be_better * 100)|number(1) }}%{% endif %}</td>
-                        {% if judged %}<td>{% if variant.verdict %}<span class="rebelABTestingVerdict rebelABTestingVerdict-{{ variant.verdict }}">{{ ('RebelABTesting_Verdict_' ~ variant.verdict)|translate }}</span>{% endif %}</td>{% endif %}
+                        {% if judged %}<td>{% if variant.verdict %}<span class="rebelExperimentsVerdict rebelExperimentsVerdict-{{ variant.verdict }}">{{ ('RebelExperiments_Verdict_' ~ variant.verdict)|translate }}</span>{% endif %}</td>{% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
             {% else %}
-            <div class="alert">{{ 'RebelABTesting_ResultNoConversions'|translate }}</div>
+            <div class="alert">{{ 'RebelExperiments_ResultNoConversions'|translate }}</div>
             {% endfor %}
 
-            <p class="section-help">{{ (experiment.primary_measure is null ? 'RebelABTesting_ResultHelpNoPrimaryGoal' : 'RebelABTesting_ResultHelp')|translate(experiment.confidence) }}</p>
+            <p class="section-help">{{ (experiment.primary_measure is null ? 'RebelExperiments_ResultHelpNoPrimaryGoal' : 'RebelExperiments_ResultHelp')|translate(experiment.confidence) }}</p>
             {% endif %}
 
-            <h3 class="form-section-title">{{ 'RebelABTesting_DecisionTitle'|translate }}</h3>
+            <h3 class="form-section-title">{{ 'RebelExperiments_DecisionTitle'|translate }}</h3>
             {% if experiment.decision %}
-            <p class="rebelABTestingDecision">
-                <strong>{{ ('RebelABTesting_Decision_' ~ experiment.decision)|translate }}</strong>
-                <span class="form-hint">{{ 'RebelABTesting_DecisionBy'|translate(experiment.decided_by, experiment.decided_at) }}</span>
+            <p class="rebelExperimentsDecision">
+                <strong>{{ ('RebelExperiments_Decision_' ~ experiment.decision)|translate }}</strong>
+                <span class="form-hint">{{ 'RebelExperiments_DecisionBy'|translate(experiment.decided_by, experiment.decided_at) }}</span>
             </p>
-            {% if experiment.decision_note %}<p class="rebelABTestingDecisionNote">{{ experiment.decision_note }}</p>{% endif %}
+            {% if experiment.decision_note %}<p class="rebelExperimentsDecisionNote">{{ experiment.decision_note }}</p>{% endif %}
             {% elseif not canWrite %}
-            <p class="section-help">{{ 'RebelABTesting_DecisionNone'|translate }}</p>
+            <p class="section-help">{{ 'RebelExperiments_DecisionNone'|translate }}</p>
             {% endif %}
             {% if canWrite %}
-            <details class="rebelABTestingMore"{% if not experiment.decision %} open{% endif %}>
-                <summary>{{ (experiment.decision ? 'RebelABTesting_DecisionChange' : 'RebelABTesting_DecisionRecord')|translate }}</summary>
-                <form method="post" action="{{ decideUrl }}" class="rebelABTestingDecide">
+            <details class="rebelExperimentsMore"{% if not experiment.decision %} open{% endif %}>
+                <summary>{{ (experiment.decision ? 'RebelExperiments_DecisionChange' : 'RebelExperiments_DecisionRecord')|translate }}</summary>
+                <form method="post" action="{{ decideUrl }}" class="rebelExperimentsDecide">
                     <input type="hidden" name="nonce" value="{{ nonce }}">
                     <input type="hidden" name="id" value="{{ experiment.id }}">
-                    <div class="rebelABTestingField rebelABTestingNarrow">
-                        <label for="decision">{{ 'RebelABTesting_DecisionWhat'|translate }}</label>
+                    <div class="rebelExperimentsField rebelExperimentsNarrow">
+                        <label for="decision">{{ 'RebelExperiments_DecisionWhat'|translate }}</label>
                         <select name="decision" id="decision" class="browser-default">
                             {% for decision in decisions %}
-                            <option value="{{ decision }}"{% if decision == experiment.decision %} selected{% endif %}>{{ (decision == '' ? 'RebelABTesting_DecisionNotYet' : 'RebelABTesting_Decision_' ~ decision)|translate }}</option>
+                            <option value="{{ decision }}"{% if decision == experiment.decision %} selected{% endif %}>{{ (decision == '' ? 'RebelExperiments_DecisionNotYet' : 'RebelExperiments_Decision_' ~ decision)|translate }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="rebelABTestingField">
-                        <label for="decision_note">{{ 'RebelABTesting_DecisionWhy'|translate }}</label>
-                        <textarea name="note" id="decision_note" class="code-textarea rebelABTestingNote" maxlength="2000">{{ experiment.decision_note }}</textarea>
-                        <span class="form-hint">{{ 'RebelABTesting_DecisionWhyHint'|translate }}</span>
+                    <div class="rebelExperimentsField">
+                        <label for="decision_note">{{ 'RebelExperiments_DecisionWhy'|translate }}</label>
+                        <textarea name="note" id="decision_note" class="code-textarea rebelExperimentsNote" maxlength="2000">{{ experiment.decision_note }}</textarea>
+                        <span class="form-hint">{{ 'RebelExperiments_DecisionWhyHint'|translate }}</span>
                     </div>
-                    <button type="submit" class="rebelABTestingSecondary">{{ 'RebelABTesting_DecisionSave'|translate }}</button>
+                    <button type="submit" class="rebelExperimentsSecondary">{{ 'RebelExperiments_DecisionSave'|translate }}</button>
                 </form>
             </details>
             {% endif %}

@@ -1,6 +1,6 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\tests\Fixtures;
+namespace Piwik\Plugins\RebelExperiments\tests\Fixtures;
 
 use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Tests\Framework\Fixture;

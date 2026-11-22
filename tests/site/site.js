@@ -39,7 +39,7 @@
         load('/matomo.js');
 
         // What Tag Manager does with the tag of the plugin, when its trigger fires.
-        fetch('../../Template/Tag/RebelABTestingTag.web.js')
+        fetch('../../Template/Tag/RebelExperimentsTag.web.js')
             .then(function (response) { return response.text(); })
             .then(function (source) {
                 var Tag = new Function('return ' + source.trim().replace(/;$/, ''))();
@@ -60,7 +60,7 @@
         var lines = [setup ? 'Setup: ' + JSON.stringify(setup) : 'No setup. Open a page with ?mtm= or ?matomo= as described in site.js.'];
         for (var i = 0; i < localStorage.length; i++) {
             var key = localStorage.key(i);
-            if (/^sabt:/.test(key)) lines.push(key + ' = ' + localStorage.getItem(key));
+            if (/^rexp:/.test(key)) lines.push(key + ' = ' + localStorage.getItem(key));
         }
         footer.textContent = lines.join('\n');
     }

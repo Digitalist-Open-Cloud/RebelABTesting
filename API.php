@@ -7,18 +7,18 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Exception;
 use Piwik\Date;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 
 /**
  * Experiments, which show variants of a page to a share of the visitors, and how the variants did.
  *
- * @method static \Piwik\Plugins\RebelABTesting\API getInstance()
+ * @method static \Piwik\Plugins\RebelExperiments\API getInstance()
  */
 class API extends \Piwik\Plugin\API
 {
@@ -187,19 +187,19 @@ class API extends \Piwik\Plugin\API
         $experiment = $this->getExistingExperiment($idSite, $id);
         $chosen = $experiment['variants'][$variant - 2] ?? null;
         if ($experiment['kind'] !== ExperimentValidator::KIND_AB || $chosen === null) {
-            throw new Exception(Piwik::translate('RebelABTesting_ErrorRollOut'));
+            throw new Exception(Piwik::translate('RebelExperiments_ErrorRollOut'));
         }
         if (ExperimentValidator::hasCode([$chosen])) {
             Piwik::checkUserHasAdminAccess($idSite);
         }
 
-        $chosenName = $chosen['name'] !== '' ? $chosen['name'] : Piwik::translate('RebelABTesting_VariantNumber', $variant - 1);
+        $chosenName = $chosen['name'] !== '' ? $chosen['name'] : Piwik::translate('RebelExperiments_VariantNumber', $variant - 1);
         $name = $experiment['name'] . ': ' . $chosenName;
         $idRollout = $this->experiments->insertExperiment($idSite, [
             'kind' => ExperimentValidator::KIND_ROLLOUT,
             'name' => mb_substr($name, 0, 230) . ' (' . Date::now()->toString() . ')',
             'hypothesis' => '',
-            'description' => Piwik::translate('RebelABTesting_RolledOutFrom', $experiment['name']),
+            'description' => Piwik::translate('RebelExperiments_RolledOutFrom', $experiment['name']),
             'from_date' => Date::now()->toString(),
             'to_date' => Date::now()->addPeriod(1, 'year')->toString(),
             'variants' => [$chosen],
@@ -207,7 +207,7 @@ class API extends \Piwik\Plugin\API
             'notify' => false,
         ] + array_intersect_key($experiment, array_flip(['target_match', 'target_value', 'exclude_match', 'exclude_value', 'audience', 'primary_measure', 'guardrails', 'confidence'])));
         $this->experiments->stopExperiment($id, $idSite);
-        $this->experiments->setDecision($id, $idSite, 'adopt', Piwik::translate('RebelABTesting_DecisionRolledOut', $chosenName));
+        $this->experiments->setDecision($id, $idSite, 'adopt', Piwik::translate('RebelExperiments_DecisionRolledOut', $chosenName));
 
         return $idRollout;
     }
@@ -301,7 +301,7 @@ class API extends \Piwik\Plugin\API
     {
         $experiment = $this->experiments->getById($id, $idSite);
         if ($experiment === null) {
-            throw new Exception(Piwik::translate('RebelABTesting_ExperimentNotFound'));
+            throw new Exception(Piwik::translate('RebelExperiments_ExperimentNotFound'));
         }
 
         return $experiment;

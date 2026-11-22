@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-The plugin is renamed from SimpleABTesting to RebelABTesting. It is a new plugin to Matomo and does
-not take over data of SimpleABTesting.
+The plugin is renamed from SimpleABTesting to RebelExperiments, as it runs more kinds of experiment
+than A/B tests. It is a new plugin to Matomo and does not take over data of SimpleABTesting.
 
 ### Added
 
@@ -89,7 +89,7 @@ not take over data of SimpleABTesting.
 
 - One tag runs all experiments of a website. It no longer has an experiment to choose.
 - The log has a row for each visit and experiment, not for each tracking request.
-- Tracking requests carry the experiments in the parameter `rabt`.
+- Tracking requests carry the experiments in the parameter `rexp`.
 - `insertExperiment` and `updateExperiment` take a list of variants, the share of visitors and the
   pages. `stopExperiment`, `getExperiments` and `getExperimentResult` are new, and
   `getExperimentPublic` and `getExperimentReportData` are removed.
@@ -100,7 +100,7 @@ not take over data of SimpleABTesting.
 - The page "Insert experiment" is removed. The list of experiments tells how to add the tag.
 - The list of experiments is called "Manage experiments", and the form to create or change an
   experiment is in steps.
-- The database tables are `rebel_ab_testing_experiments` and `rebel_ab_testing_log`.
+- The database tables are `rebel_experiments` and `rebel_experiments_log`.
 - The plugin needs PHP 8.2 or newer.
 - `insertExperiment` returns the ID of the experiment.
 - Texts of an experiment are stored, taken and handed out as they were written, without HTML

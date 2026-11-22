@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Validation;
+namespace Piwik\Plugins\RebelExperiments\Validation;
 
 /**
  * The rules for an experiment. An error is the key of its translation.
@@ -43,10 +43,10 @@ final class ExperimentValidator
     public static function validateName(string $name): ?string
     {
         if (trim($name) === '') {
-            return 'RebelABTesting_ErrorNameEmpty';
+            return 'RebelExperiments_ErrorNameEmpty';
         }
 
-        return mb_strlen($name) > self::NAME_MAX_LENGTH ? 'RebelABTesting_ErrorNameTooLong' : null;
+        return mb_strlen($name) > self::NAME_MAX_LENGTH ? 'RebelExperiments_ErrorNameTooLong' : null;
     }
 
     public static function validateDates(string $fromDate, string $toDate): ?string
@@ -54,25 +54,25 @@ final class ExperimentValidator
         foreach ([$fromDate, $toDate] as $date) {
             $parsed = \DateTime::createFromFormat('!Y-m-d', $date);
             if (!$parsed || $parsed->format('Y-m-d') !== $date) {
-                return 'RebelABTesting_ErrorDateFormat';
+                return 'RebelExperiments_ErrorDateFormat';
             }
         }
 
-        return $fromDate > $toDate ? 'RebelABTesting_ErrorDateOrder' : null;
+        return $fromDate > $toDate ? 'RebelExperiments_ErrorDateOrder' : null;
     }
 
     public static function validateTrafficShare(int $percent): ?string
     {
-        return $percent < 1 || $percent > 100 ? 'RebelABTesting_ErrorTrafficShare' : null;
+        return $percent < 1 || $percent > 100 ? 'RebelExperiments_ErrorTrafficShare' : null;
     }
 
     public static function validateTarget(string $match, string $value): ?string
     {
         if (!in_array($match, self::MATCHES, true)) {
-            return 'RebelABTesting_ErrorTargetMatch';
+            return 'RebelExperiments_ErrorTargetMatch';
         }
         if ($match !== self::MATCH_ANY && ($value === '' || mb_strlen($value) > self::TARGET_MAX_LENGTH)) {
-            return 'RebelABTesting_ErrorTargetValue';
+            return 'RebelExperiments_ErrorTargetValue';
         }
 
         return null;
@@ -84,10 +84,10 @@ final class ExperimentValidator
     public static function validateExclude(string $match, string $value): ?string
     {
         if (!in_array($match, self::EXCLUDES, true)) {
-            return 'RebelABTesting_ErrorTargetMatch';
+            return 'RebelExperiments_ErrorTargetMatch';
         }
         if ($match !== self::EXCLUDE_NONE && ($value === '' || mb_strlen($value) > self::TARGET_MAX_LENGTH)) {
-            return 'RebelABTesting_ErrorTargetValue';
+            return 'RebelExperiments_ErrorTargetValue';
         }
 
         return null;
@@ -95,7 +95,7 @@ final class ExperimentValidator
 
     public static function validateConfidence(int $percent): ?string
     {
-        return in_array($percent, self::CONFIDENCES, true) ? null : 'RebelABTesting_ErrorConfidence';
+        return in_array($percent, self::CONFIDENCES, true) ? null : 'RebelExperiments_ErrorConfidence';
     }
 
     /**
@@ -104,20 +104,20 @@ final class ExperimentValidator
     public static function validateVariants(array $variants): ?string
     {
         if (count($variants) < 1 || count($variants) > self::MAX_VARIANTS) {
-            return 'RebelABTesting_ErrorVariants';
+            return 'RebelExperiments_ErrorVariants';
         }
 
         foreach ($variants as $variant) {
             if (count($variant['changes']) > self::MAX_CHANGES) {
-                return 'RebelABTesting_ErrorChange';
+                return 'RebelExperiments_ErrorChange';
             }
             foreach ($variant['changes'] as $change) {
                 if (!self::isValidChange($change)) {
-                    return 'RebelABTesting_ErrorChange';
+                    return 'RebelExperiments_ErrorChange';
                 }
             }
             if ($variant['redirect'] !== '' && (mb_strlen($variant['redirect']) > self::VALUE_MAX_LENGTH || !self::isSafeAddress($variant['redirect']))) {
-                return 'RebelABTesting_ErrorRedirect';
+                return 'RebelExperiments_ErrorRedirect';
             }
         }
 
@@ -197,7 +197,7 @@ final class ExperimentValidator
      */
     public static function validateWatch(array $watch): ?string
     {
-        return $watch['selector'] === '' || mb_strlen($watch['selector']) > self::SELECTOR_MAX_LENGTH ? 'RebelABTesting_ErrorWatch' : null;
+        return $watch['selector'] === '' || mb_strlen($watch['selector']) > self::SELECTOR_MAX_LENGTH ? 'RebelExperiments_ErrorWatch' : null;
     }
 
     /**
@@ -234,7 +234,7 @@ final class ExperimentValidator
             || !in_array($door['element'], self::DOOR_ELEMENTS, true)
             || !preg_match('/^[A-Za-z0-9_ -]{0,200}$/', $door['css_class'])
         ) {
-            return 'RebelABTesting_ErrorDoor';
+            return 'RebelExperiments_ErrorDoor';
         }
 
         return null;

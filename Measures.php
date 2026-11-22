@@ -7,14 +7,14 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Exception;
 use Piwik\Common;
 use Piwik\Db;
 use Piwik\Piwik;
 use Piwik\Plugins\Goals\API as GoalsApi;
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
+use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
 use Piwik\Segment;
 use Piwik\Site;
 use Piwik\Tracker\Action;
@@ -91,7 +91,7 @@ class Measures
                 return ['type' => $type];
         }
 
-        throw new Exception(Piwik::translate('RebelABTesting_ErrorMeasure'));
+        throw new Exception(Piwik::translate('RebelExperiments_ErrorMeasure'));
     }
 
     /**
@@ -119,7 +119,7 @@ class Measures
      */
     public static function getChoices(int $idSite): array
     {
-        $choices = ['' => Piwik::translate('RebelABTesting_MeasureNone')];
+        $choices = ['' => Piwik::translate('RebelExperiments_MeasureNone')];
         foreach (GoalsApi::getInstance()->getGoals($idSite) as $goal) {
             $choices[self::GOAL . ':' . $goal['idgoal']] = self::getName($idSite, ['type' => self::GOAL, 'idgoal' => (int) $goal['idgoal']]);
         }
@@ -132,7 +132,7 @@ class Measures
         foreach ([self::CONVERSIONS, self::TOTAL_REVENUE, self::PAGEVIEWS, self::VISIT_LENGTH, self::BOUNCE, self::SEARCH] as $type) {
             $choices[$type] = self::getName($idSite, ['type' => $type]);
         }
-        $choices[self::EVENT] = Piwik::translate('RebelABTesting_MeasureEventChoice');
+        $choices[self::EVENT] = Piwik::translate('RebelExperiments_MeasureEventChoice');
 
         return $choices;
     }
@@ -174,11 +174,11 @@ class Measures
             case self::GOAL_REVENUE:
                 $goals = GoalsApi::getInstance()->getGoals($idSite);
                 $name = Common::unsanitizeInputValue($goals[$measure['idgoal']]['name'] ?? Piwik::translate('General_Unknown'));
-                return Piwik::translate($measure['type'] === self::GOAL ? 'RebelABTesting_MeasureGoal' : 'RebelABTesting_MeasureGoalRevenue', $name);
+                return Piwik::translate($measure['type'] === self::GOAL ? 'RebelExperiments_MeasureGoal' : 'RebelExperiments_MeasureGoalRevenue', $name);
             case self::EVENT:
-                return Piwik::translate('RebelABTesting_MeasureEvent', $measure['category'] . ($measure['action'] === '' ? '' : ' / ' . $measure['action']));
+                return Piwik::translate('RebelExperiments_MeasureEvent', $measure['category'] . ($measure['action'] === '' ? '' : ' / ' . $measure['action']));
             default:
-                return Piwik::translate('RebelABTesting_Measure_' . $measure['type']);
+                return Piwik::translate('RebelExperiments_Measure_' . $measure['type']);
         }
     }
 

@@ -7,12 +7,12 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Piwik\Date;
 use Piwik\Mail;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
 use Piwik\Plugins\UsersManager\Model as UsersModel;
 use Piwik\SettingsPiwik;
 
@@ -57,18 +57,18 @@ class Tasks extends \Piwik\Plugin\Tasks
      */
     private function send(string $address, array $experiment, ?array $summary, bool $hasEnded): void
     {
-        $result = $summary['text'] ?? Piwik::translate('RebelABTesting_MailNoResult');
+        $result = $summary['text'] ?? Piwik::translate('RebelExperiments_MailNoResult');
         $page = ['idSite' => $experiment['idsite'], 'period' => 'day', 'date' => Date::now()->toString()];
         $link = SettingsPiwik::getPiwikUrl() . 'index.php?' . http_build_query(['module' => 'CoreHome', 'action' => 'index'] + $page)
-            . '#?' . http_build_query($page + ['category' => 'RebelABTesting_RebelABTesting', 'subcategory' => $experiment['id']]);
+            . '#?' . http_build_query($page + ['category' => 'RebelExperiments_RebelExperiments', 'subcategory' => $experiment['id']]);
 
         $mail = new Mail();
         $mail->setDefaultFromPiwik();
         $mail->addTo($address);
-        $mail->setSubject(Piwik::translate($hasEnded ? 'RebelABTesting_MailSubjectEnded' : 'RebelABTesting_MailSubjectResult', $experiment['name']));
+        $mail->setSubject(Piwik::translate($hasEnded ? 'RebelExperiments_MailSubjectEnded' : 'RebelExperiments_MailSubjectResult', $experiment['name']));
         $mail->setBodyText(implode("\n\n", [
-            Piwik::translate($hasEnded ? 'RebelABTesting_MailEnded' : 'RebelABTesting_MailResult', $experiment['name']),
-            Piwik::translate('RebelABTesting_MailResultLine', $result),
+            Piwik::translate($hasEnded ? 'RebelExperiments_MailEnded' : 'RebelExperiments_MailResult', $experiment['name']),
+            Piwik::translate('RebelExperiments_MailResultLine', $result),
             $link,
         ]));
         $mail->safeSend();

@@ -1,12 +1,12 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\Tests\Unit;
+namespace Piwik\Plugins\RebelExperiments\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Piwik\Plugins\RebelABTesting\Chart;
+use Piwik\Plugins\RebelExperiments\Chart;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 final class ChartTest extends TestCase

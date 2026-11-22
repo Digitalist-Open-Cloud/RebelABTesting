@@ -1,12 +1,12 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\Tests\Unit;
+namespace Piwik\Plugins\RebelExperiments\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Piwik\Plugins\RebelABTesting\Audience;
+use Piwik\Plugins\RebelExperiments\Audience;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 final class AudienceTest extends TestCase
@@ -26,7 +26,7 @@ final class AudienceTest extends TestCase
      */
     public function testAudience(array $audience, bool $isValid): void
     {
-        $this->assertSame($isValid ? null : 'RebelABTesting_ErrorAudience', Audience::validate(Audience::normalize($audience)));
+        $this->assertSame($isValid ? null : 'RebelExperiments_ErrorAudience', Audience::validate(Audience::normalize($audience)));
     }
 
     public function getAudiences(): array
