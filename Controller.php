@@ -20,13 +20,12 @@ use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 use Piwik\Request;
 use Piwik\Site;
 use Piwik\Url;
-use Piwik\ViewDataTable\Factory;
 
 class Controller extends \Piwik\Plugin\Controller
 {
     public const NONCE = 'RebelABTesting.experiment';
 
-    private const LIST_PAGE = 'RebelABTesting_ExistingExperiments';
+    private const LIST_PAGE = 'RebelABTesting_ManageExperiments';
     private const CREATE_PAGE = 'RebelABTesting_CreateNewExperiment';
 
     /**
@@ -98,7 +97,7 @@ class Controller extends \Piwik\Plugin\Controller
             $this->notify('RebelABTesting_ExperimentUpdated', Notification::CONTEXT_SUCCESS);
         } catch (Exception $e) {
             $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
-            $this->redirect(Url::getCurrentUrlWithoutQueryString() . self::getActionUrl('editExperimentForm', $idSite) . '&id=' . $id);
+            $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
             return;
         }
 
@@ -125,6 +124,9 @@ class Controller extends \Piwik\Plugin\Controller
         $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
     }
 
+    /**
+     * The form to change an experiment. The list of experiments puts it in its own place.
+     */
     public function editExperimentForm()
     {
         $idSite = self::checkWriteSite();
@@ -192,41 +194,6 @@ class Controller extends \Piwik\Plugin\Controller
         }
 
         return json_encode(['experiments' => $running]);
-    }
-
-    public function getExperimentReport()
-    {
-        $this->checkSitePermission();
-
-        // The third argument keeps sorting and paging of the report on this action. Without it they
-        // would go to getExperimentData, which names the first column after the variant.
-        $view = Factory::build('table', 'RebelABTesting.getExperimentData', 'RebelABTesting.getExperimentReport');
-        $view->config->columns_to_display = ['label', 'nb_visits'];
-        $view->config->addTranslation('label', Piwik::translate('RebelABTesting_ExperimentName'));
-        $view->config->addTranslation('nb_visits', Piwik::translate('RebelABTesting_NbVisits'));
-        $view->config->title = Piwik::translate('RebelABTesting_ExperimentsReport');
-        $view->config->documentation = Piwik::translate('RebelABTesting_ReportHelpText');
-        $view->requestConfig->filter_sort_column = 'nb_visits';
-        $view->requestConfig->filter_sort_order = 'desc';
-
-        return $view->render();
-    }
-
-    /**
-     * The variants of an experiment, shown when its row in the report is opened.
-     */
-    public function getExperimentData()
-    {
-        $this->checkSitePermission();
-
-        $view = Factory::build('table', 'RebelABTesting.getExperimentData');
-        $view->config->columns_to_display = ['label', 'nb_visits'];
-        $view->config->addTranslation('label', Piwik::translate('RebelABTesting_Variant'));
-        $view->config->addTranslation('nb_visits', Piwik::translate('RebelABTesting_NbVisits'));
-        $view->requestConfig->filter_sort_column = 'nb_visits';
-        $view->requestConfig->filter_sort_order = 'desc';
-
-        return $view->render();
     }
 
     /**

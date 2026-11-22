@@ -364,9 +364,6 @@ class ExperimentsTest extends IntegrationTestCase
         $requests = [
             'getExperiments' => [2],
             'getExperimentResult' => [2, $id],
-            'getExperimentData' => [2, 'day', '2024-03-05'],
-            'getExperimentGoalData' => [2, 'day', '2024-03-05'],
-            'getExperimentUniqueVisitorData' => [2, 'day', '2024-03-05'],
         ];
         foreach ($requests as $method => $parameters) {
             try {

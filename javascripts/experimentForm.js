@@ -54,10 +54,68 @@
     }
 
     function showKind(form) {
-        var kind = form.querySelector('.rebelABTestingKind').value;
+        var kind = form.querySelector('.rebelABTestingKind:checked').value;
         form.querySelectorAll('[data-kind]').forEach(function (section) {
             section.hidden = section.dataset.kind !== kind;
         });
+    }
+
+    // The form is a row of steps, of which one is shown at a time. A kind of experiment that has
+    // nothing to say in a step does not have it.
+    function steps(form) {
+        return Array.prototype.filter.call(form.querySelectorAll('.rebelABTestingStep'), function (step) {
+            return !step.hidden;
+        });
+    }
+
+    function showPanel(form, name) {
+        var all = steps(form);
+        var current = all.filter(function (step) {
+            return step.dataset.panel === name;
+        })[0] || all[0];
+
+        form.dataset.panel = current.dataset.panel;
+        form.classList.add('rebelABTestingForm-stepped');
+        form.querySelectorAll('.rebelABTestingPanel').forEach(function (panel) {
+            panel.hidden = panel.dataset.panel !== current.dataset.panel;
+        });
+        all.forEach(function (step, index) {
+            step.querySelector('.rebelABTestingStepNumber').textContent = String(index + 1);
+            step.classList.toggle('rebelABTestingStep-current', step === current);
+            if (step === current) {
+                step.setAttribute('aria-current', 'step');
+            } else {
+                step.removeAttribute('aria-current');
+            }
+        });
+        form.querySelector('.rebelABTestingPrevious').hidden = current === all[0];
+        form.querySelector('.rebelABTestingNext').hidden = current === all[all.length - 1];
+    }
+
+    function move(form, by) {
+        var all = steps(form);
+        var names = all.map(function (step) {
+            return step.dataset.panel;
+        });
+        var next = all[names.indexOf(form.dataset.panel) + by];
+        if (next) {
+            showPanel(form, next.dataset.panel);
+            form.scrollIntoView({ block: 'start' });
+        }
+    }
+
+    // What a change is made with depends on what it does, and hiding needs nothing.
+    function showChangeFields(form) {
+        form.querySelectorAll('.rebelABTestingChange').forEach(function (change) {
+            var action = change.querySelector('select');
+            var value = change.querySelector('[name$="[value]"]');
+            var placeholder = action.options[action.selectedIndex].dataset.placeholder;
+            value.placeholder = placeholder;
+            value.style.visibility = placeholder ? '' : 'hidden';
+        });
+
+        var isAnyPage = form.querySelector('#target_match').value === 'any';
+        form.querySelector('.rebelABTestingTargetValue').hidden = isAnyPage;
     }
 
     function plan(form) {
@@ -85,7 +143,10 @@
     }
 
     function refresh(form) {
+        renumber(form.querySelector('.rebelABTestingVariants'));
         showKind(form);
+        showPanel(form, form.dataset.panel);
+        showChangeFields(form);
         showEventFields(form);
         plan(form);
     }
@@ -101,7 +162,7 @@
 
     document.addEventListener('click', function (event) {
         var button = event.target instanceof Element
-            ? event.target.closest('.rebelABTestingAddVariant, .rebelABTestingRemoveVariant, .rebelABTestingAddChange, .rebelABTestingRemoveChange')
+            ? event.target.closest('.rebelABTestingForm button, .rebelABTestingForm input[type=submit]')
             : null;
         if (!button) {
             return;
@@ -111,6 +172,23 @@
         var list = form.querySelector('.rebelABTestingVariants');
         var changes;
         var copy;
+
+        if (button.classList.contains('rebelABTestingStep')) {
+            showPanel(form, button.dataset.panel);
+            return;
+        }
+        if (button.classList.contains('rebelABTestingPrevious') || button.classList.contains('rebelABTestingNext')) {
+            move(form, button.classList.contains('rebelABTestingNext') ? 1 : -1);
+            return;
+        }
+        if (button.type === 'submit') {
+            // A field that is not filled in right is shown, so that the browser can point at it.
+            var invalid = form.querySelector(':invalid');
+            if (invalid) {
+                showPanel(form, invalid.closest('.rebelABTestingPanel').dataset.panel);
+            }
+            return;
+        }
 
         if (button.classList.contains('rebelABTestingAddVariant')) {
             copy = list.lastElementChild.cloneNode(true);
@@ -126,7 +204,7 @@
             copy = changes.lastElementChild.cloneNode(true);
             clear(copy);
             changes.appendChild(copy);
-        } else {
+        } else if (button.classList.contains('rebelABTestingRemoveChange')) {
             changes = button.closest('.rebelABTestingChanges');
             // The last row stays, empty, so that there is one to fill in.
             if (changes.children.length === 1) {
@@ -134,10 +212,12 @@
             } else {
                 button.closest('.rebelABTestingChange').remove();
             }
+        } else {
+            return;
         }
 
         renumber(list);
-        plan(form);
+        refresh(form);
     });
 
     // Replaces the changes of a variant with the ones of the template that was chosen.
@@ -163,6 +243,7 @@
         });
 
         renumber(variant.closest('.rebelABTestingVariants'));
+        showChangeFields(variant.closest('.rebelABTestingForm'));
         var empty = Array.prototype.find.call(rows.querySelectorAll('[name$="[selector]"]'), function (field) {
             return field.value === '';
         });
@@ -170,6 +251,33 @@
             empty.focus();
         }
     }
+
+    // The form to edit an experiment takes the place of the list, and the list comes back by
+    // loading the page again.
+    document.addEventListener('click', function (event) {
+        var link = event.target instanceof Element ? event.target.closest('.rebelABTestingEdit, .rebelABTestingBack') : null;
+        if (!link) {
+            return;
+        }
+        event.preventDefault();
+
+        if (link.classList.contains('rebelABTestingBack')) {
+            window.location.reload();
+            return;
+        }
+
+        var list = link.closest('.rebelABTestingPlugin');
+        fetch(link.href, { credentials: 'same-origin' })
+            .then(function (response) {
+                return response.text();
+            })
+            .then(function (html) {
+                var form = document.createElement('div');
+                form.innerHTML = html;
+                list.replaceWith(form.firstElementChild);
+                window.scrollTo(0, 0);
+            });
+    });
 
     document.addEventListener('change', function (event) {
         if (event.target instanceof Element && event.target.classList.contains('rebelABTestingTemplate')) {

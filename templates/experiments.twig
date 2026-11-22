@@ -1,7 +1,7 @@
 <div class="rebelABTestingPlugin">
     <div class="card">
         <div class="card-content">
-            <h2>{{ 'RebelABTesting_ExistingExperiments'|translate }}</h2>
+            <h2>{{ 'RebelABTesting_ManageExperiments'|translate }}</h2>
             {% if experiments is not empty %}
             <div class="table-scroll">
                 <table class="rebelABTestingTable">
@@ -28,7 +28,7 @@
                             {% if canWrite %}
                             <td class="actions-cell">
                                 {% if canUseCode or not experiment.has_code %}
-                                <a class="btn" href="{{ editUrl }}&amp;id={{ experiment.id }}">{{ 'General_Edit'|translate }}</a>
+                                <a class="btn rebelABTestingEdit" href="{{ editUrl }}&amp;id={{ experiment.id }}">{{ 'General_Edit'|translate }}</a>
                                 {% endif %}
                                 {% if experiment.status == 'running' %}
                                 <form method="post" action="{{ stopUrl }}">
@@ -52,6 +52,7 @@
             <p class="section-help">{{ 'RebelABTesting_ListResultsHelp'|translate }}</p>
             {% else %}
             <div class="alert">{{ 'RebelABTesting_ListEmpty'|translate }}</div>
+            {% if canWrite %}<p class="section-help">{{ 'RebelABTesting_TagHelp'|translate }}</p>{% endif %}
             {% endif %}
         </div>
     </div>

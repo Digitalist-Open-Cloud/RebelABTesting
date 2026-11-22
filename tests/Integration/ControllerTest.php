@@ -13,7 +13,6 @@ use Piwik\Plugins\RebelABTesting\Controller;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Widgets\GetABTesting;
 use Piwik\Plugins\RebelABTesting\Widgets\GetExperiments;
-use Piwik\Plugins\RebelABTesting\Widgets\GetInsertExperiment;
 use Piwik\Container\StaticContainer;
 use Piwik\Tests\Framework\Fixture;
 use Piwik\Tests\Framework\Mock\FakeAccess;
@@ -122,7 +121,7 @@ class ControllerTest extends IntegrationTestCase
 
         $_GET = ['idSite' => '2', 'id' => (string) $experiment['id']];
         $edit = (new Controller())->editExperimentForm();
-        $this->assertStringContainsString('<option value="fake_door" selected>', $edit);
+        $this->assertStringContainsString('value="fake_door" class="rebelABTestingKind" checked>', $edit);
         $this->assertStringContainsString('name="door[label]" id="door_label" value="Compare plans"', $edit);
         $this->assertStringContainsString('<option value="prepend" selected>', $edit);
     }
@@ -145,7 +144,7 @@ class ControllerTest extends IntegrationTestCase
 
         $_GET = ['idSite' => '2', 'id' => (string) $experiment['id']];
         $edit = (new Controller())->editExperimentForm();
-        $this->assertStringContainsString('<option value="watch" selected>', $edit);
+        $this->assertStringContainsString('value="watch" class="rebelABTestingKind" checked>', $edit);
         $this->assertStringContainsString('name="watch[selector]" id="watch_selector" value=".signup"', $edit);
         $this->assertStringContainsString('name="door[selector]" id="door_selector" value=""', $edit);
     }
@@ -176,7 +175,7 @@ class ControllerTest extends IntegrationTestCase
             (new Controller())->addExperiment();
             $this->fail('There was no redirect.');
         } catch (Exception $e) {
-            $this->assertStringContainsString('subcategory=RebelABTesting_ExistingExperiments', $e->getMessage());
+            $this->assertStringContainsString('subcategory=RebelABTesting_ManageExperiments', $e->getMessage());
         }
 
         $experiment = (new Experiments())->getAllForSite(2)[0];
@@ -273,7 +272,7 @@ class ControllerTest extends IntegrationTestCase
 
     public function getAdminWidgets(): array
     {
-        return [[GetABTesting::class], [GetInsertExperiment::class]];
+        return [[GetABTesting::class]];
     }
 
     public function testTheListIsForUsersOfTheWebsite()
@@ -284,6 +283,16 @@ class ControllerTest extends IntegrationTestCase
         $this->expectException(NoAccessException::class);
 
         (new GetExperiments())->render();
+    }
+
+    public function testAnEmptyListTellsHowToPutTheTagOnTheWebsite()
+    {
+        $_GET = ['idSite' => '2'];
+
+        $this->assertStringContainsString('Add the tag &quot;Rebel A/B Testing&quot; once', (new GetExperiments())->render());
+
+        FakeAccess::clearAccess(false, [], [2]);
+        $this->assertStringNotContainsString('Add the tag', (new GetExperiments())->render());
     }
 
     public function testAViewerSeesTheListWithoutTheWaysToChangeIt()
@@ -325,7 +334,7 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('name="variants[0][css]"', $create);
         $this->assertStringContainsString('name="variants[0][redirect]" value=""', $create);
         $this->assertStringContainsString('<option value="banner" data-changes="[{&quot;selector&quot;:&quot;body&quot;,&quot;action&quot;:&quot;insert_first&quot;,&quot;value&quot;:&quot;Free shipping this week&quot;}', $create);
-        $this->assertStringContainsString('<option value="ab" selected>A/B test</option>', $create);
+        $this->assertStringContainsString('value="ab" class="rebelABTestingKind" checked>', $create);
         $this->assertStringContainsString('data-result="Run for at least {days} days: {visits} visits in each of the {groups} groups.', $create);
         $this->assertStringContainsString('name="door[selector]"', $create);
         $this->assertSame(3, substr_count($create, '<option value="" selected>None</option>'));
@@ -345,7 +354,7 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('<option value="contains" selected>', $edit);
         $this->assertStringContainsString('name="variants[0][name]" value="Green"', $edit);
         $this->assertStringContainsString('name="variants[0][changes][0][value]" value="New &lt;headline&gt;"', $edit);
-        $this->assertStringContainsString('<option value="text" selected>', $edit);
+        $this->assertStringContainsString('<option value="text" data-placeholder="The new text" selected>', $edit);
         $this->assertStringContainsString('a(&#039;&lt;b&gt;&#039;)</textarea>', $edit);
     }
 
@@ -367,7 +376,7 @@ class ControllerTest extends IntegrationTestCase
 
         $_GET = ['idSite' => '1', 'id' => (string) $id];
         $edit = (new Controller())->editExperimentForm();
-        $this->assertStringContainsString('<option value="hide" selected>', $edit);
+        $this->assertStringContainsString('<option value="hide" data-placeholder="" selected>', $edit);
         $this->assertStringNotContainsString('[js]', $edit);
     }
 

@@ -10,8 +10,6 @@
 namespace Piwik\Plugins\RebelABTesting;
 
 use Exception;
-use Piwik\Archive;
-use Piwik\DataTable;
 use Piwik\Piwik;
 use Piwik\Plugins\RebelABTesting\Dao\Experiments;
 use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
@@ -168,46 +166,6 @@ class API extends \Piwik\Plugin\API
         }
 
         return (new Results())->get($experiment);
-    }
-
-    /**
-     * Visits per experiment. The subtable of an experiment has its variants.
-     *
-     * @param string|null $segment
-     * @param bool|int $idSubtable
-     */
-    public function getExperimentData(int $idSite, string $period, string $date, $segment = null, $idSubtable = false): DataTable
-    {
-        Piwik::checkUserHasViewAccess($idSite);
-
-        return Archive::createDataTableFromArchive(Archiver::RECORD_NAME, $idSite, $period, $date, $segment, false, false, $idSubtable);
-    }
-
-    /**
-     * Conversions per experiment. The subtable of an experiment has its variants, and the subtable of
-     * a variant its goals.
-     *
-     * @param string|null $segment
-     * @param bool|int $idSubtable
-     */
-    public function getExperimentGoalData(int $idSite, string $period, string $date, $segment = null, $idSubtable = false): DataTable
-    {
-        Piwik::checkUserHasViewAccess($idSite);
-
-        return Archive::createDataTableFromArchive(Archiver::RECORD_NAME_GOALS, $idSite, $period, $date, $segment, false, false, $idSubtable);
-    }
-
-    /**
-     * Unique visitors per experiment and variant. There is only data for a day, as visitors of
-     * several days cannot be added up.
-     *
-     * @param string|null $segment
-     */
-    public function getExperimentUniqueVisitorData(int $idSite, string $period, string $date, $segment = null): DataTable
-    {
-        Piwik::checkUserHasViewAccess($idSite);
-
-        return Archive::createDataTableFromArchive(Archiver::RECORD_NAME_UNIQUE_VISITORS, $idSite, $period, $date, $segment);
     }
 
     /**

@@ -134,13 +134,11 @@ can check a variant before the first day.
 - A previewed visit is not counted.
 - The link carries a secret of the experiment. Anyone who has the link can see the variant.
 
-## Reports and segments
+## Segments
 
-- **A/B Testing > Experiments report** and **Experiment goals** show visits and conversions per
-  experiment and variant for the period chosen in Matomo.
-- Any other report can be compared between variants with the segments **Experiment ID** and
-  **Experiment variant**, for example `experimentId==3;experimentVariant==2`. Variant 1 is the
-  original. The ID of an experiment is in the list of experiments.
+Any report of Matomo can be compared between variants with the segments **Experiment ID** and
+**Experiment variant**, for example `experimentId==3;experimentVariant==2`. Variant 1 is the
+original. The ID of an experiment is in the list of experiments.
 
 ## What is public
 
@@ -160,9 +158,6 @@ about experiments that have ended or not started.
 | `RebelABTesting.getExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiments` (idSite) | view |
 | `RebelABTesting.getExperimentResult` (idSite, id) | view |
-| `RebelABTesting.getExperimentData` (idSite, period, date, segment) | view |
-| `RebelABTesting.getExperimentGoalData` (idSite, period, date, segment) | view |
-| `RebelABTesting.getExperimentUniqueVisitorData` (idSite, period, date, segment), days only | view |
 
 `variants` is a list. Each variant has a `name`, a list of `changes` with `selector`, `action` (`text`,
 `hide`, `add_class`, `style`, `image` or `link`) and `value`, and optionally `css` and `js`. For example
