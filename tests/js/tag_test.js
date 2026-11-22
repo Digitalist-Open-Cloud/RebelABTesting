@@ -493,3 +493,87 @@ Deno.test("an experiment does not run on a page it leaves out", async () => {
   assertEquals(stored(env.localStorage, 7), null);
   assertEquals(stored(env.localStorage, 8).v, 2);
 });
+
+const everyone = { visitor: "", devices: [], campaign: "", referrer: "", languages: [] };
+const iPhone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1";
+const iPad = "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1";
+const androidTablet = "Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 Chrome/120.0 Safari/537.36";
+const androidPhone = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36";
+
+// Whether a visitor of the given kind gets into an experiment for the given audience.
+async function getsIn(audience, opts = {}) {
+  const env = makeEnv({ experiments: [experiment({ audience: { ...everyone, ...audience } })], ...opts });
+  await fireWith([0, 0.9], env);
+  return stored(env.localStorage, 7) !== null;
+}
+
+Deno.test("an experiment for everyone takes every visitor", async () => {
+  assert(await getsIn({}));
+  assert(await getsIn({}, { userAgent: iPhone, language: "sv-SE", referrer: "https://www.google.com/" }));
+});
+
+Deno.test("an experiment can be for new or for returning visitors", async () => {
+  const before = () => makeStorage({ "sabt-first-seen": String(Date.now() - 2 * 86400000) });
+  const justNow = () => makeStorage({ "sabt-first-seen": String(Date.now() - 60000) });
+
+  assert(await getsIn({ visitor: "new" }));
+  assert(await getsIn({ visitor: "new" }, { localStorage: justNow() }));
+  assert(!(await getsIn({ visitor: "new" }, { localStorage: before() })));
+  assert(await getsIn({ visitor: "returning" }, { localStorage: before() }));
+  assert(!(await getsIn({ visitor: "returning" })));
+});
+
+Deno.test("an experiment can be for some devices", async () => {
+  assert(await getsIn({ devices: ["desktop"] }));
+  assert(!(await getsIn({ devices: ["mobile", "tablet"] })));
+  assert(await getsIn({ devices: ["mobile"] }, { userAgent: iPhone }));
+  assert(await getsIn({ devices: ["mobile"] }, { userAgent: androidPhone }));
+  assert(!(await getsIn({ devices: ["mobile"] }, { userAgent: iPad })));
+  assert(await getsIn({ devices: ["tablet"] }, { userAgent: iPad }));
+  assert(await getsIn({ devices: ["tablet"] }, { userAgent: androidTablet }));
+  assert(!(await getsIn({ devices: ["desktop"] }, { userAgent: androidTablet })));
+});
+
+Deno.test("an experiment can be for the visitors of a campaign, a referrer or a language", async () => {
+  assert(await getsIn({ campaign: "Spring" }, { url: "https://shop.example/?utm_source=x&utm_campaign=spring+sale" }));
+  assert(await getsIn({ campaign: "spring" }, { url: "https://shop.example/#mtm_campaign=Spring-2026" }));
+  assert(!(await getsIn({ campaign: "spring" }, { url: "https://shop.example/?utm_campaign=autumn" })));
+  assert(!(await getsIn({ campaign: "spring" })));
+
+  assert(await getsIn({ referrer: "google." }, { referrer: "https://www.Google.com/search?q=x" }));
+  assert(!(await getsIn({ referrer: "google." }, { referrer: "https://partner.example/" })));
+
+  assert(await getsIn({ languages: ["sv", "nb"] }, { language: "sv-FI" }));
+  assert(await getsIn({ languages: ["en-gb"] }, { language: "en-GB" }));
+  assert(!(await getsIn({ languages: ["sv"] }, { language: "en-GB" })));
+  assert(!(await getsIn({ languages: ["en-us"] }, { language: "en-GB" })));
+});
+
+Deno.test("all the conditions of an audience have to hold", async () => {
+  const audience = { visitor: "new", devices: ["mobile"], languages: ["sv"] };
+
+  assert(await getsIn(audience, { userAgent: iPhone, language: "sv-SE" }));
+  assert(!(await getsIn(audience, { userAgent: iPhone, language: "en-GB" })));
+  assert(!(await getsIn(audience, { language: "sv-SE" })));
+});
+
+Deno.test("how the visitor arrived is remembered on the next pages, and a visitor who is in stays in", async () => {
+  const campaign = experiment({ audience: { ...everyone, campaign: "spring" } });
+  const env = makeEnv({ experiments: [campaign], url: "https://shop.example/pricing" });
+  await fireWith([0, 0.9], env);
+  assertEquals(stored(env.localStorage, 7), null);
+
+  const arrived = makeEnv({ experiments: [experiment({ id: 8, match: "contains", value: "/pricing", audience: { ...everyone, campaign: "spring" } })], url: "https://shop.example/?utm_campaign=spring" });
+  await fireWith([0, 0.9], arrived);
+  assertEquals(stored(arrived.localStorage, 8), null);
+  arrived.window.location.href = "https://shop.example/pricing";
+  await fireWith([0, 0.9], arrived);
+  assertEquals(stored(arrived.localStorage, 8).v, 2);
+
+  // The next visit comes without the campaign. The variant is kept.
+  arrived.sessionStorage.removeItem("sabt-arrival");
+  arrived.appended.length = 0;
+  await fireWith([0, 0.1], arrived);
+  assertEquals(stored(arrived.localStorage, 8).v, 2);
+  assertEquals(arrived.appended.length, 2);
+});

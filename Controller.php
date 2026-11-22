@@ -69,6 +69,8 @@ class Controller extends \Piwik\Plugin\Controller
             'kinds' => ExperimentValidator::KINDS,
             'excludes' => ExperimentValidator::EXCLUDES,
             'confidences' => ExperimentValidator::CONFIDENCES,
+            'audienceVisitors' => Audience::VISITORS,
+            'audienceDevices' => Audience::DEVICES,
             'doorPositions' => ExperimentValidator::DOOR_POSITIONS,
             'doorElements' => ExperimentValidator::DOOR_ELEMENTS,
         ];
@@ -170,6 +172,7 @@ class Controller extends \Piwik\Plugin\Controller
 
         return $this->renderTemplate('result', [
             'experiment' => $experiment,
+            'audience' => $experiment ? Audience::describe($experiment['audience']) : '',
             'result' => $result,
             'evolution' => $evolution,
             'canWrite' => $canWrite,
@@ -209,6 +212,7 @@ class Controller extends \Piwik\Plugin\Controller
                 'value' => $experiment['target_value'],
                 'exclude_match' => $experiment['exclude_match'],
                 'exclude_value' => $experiment['exclude_value'],
+                'audience' => $experiment['audience'],
                 'variants' => array_map(function (array $variant): array {
                     return ['changes' => $variant['changes'], 'redirect' => $variant['redirect'], 'css' => $variant['css'], 'js' => $variant['js']];
                 }, $experiment['variants']),
@@ -262,6 +266,7 @@ class Controller extends \Piwik\Plugin\Controller
             'excludeMatch' => $post->getStringParameter('exclude_match', ExperimentValidator::EXCLUDE_NONE),
             'excludeValue' => $post->getStringParameter('exclude_value', ''),
             'notify' => $post->getStringParameter('notify', '') !== '',
+            'audience' => $post->getArrayParameter('audience', []),
         ];
     }
 

@@ -78,6 +78,7 @@ class ExperimentsTest extends IntegrationTestCase
             'exclude_match' => 'none',
             'exclude_value' => '',
             'confidence' => 95,
+            'audience' => ['visitor' => '', 'devices' => [], 'campaign' => '', 'referrer' => '', 'languages' => []],
             'variants' => $variants,
             'primary_measure' => ['type' => 'goal', 'idgoal' => $idGoal],
             'guardrails' => [['type' => 'bounce'], ['type' => 'event', 'category' => 'Video', 'action' => 'Play']],
@@ -123,6 +124,18 @@ class ExperimentsTest extends IntegrationTestCase
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertSame(['type' => 'goal_revenue', 'idgoal' => $idGoal], $experiment['primary_measure']);
         $this->assertSame([99, 'starts_with', 'https://example.org/checkout'], [$experiment['confidence'], $experiment['exclude_match'], $experiment['exclude_value']]);
+    }
+
+    public function testAnExperimentCanBeForAnAudience()
+    {
+        $given = ['visitor' => 'returning', 'devices' => ['mobile', 'watch', 'desktop'], 'campaign' => ' Spring ', 'referrer' => 'google.', 'languages' => ' SV, en-GB ,sv', 'age' => 40];
+
+        $id = $this->api->insertExperiment(1, 'for some', '', '', '2024-03-01', '2024-03-31', [self::VARIANT], 100, 'any', '', [], 'ab', [], [], 95, 'none', '', true, $given);
+
+        $this->assertSame(
+            ['visitor' => 'returning', 'devices' => ['desktop', 'mobile'], 'campaign' => 'Spring', 'referrer' => 'google.', 'languages' => ['sv', 'en-gb']],
+            $this->api->getExperiment($id, 1)['audience']
+        );
     }
 
     public function testAFakeDoorIsStoredWithoutVariantsAndPrimaryGoal()
@@ -219,12 +232,12 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAnInvalidExperimentIsRefused(array $change, string $message)
     {
         $this->add(1, 'running', '2024-03-01', '2024-03-31');
-        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => '', 'measure' => [], 'kind' => 'ab', 'door' => [], 'confidence' => 95, 'exclude' => ['none', '']];
+        $experiment = $change + ['name' => 'new', 'from' => '2024-05-01', 'to' => '2024-05-31', 'variants' => [self::VARIANT], 'share' => 100, 'match' => 'any', 'value' => '', 'measure' => [], 'kind' => 'ab', 'door' => [], 'confidence' => 95, 'exclude' => ['none', ''], 'audience' => []];
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage($message);
 
-        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value'], $experiment['measure'], $experiment['kind'], $experiment['door'], [], $experiment['confidence'], ...$experiment['exclude']);
+        $this->api->insertExperiment(1, $experiment['name'], '', '', $experiment['from'], $experiment['to'], $experiment['variants'], $experiment['share'], $experiment['match'], $experiment['value'], $experiment['measure'], $experiment['kind'], $experiment['door'], [], $experiment['confidence'], $experiment['exclude'][0], $experiment['exclude'][1], true, $experiment['audience']);
     }
 
     public function getInvalidExperiments(): array
@@ -246,6 +259,8 @@ class ExperimentsTest extends IntegrationTestCase
             'an unknown way to leave out pages' => [['exclude' => ['sounds_like', 'x']], 'Unknown way'],
             'no pages to leave out' => [['exclude' => ['contains', '']], 'address to compare'],
             'a level of certainty that is not offered' => [['confidence' => 80], '90, 95 or 99'],
+            'an audience of visitors that are neither new nor returning' => [['audience' => ['visitor' => 'old']], 'audience is not valid'],
+            'an audience with a language that is not a code' => [['audience' => ['languages' => 'Swedish, please']], 'audience is not valid'],
             'an unknown kind' => [['kind' => 'survey'], 'Unknown kind'],
             'a fake door without its fields' => [['kind' => 'fake_door', 'door' => ['label' => 'Export']], 'A fake door needs'],
             'a goal that is not a number' => [['measure' => ['type' => 'goal', 'idgoal' => '1 OR 1']], 'A measure is'],

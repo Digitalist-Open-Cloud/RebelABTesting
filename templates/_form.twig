@@ -236,6 +236,48 @@
             <input type="number" name="traffic_share" id="traffic_share" value="{{ experiment.traffic_share }}" min="1" max="100" required>
             <span class="form-hint">{{ 'RebelABTesting_FormTrafficShareHint'|translate }}</span>
         </div>
+
+        <h3 class="form-section-title">{{ 'RebelABTesting_AudienceTitle'|translate }}</h3>
+        <p class="section-help">{{ 'RebelABTesting_AudienceHelp'|translate }}</p>
+        <div class="rebelABTestingColumns">
+            <div class="rebelABTestingField">
+                <label for="audience_visitor">{{ 'RebelABTesting_AudienceVisitor'|translate }}</label>
+                <select name="audience[visitor]" id="audience_visitor" class="browser-default">
+                    {% for visitor in audienceVisitors %}
+                    <option value="{{ visitor }}"{% if visitor == experiment.audience.visitor %} selected{% endif %}>{{ (visitor == '' ? 'RebelABTesting_AudienceEveryone' : 'RebelABTesting_AudienceVisitor_' ~ visitor)|translate }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="rebelABTestingField">
+                <label>{{ 'RebelABTesting_AudienceDevices'|translate }}</label>
+                <div class="rebelABTestingChecks">
+                    {% for device in audienceDevices %}
+                    <label><input type="checkbox" name="audience[devices][]" value="{{ device }}"{% if device in experiment.audience.devices %} checked{% endif %}><span>{{ ('RebelABTesting_AudienceDevice_' ~ device)|translate }}</span></label>
+                    {% endfor %}
+                </div>
+                <span class="form-hint">{{ 'RebelABTesting_AudienceDevicesHint'|translate }}</span>
+            </div>
+        </div>
+        <details class="rebelABTestingMore"{% if experiment.audience.campaign or experiment.audience.referrer or experiment.audience.languages %} open{% endif %}>
+            <summary>{{ 'RebelABTesting_AudienceMore'|translate }}</summary>
+            <div class="rebelABTestingColumns">
+                <div class="rebelABTestingField">
+                    <label for="audience_campaign">{{ 'RebelABTesting_AudienceCampaign'|translate }}</label>
+                    <input type="text" name="audience[campaign]" id="audience_campaign" value="{{ experiment.audience.campaign }}" maxlength="200" placeholder="spring-sale">
+                    <span class="form-hint">{{ 'RebelABTesting_AudienceCampaignHint'|translate }}</span>
+                </div>
+                <div class="rebelABTestingField">
+                    <label for="audience_referrer">{{ 'RebelABTesting_AudienceReferrer'|translate }}</label>
+                    <input type="text" name="audience[referrer]" id="audience_referrer" value="{{ experiment.audience.referrer }}" maxlength="200" placeholder="google.">
+                    <span class="form-hint">{{ 'RebelABTesting_AudienceReferrerHint'|translate }}</span>
+                </div>
+            </div>
+            <div class="rebelABTestingField rebelABTestingNarrow">
+                <label for="audience_languages">{{ 'RebelABTesting_AudienceLanguages'|translate }}</label>
+                <input type="text" name="audience[languages]" id="audience_languages" value="{{ experiment.audience.languages|join(', ') }}" maxlength="200" placeholder="sv, en">
+                <span class="form-hint">{{ 'RebelABTesting_AudienceLanguagesHint'|translate }}</span>
+            </div>
+        </details>
     </section>
 
     <section class="rebelABTestingPanel" data-panel="measures" data-kind="ab">

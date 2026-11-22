@@ -193,6 +193,31 @@ describe('RebelABTestingWebsite', function () {
         await stop(id);
     });
 
+    it('should only take the visitors of its audience into an experiment', async function () {
+        const id = await addExperiment('audience', {
+            'variants[0][changes][0][selector]': 'h1',
+            'variants[0][changes][0][action]': 'text',
+            'variants[0][changes][0][value]': 'Welcome, spring visitor',
+            'audience[campaign]': 'spring',
+            'audience[devices][0]': 'desktop',
+        });
+        await newVisitor(0.9);
+        await open('index.html');
+        expect(await text('h1')).to.equal('Welcome to the Test Shop');
+        expect(await page.evaluate((key) => localStorage.getItem(key), `sabt:${id}`)).to.equal(null);
+
+        await newVisitor(0.9);
+        await open('index.html', '&utm_campaign=Spring-sale');
+        expect(await text('h1')).to.equal('Welcome, spring visitor');
+
+        // The campaign is known for the rest of the visit, and the visitor stays in.
+        await open('pricing.html');
+        await open('index.html');
+        expect(await text('h1')).to.equal('Welcome, spring visitor');
+        await counted(id, (result) => result.variants[1].nb_visits === 1);
+        await stop(id);
+    });
+
     it('should show a preview link its variant without counting the visit', async function () {
         const id = await addExperiment('preview', {
             fromDate: day(10),

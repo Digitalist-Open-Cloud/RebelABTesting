@@ -146,6 +146,9 @@ describe('RebelABTesting', function () {
     });
 
     it('should create an experiment and go back to the list', async function () {
+        await step('audience');
+        await page.select('#audience_visitor', 'returning');
+        await page.click('input[name="audience[devices][]"][value=mobile] + span');
         await step('basics');
         await page.type('.rebelABTestingForm #name', 'Green button');
         await page.type('.rebelABTestingForm #hypothesis', 'Green gets more clicks');
@@ -206,6 +209,7 @@ describe('RebelABTesting', function () {
 
         expect(await page.evaluate(() => document.querySelector('textarea[name="variants[1][js]"]').value)).to.equal("// second\ndocument.title = 'B';");
         expect(await page.evaluate(() => document.querySelector('#target_match').value)).to.equal('contains');
+        expect(await page.evaluate(() => [document.querySelector('#audience_visitor').value, ...[...document.querySelectorAll('input[name="audience[devices][]"]:checked')].map((box) => box.value)])).to.deep.equal(['returning', 'mobile']);
         expect(await page.evaluate(() => ['selector', 'action', 'value']
             .map((field) => document.querySelector(`[name="variants[0][changes][0][${field}]"]`).value))).to.deep.equal(['.buy', 'add_class', 'green']);
 
