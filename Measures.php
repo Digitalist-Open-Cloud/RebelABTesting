@@ -11,19 +11,28 @@ namespace Piwik\Plugins\RebelExperiments;
 
 use Exception;
 use Piwik\Common;
+use Piwik\ArchiveProcessor\Parameters;
+use Piwik\Container\StaticContainer;
+use Piwik\DataAccess\LogAggregator;
 use Piwik\Db;
+use Piwik\Period\Factory as PeriodFactory;
 use Piwik\Piwik;
+use Piwik\Plugin\Manager;
 use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
+use Piwik\Plugins\RebelFunnels\Archiving\FunnelCounter;
+use Piwik\Plugins\RebelFunnels\Model as FunnelsModel;
 use Piwik\Segment;
+use Piwik\Segment\SegmentExpression;
 use Piwik\Site;
 use Piwik\Tracker\Action;
 
 /**
  * What an experiment can be judged by: something Matomo records about a visit.
  *
- * A measure is a list with its `type` and, for a goal, its `idgoal`, or for an event, its `category`
- * and optionally its `action`.
+ * A measure is a list with its `type` and, for a goal, its `idgoal`, for an event, its `category`
+ * and optionally its `action`, for a funnel of RebelFunnels, its `idfunnel`, or for a form of
+ * UserFeedback, its `idform`.
  */
 class Measures
 {
@@ -38,6 +47,8 @@ class Measures
     public const TOTAL_REVENUE = 'total_revenue';
     public const PAGEVIEWS = 'pageviews';
     public const VISIT_LENGTH = 'visit_length';
+    public const FUNNEL = 'funnel';
+    public const FEEDBACK = 'feedback';
 
     public const UNIT_SHARE = 'share';
     public const UNIT_MONEY = 'money';
@@ -47,6 +58,11 @@ class Measures
     public const MAX_GUARDRAILS = 2;
 
     private const ECOMMERCE_ORDER = 0;
+    private const FEEDBACK_FORMS = 'user_feedback_forms';
+    private const FEEDBACK_RESULTS = 'user_feedback_results';
+    // The answers of a form that can be counted. What a visitor writes is left out.
+    private const FEEDBACK_CHOICES = ['checkbox-group', 'radio-group', 'select', 'starRating', 'number'];
+    private const MAX_FEEDBACK_ANSWERS = 10000;
     private const LOWER_IS_BETTER = [self::BOUNCE, self::SEARCH];
     private const UNITS = [
         self::REVENUE => self::UNIT_MONEY,
@@ -74,6 +90,18 @@ class Measures
                     break;
                 }
                 return ['type' => $type, 'idgoal' => $idGoal];
+            case self::FUNNEL:
+                $idFunnel = (int) ($measure['idfunnel'] ?? 0);
+                if (!isset(self::getFunnels($idSite)[$idFunnel])) {
+                    break;
+                }
+                return ['type' => $type, 'idfunnel' => $idFunnel];
+            case self::FEEDBACK:
+                $idForm = (int) ($measure['idform'] ?? 0);
+                if (!isset(self::getFeedbackForms($idSite)[$idForm])) {
+                    break;
+                }
+                return ['type' => $type, 'idform' => $idForm];
             case self::EVENT:
                 $category = trim((string) ($measure['category'] ?? ''));
                 if ($category === '' || mb_strlen($category) > 200) {
@@ -133,8 +161,44 @@ class Measures
             $choices[$type] = self::getName($idSite, ['type' => $type]);
         }
         $choices[self::EVENT] = Piwik::translate('RebelExperiments_MeasureEventChoice');
+        foreach (self::getFunnels($idSite) as $idFunnel => $funnel) {
+            $choices[self::FUNNEL . ':' . $idFunnel] = self::getName($idSite, ['type' => self::FUNNEL, 'idfunnel' => $idFunnel]);
+        }
+        foreach (self::getFeedbackForms($idSite) as $idForm => $name) {
+            $choices[self::FEEDBACK . ':' . $idForm] = self::getName($idSite, ['type' => self::FEEDBACK, 'idform' => $idForm]);
+        }
 
         return $choices;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>> the funnels of RebelFunnels for the website by ID,
+     *         none when that plugin is not active
+     */
+    private static function getFunnels(int $idSite): array
+    {
+        if (!Manager::getInstance()->isPluginActivated('RebelFunnels')) {
+            return [];
+        }
+
+        return array_column((new FunnelsModel())->getFunnels($idSite), null, 'idfunnel');
+    }
+
+    /**
+     * @return array<int, string> the names of the forms of UserFeedback for the website by ID, none
+     *         when that plugin is not active
+     */
+    private static function getFeedbackForms(int $idSite): array
+    {
+        if (!Manager::getInstance()->isPluginActivated('UserFeedback')) {
+            return [];
+        }
+
+        return array_column(
+            Db::fetchAll('SELECT id, name FROM ' . Common::prefixTable(self::FEEDBACK_FORMS) . ' WHERE site_id = ? ORDER BY name', [$idSite]),
+            'name',
+            'id'
+        );
     }
 
     /**
@@ -147,7 +211,9 @@ class Measures
             return '';
         }
 
-        return isset($measure['idgoal']) ? $measure['type'] . ':' . $measure['idgoal'] : $measure['type'];
+        $id = $measure['idgoal'] ?? $measure['idfunnel'] ?? $measure['idform'] ?? null;
+
+        return $id === null ? $measure['type'] : $measure['type'] . ':' . $id;
     }
 
     /**
@@ -159,9 +225,9 @@ class Measures
         if ($choice === '') {
             return null;
         }
-        [$type, $idGoal] = explode(':', $choice, 2) + ['', ''];
+        [$type, $id] = explode(':', $choice, 2) + ['', ''];
 
-        return ['type' => $type, 'idgoal' => $idGoal, 'category' => $category, 'action' => $action];
+        return ['type' => $type, 'idgoal' => $id, 'idfunnel' => $id, 'idform' => $id, 'category' => $category, 'action' => $action];
     }
 
     /**
@@ -175,6 +241,12 @@ class Measures
                 $goals = GoalsApi::getInstance()->getGoals($idSite);
                 $name = Common::unsanitizeInputValue($goals[$measure['idgoal']]['name'] ?? Piwik::translate('General_Unknown'));
                 return Piwik::translate($measure['type'] === self::GOAL ? 'RebelExperiments_MeasureGoal' : 'RebelExperiments_MeasureGoalRevenue', $name);
+            case self::FUNNEL:
+                $name = self::getFunnels($idSite)[$measure['idfunnel']]['name'] ?? Piwik::translate('General_Unknown');
+                return Piwik::translate('RebelExperiments_MeasureFunnel', Common::unsanitizeInputValue($name));
+            case self::FEEDBACK:
+                $name = self::getFeedbackForms($idSite)[$measure['idform']] ?? Piwik::translate('General_Unknown');
+                return Piwik::translate('RebelExperiments_MeasureFeedback', Common::unsanitizeInputValue($name));
             case self::EVENT:
                 return Piwik::translate('RebelExperiments_MeasureEvent', $measure['category'] . ($measure['action'] === '' ? '' : ' / ' . $measure['action']));
             default:
@@ -214,13 +286,13 @@ class Measures
      * Limits the visits of an experiment to those of a segment.
      *
      * @param array<string, mixed> $experiment
-     * @return array{0: string, 1: array<int, mixed>} what to add to the condition of a query on the
-     *         log of the plugin as `l`, and the values it binds
+     * @return array{0: string, 1: array<int, mixed>, 2: string} what to add to the condition of a
+     *         query on the log of the plugin as `l`, the values it binds, and the segment itself
      */
     public static function getSegmentFilter(array $experiment, string $segment): array
     {
         if (trim($segment) === '') {
-            return ['', []];
+            return ['', [], ''];
         }
 
         $query = (new Segment($segment, [$experiment['idsite']]))->getSelectQuery(
@@ -230,7 +302,7 @@ class Measures
             [$experiment['idsite'], $experiment['from_date'] . ' 00:00:00', $experiment['to_date'] . ' 23:59:59']
         );
 
-        return [' AND l.idvisit IN (SELECT idvisit FROM (' . $query['sql'] . ') segment)', $query['bind']];
+        return [' AND l.idvisit IN (SELECT idvisit FROM (' . $query['sql'] . ') segment)', $query['bind'], $segment];
     }
 
     /**
@@ -243,12 +315,14 @@ class Measures
 
     /**
      * What the visits of each variant did. Goals, revenue and events count from the moment the visit
-     * was in the experiment; what Matomo keeps for a visit as a whole counts for the whole visit.
+     * was in the experiment; what Matomo keeps for a visit as a whole, a funnel and an answered form
+     * count for the whole visit.
      *
      * @param array<string, mixed> $experiment
      * @param array<string, mixed> $measure
-     * @param array{0: string, 1: array<int, mixed>} $filter see getSegmentFilter()
-     * @param bool $byDay whether to tell the days apart, by the day the visit got into the experiment
+     * @param array{0: string, 1: array<int, mixed>, 2?: string} $filter see getSegmentFilter()
+     * @param bool $byDay whether to tell the days apart, by the day the visit got into the experiment.
+     *                    A funnel is not counted by day
      * @return array<int, array{variant: int, day: ?string, count: int, sum: float, sum_of_squares: float}>
      *         for each variant, and day: the visits with the outcome and, for an amount, the
      *         amounts of the visits added up
@@ -282,6 +356,22 @@ class Measures
                                ON c.idvisit = l.idvisit AND c.idsite = l.idsite AND c.server_time >= l.server_time
                             WHERE $where AND $goal
                             GROUP BY $visit";
+                break;
+            case self::FUNNEL:
+                return $byDay ? [] : $this->countFunnel($experiment, $measure, $filter[2] ?? '');
+            case self::FEEDBACK:
+                if (!Manager::getInstance()->isPluginActivated('UserFeedback')) {
+                    return [];
+                }
+                // ponytail: an answer counts whenever in the visit it was given; its time is kept
+                // in the time zone of the database, so it cannot be compared with the log
+                $visits = "SELECT l.variant$day, 0 AS amount
+                             FROM $log l
+                             INNER JOIN " . Common::prefixTable(self::FEEDBACK_RESULTS) . " r
+                               ON r.idvisit = l.idvisit AND r.site_id = l.idsite
+                            WHERE $where AND r.form_id = ?
+                            GROUP BY $visit";
+                $bind[] = $measure['idform'];
                 break;
             case self::EVENT:
                 $category = $this->getIdAction($measure['category'], Action::TYPE_EVENT_CATEGORY);
@@ -338,6 +428,115 @@ class Measures
                 'sum_of_squares' => (float) $row['squares'],
             ];
         }, $rows);
+    }
+
+    /**
+     * The visits of each variant that went through all steps of a funnel, counted by RebelFunnels.
+     *
+     * @param array<string, mixed> $experiment
+     * @param array<string, mixed> $measure
+     * @return array<int, array{variant: int, day: null, count: int, sum: float, sum_of_squares: float}>
+     */
+    private function countFunnel(array $experiment, array $measure, string $segment): array
+    {
+        $idSite = (int) $experiment['idsite'];
+        $funnel = self::getFunnels($idSite)[$measure['idfunnel']] ?? null;
+        if ($funnel === null) {
+            return [];
+        }
+
+        $period = PeriodFactory::build('range', $experiment['from_date'] . ',' . $experiment['to_date'], Site::getTimezoneFor($idSite));
+        $counter = StaticContainer::get(FunnelCounter::class);
+
+        // ponytail: one count of the whole experiment per variant, every time the result is shown;
+        // keep the counts of days that are over if that gets slow
+        $rows = [];
+        for ($variant = 1; $variant <= count($experiment['variants']) + 1; $variant++) {
+            $definition = 'experimentId==' . (int) $experiment['id'] . ';experimentVariant==' . $variant;
+            foreach ([$funnel['segment_filter'], $segment] as $more) {
+                $definition = Segment::combine($definition, SegmentExpression::AND_DELIMITER, $more);
+            }
+            $logAggregator = new LogAggregator(new Parameters(
+                new Site($idSite),
+                $period,
+                new Segment($definition, [$idSite], $period->getDateTimeStart(), $period->getDateTimeEnd())
+            ));
+            $logAggregator->setQueryOriginHint('RebelExperimentsFunnel');
+
+            $steps = $counter->count($logAggregator, $funnel['steps']);
+            $completed = (int) (end($steps)['nb_visits'] ?? 0);
+            if ($completed > 0) {
+                $rows[] = ['variant' => $variant, 'day' => null, 'count' => $completed, 'sum' => 0.0, 'sum_of_squares' => 0.0];
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * What the visits of each variant answered in a form of UserFeedback, for the questions with
+     * answers to choose from.
+     *
+     * @param array<string, mixed> $experiment
+     * @param array{0: string, 1: array<int, mixed>, 2?: string} $filter see getSegmentFilter()
+     * @return array<int, array{question: string, answer: string, counts: array<int, int>}> the
+     *         counts by the number of the variant
+     */
+    public function getFeedbackAnswers(array $experiment, int $idForm, array $filter = ['', []]): array
+    {
+        if (!Manager::getInstance()->isPluginActivated('UserFeedback')) {
+            return [];
+        }
+
+        $content = (string) Db::fetchOne('SELECT content FROM ' . Common::prefixTable(self::FEEDBACK_FORMS) . ' WHERE id = ? AND site_id = ?', [$idForm, $experiment['idsite']]);
+        $questions = [];
+        $choices = [];
+        foreach ((array) json_decode(html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8'), true) as $field) {
+            $name = is_array($field) ? (string) ($field['name'] ?? '') : '';
+            if ($name === '') {
+                continue;
+            }
+            $questions[$name] = (string) ($field['label'] ?? $name);
+            foreach ((array) ($field['values'] ?? []) as $choice) {
+                $choices[$name][(string) ($choice['value'] ?? '')] = (string) ($choice['label'] ?? $choice['value'] ?? '');
+            }
+        }
+
+        // ponytail: reads the newest answers into memory; count in the database if forms get more
+        $rows = Db::fetchAll(
+            'SELECT l.variant, r.result
+               FROM ' . Common::prefixTable(LogExperiment::TABLE) . ' l
+               INNER JOIN ' . Common::prefixTable(self::FEEDBACK_RESULTS) . ' r ON r.idvisit = l.idvisit AND r.site_id = l.idsite
+              WHERE l.idexperiment = ? AND l.idsite = ?' . $filter[0] . ' AND r.form_id = ?
+              ORDER BY r.id DESC LIMIT ' . self::MAX_FEEDBACK_ANSWERS,
+            array_merge([$experiment['id'], $experiment['idsite']], $filter[1], [$idForm])
+        );
+
+        $answers = [];
+        foreach ($rows as $row) {
+            foreach ((array) json_decode((string) $row['result'], true) as $field) {
+                if (!is_array($field) || !in_array($field['type'] ?? '', self::FEEDBACK_CHOICES, true)) {
+                    continue;
+                }
+                $name = (string) ($field['name'] ?? '');
+                $question = trim(strip_tags(html_entity_decode($questions[$name] ?? (string) ($field['label'] ?? $name))));
+                foreach ((array) ($field['userData'] ?? []) as $answer) {
+                    if (!is_scalar($answer) || (string) $answer === '') {
+                        continue;
+                    }
+                    $answer = trim(strip_tags($choices[$name][(string) $answer] ?? (string) $answer));
+                    $key = $question . "\n" . $answer;
+                    $answers[$key] = $answers[$key] ?? ['question' => $question, 'answer' => $answer, 'counts' => []];
+                    $answers[$key]['counts'][(int) $row['variant']] = ($answers[$key]['counts'][(int) $row['variant']] ?? 0) + 1;
+                }
+            }
+        }
+        ksort($answers, SORT_NATURAL);
+        foreach ($answers as &$answer) {
+            ksort($answer['counts']);
+        }
+
+        return array_values($answers);
     }
 
     /**

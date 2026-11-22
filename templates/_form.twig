@@ -1,5 +1,6 @@
 {% macro measure(field, label, hint, selected, measures) %}
-    {% set choice = selected is null ? '' : (selected.type == 'goal' ? 'goal:' ~ selected.idgoal : selected.type) %}
+    {% set id = selected.idgoal ?? selected.idfunnel ?? selected.idform ?? null %}
+    {% set choice = selected is null ? '' : (id is null ? selected.type : selected.type ~ ':' ~ id) %}
     <div class="rebelExperimentsMeasure">
         <div class="rebelExperimentsField">
             <label for="{{ field }}">{{ label }}</label>

@@ -118,10 +118,21 @@ class Results
             unset($variant['idsite']);
         }
 
+        $feedback = [];
+        foreach (array_merge([$experiment['primary_measure']], $experiment['guardrails']) as $measure) {
+            if (($measure['type'] ?? '') === Measures::FEEDBACK && !isset($feedback[$measure['idform']])) {
+                $feedback[$measure['idform']] = [
+                    'name' => Measures::getName($idSite, $measure),
+                    'answers' => (new Measures())->getFeedbackAnswers($experiment, $measure['idform'], $filter),
+                ];
+            }
+        }
+
         return [
             'variants' => array_values($variants),
             'is_split_even' => $chanceOfSplit === null ? null : $chanceOfSplit >= self::UNLIKELY_SPLIT,
             'measures' => array_values($measures),
+            'feedback' => array_values($feedback),
         ];
     }
 

@@ -130,7 +130,7 @@
         "Action_image": "Change the image",
         "Action_link": "Change where the link goes",
         "CodeTitle": "CSS and JavaScript",
-        "ErrorMeasure": "A measure is a goal of this website, an event with a category, or one of the other choices of the form.",
+        "ErrorMeasure": "A measure is a goal, a funnel or a feedback form of this website, an event with a category, or one of the other choices of the form.",
         "MeasureNone": "None",
         "MeasureGoal": "Goal: %s",
         "MeasureEvent": "Event: %s",
@@ -282,6 +282,11 @@
         "DecisionSave": "Save the decision",
         "DecisionSaved": "The decision was saved.",
         "DecisionBy": "%1$s, %2$s",
-        "DecisionRolledOut": "Rolled out the variant \"%s\"."
+        "DecisionRolledOut": "Rolled out the variant \"%s\".",
+        "MeasureFunnel": "Visits that complete the funnel: %s",
+        "MeasureFeedback": "Visits that answer the form: %s",
+        "ResultAnswers": "Answers per variant: %s",
+        "ResultQuestion": "Question",
+        "ResultAnswer": "Answer"
     }
 }

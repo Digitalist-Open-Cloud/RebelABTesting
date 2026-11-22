@@ -365,6 +365,8 @@ class ExperimentsTest extends IntegrationTestCase
             'a goal the website does not have' => [['measure' => ['type' => 'goal', 'idgoal' => 99]], 'A measure is'],
             'an event without a category' => [['measure' => ['type' => 'event', 'action' => 'Play']], 'A measure is'],
             'an unknown measure' => [['measure' => ['type' => 'happiness']], 'A measure is'],
+            'a funnel the website does not have' => [['measure' => ['type' => 'funnel', 'idfunnel' => 99]], 'A measure is'],
+            'a feedback form the website does not have' => [['measure' => ['type' => 'feedback', 'idform' => 99]], 'A measure is'],
             'a watched element without a selector' => [['kind' => 'watch', 'door' => []], 'element to watch'],
             'an unknown way to leave out pages' => [['exclude' => ['sounds_like', 'x']], 'Unknown way'],
             'no pages to leave out' => [['exclude' => ['contains', '']], 'address to compare'],

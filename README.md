@@ -57,7 +57,11 @@ them can only be changed by an admin.
   - page views per visit, or the length of a visit;
   - bounces, where fewer is better;
   - visits that search the website, where fewer is better: visitors who find what they came for
-    do not need to search.
+    do not need to search;
+  - visits that complete a funnel, when the plugin RebelFunnels is active;
+  - visits that answer a feedback form, when the plugin UserFeedback is active. The result then
+    also shows what the visits of each variant answered, for questions with answers to choose
+    from.
 - **Guardrails**: up to two more measures that must not get worse while the primary measure gets
   better, for example orders when the experiment is about clicks.
 - **Email me the result**: the one who adds the experiment gets an email when a variant is found
@@ -171,8 +175,8 @@ explains. Then visitors are not assigned or counted as they should be, for examp
 breaks the page, and the result cannot be trusted.
 
 Goals, revenue and events count from the moment a visit is in the experiment. A goal reached earlier
-in the same visit is left out. Bounces, site searches, page views and the length of a visit are
-counted for the whole visit.
+in the same visit is left out. Bounces, site searches, page views, the length of a visit, a
+funnel and an answered form are counted for the whole visit. A funnel is not shown in the chart.
 
 The segment chosen at the top of Matomo limits the result to its visits, for example to visits from
 mobile devices.
@@ -237,7 +241,8 @@ about experiments that have ended or not started.
 `targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryMeasure` has a `type`
 (`goal`, `goal_revenue`, `orders`, `revenue`, `conversions`, `total_revenue`, `event`, `pageviews`,
 `visit_length`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
-event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `rollout`, `fake_door` or `watch`. `decision` is `adopt`, `keep`, `inconclusive` or
+event, its `category` and optionally its `action`. With RebelFunnels it can also be `funnel` with an
+`idfunnel`, and with UserFeedback `feedback` with an `idform`. `guardrails` is a list of up to two of those. `kind` is `ab`, `rollout`, `fake_door` or `watch`. `decision` is `adopt`, `keep`, `inconclusive` or
 empty. For a fake door, `door` has `selector`, `position`
 (`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
 `message`. For `watch` it has the `selector` of the element.

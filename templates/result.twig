@@ -126,6 +126,30 @@
             <div class="alert">{{ 'RebelExperiments_ResultNoConversions'|translate }}</div>
             {% endfor %}
 
+            {% for form in result.feedback %}
+            {% if form.answers %}
+            <h3 class="form-section-title">{{ 'RebelExperiments_ResultAnswers'|translate(form.name) }}</h3>
+            <table class="rebelExperimentsTable rebelExperimentsAnswers">
+                <thead>
+                    <tr>
+                        <th>{{ 'RebelExperiments_ResultQuestion'|translate }}</th>
+                        <th>{{ 'RebelExperiments_ResultAnswer'|translate }}</th>
+                        {% for variant in result.variants %}<th>{{ variant.name }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in form.answers %}
+                    <tr>
+                        <td>{{ row.question }}</td>
+                        <td>{{ row.answer }}</td>
+                        {% for variant in result.variants %}<td>{{ (row.counts[variant.variant] ?? 0)|number }}</td>{% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+            {% endfor %}
+
             <p class="section-help">{{ (experiment.primary_measure is null ? 'RebelExperiments_ResultHelpNoPrimaryGoal' : 'RebelExperiments_ResultHelp')|translate(experiment.confidence) }}</p>
             {% endif %}
 

@@ -62,6 +62,9 @@ than A/B tests. It is a new plugin to Matomo and does not take over data of Simp
 - The decision about an experiment can be recorded on its page, with a note on why: use the change,
   keep things as they are, or no conclusion.
 - Swedish translation.
+- With the plugin RebelFunnels, an experiment can be judged by the visits that complete a funnel.
+- With the plugin UserFeedback, an experiment can be judged by the visits that answer a form, and
+  the result shows what the visits of each variant answered.
 
 ### Security
 

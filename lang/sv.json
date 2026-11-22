@@ -130,7 +130,7 @@
         "Action_image": "Byt bilden",
         "Action_link": "Ändra vart länken går",
         "CodeTitle": "CSS och JavaScript",
-        "ErrorMeasure": "Ett mått är ett mål på den här webbplatsen, en händelse med en kategori, eller något av formulärets övriga val.",
+        "ErrorMeasure": "Ett mått är ett mål, en tratt eller ett feedbackformulär på den här webbplatsen, en händelse med en kategori, eller något av formulärets övriga val.",
         "MeasureNone": "Inget",
         "MeasureGoal": "Mål: %s",
         "MeasureEvent": "Händelse: %s",
@@ -282,6 +282,11 @@
         "DecisionSave": "Spara beslutet",
         "DecisionSaved": "Beslutet har sparats.",
         "DecisionBy": "%1$s, %2$s",
-        "DecisionRolledOut": "Rullade ut varianten \"%s\"."
+        "DecisionRolledOut": "Rullade ut varianten \"%s\".",
+        "MeasureFunnel": "Besök som går igenom tratten: %s",
+        "MeasureFeedback": "Besök som svarar på formuläret: %s",
+        "ResultAnswers": "Svar per variant: %s",
+        "ResultQuestion": "Fråga",
+        "ResultAnswer": "Svar"
     }
 }
