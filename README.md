@@ -31,6 +31,9 @@ them can only be changed by an admin.
 - **Pages**: all pages, or the pages whose address equals, contains, starts with or matches a
   regular expression. The whole address is compared, including `https://`. Pages can also be left
   out in the same way.
+- **Audience**: who the experiment is for. New or returning visitors, the devices, visitors who came
+  through a campaign or from an address, and the language of the browser. All that is given has to
+  hold. A visitor is checked when first meeting the experiment, and stays in or out after that.
 - **Share of visitors**: the percentage of visitors that take part. They are split evenly between
   the original and the variants. The others get the original and are not counted.
 - **Variants**: one to ten. A variant is a list of changes, each doing one thing to the elements a
@@ -90,6 +93,16 @@ a page, as two experiments that change the same thing disturb each other.
 A visitor gets the original or a variant by chance and keeps it until the experiment ends. The
 choice is kept in the `localStorage` of the browser, under `sabt:<id of the experiment>`. A browser
 without `localStorage` gets the original and is not counted.
+
+### What the audience goes by
+
+The tag decides in the browser, so no data about the visitor is asked from Matomo.
+
+- **New or returning:** a visitor is returning when the tag has seen the browser before this visit.
+  A visitor who was on the website before the tag was added is new once.
+- **Device:** from what the browser says it is. Matomo's own device reports are more exact.
+- **Campaign and referrer:** from the page the visit started on, remembered for the browser tab.
+- **Language:** the first language of the browser. `sv` also takes `sv-fi`.
 
 ## Flicker
 
@@ -177,7 +190,7 @@ about experiments that have ended or not started.
 
 | Method | Access |
 | --- | --- |
-| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails, confidence, excludeMatch, excludeValue, notify) | write, admin with CSS or JavaScript |
+| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails, confidence, excludeMatch, excludeValue, notify, audience) | write, admin with CSS or JavaScript |
 | `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | write, admin with CSS or JavaScript |
 | `RebelABTesting.stopExperiment` (id, idSite) | write |
 | `RebelABTesting.deleteExperiment` (id, idSite) | write |

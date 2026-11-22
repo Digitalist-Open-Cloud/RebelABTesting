@@ -54,6 +54,8 @@ not take over data of SimpleABTesting.
   the experiment has ended.
 - A variant is compared with the original also when one of them has no visit with the outcome at
   all.
+- An experiment can be for an audience: new or returning visitors, devices, visitors of a campaign
+  or from a referrer, and browser languages.
 - Swedish translation.
 
 ### Security

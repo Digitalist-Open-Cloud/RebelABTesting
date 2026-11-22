@@ -9,6 +9,9 @@
                 <span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span>
                 {{ experiment.from_date }} &ndash; {{ experiment.to_date }}
             </p>
+            {% if audience %}
+            <p><strong>{{ 'RebelABTesting_AudienceTitle'|translate }}:</strong> {{ audience }}</p>
+            {% endif %}
             {% if canWrite and experiment.hypothesis is not empty %}
             <p><strong>{{ 'RebelABTesting_FormHypothesis'|translate }}:</strong> {{ experiment.hypothesis }}</p>
             {% endif %}

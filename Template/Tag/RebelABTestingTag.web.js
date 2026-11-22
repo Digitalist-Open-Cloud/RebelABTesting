@@ -6,6 +6,8 @@
       var PREVIEW_KEY = "sabt-preview";
       var SHOWN_PREFIX = "sabt-shown:";
       var TOLD_KEY = "sabt-told";
+      var FIRST_SEEN_KEY = "sabt-first-seen";
+      var ARRIVAL_KEY = "sabt-arrival";
       var VISIT_SECONDS = 1800;
       var FAKE_DOOR = "fake_door";
       var WATCH = "watch";
@@ -42,6 +44,8 @@
               }, show, "&preview=" + preview[0] + "-" + preview[2]);
               return;
           }
+
+          var visitor = describeVisitor();
 
           // Without localStorage a visitor cannot keep a variant: everyone gets the original and
           // nobody is counted.
@@ -127,6 +131,8 @@
               for (var i = 0; i < experiments.length; i++) {
                   var experiment = experiments[i];
                   if (today < experiment.from_date || today > experiment.to_date || !matches(experiment)) continue;
+                  // Who is in the audience is decided once, when the visitor first meets the experiment.
+                  if (!isValid(read(KEY_PREFIX + experiment.id)) && !isInAudience(experiment.audience)) continue;
 
                   var assignment = getAssignment(experiment);
                   if (!assignment) return;
@@ -345,6 +351,51 @@
               inserted.className = "rebel-experiment-insert";
               inserted.textContent = text;
               element.insertAdjacentElement(position, inserted);
+          }
+
+          // What the audience of an experiment is chosen by. How the visitor arrived is kept for the
+          // browser tab, as the campaign and the referrer are only known on the first page.
+          function describeVisitor() {
+              var now = Date.now();
+              var firstSeen = now;
+              var arrival = null;
+
+              try {
+                  firstSeen = Number(localStorage.getItem(FIRST_SEEN_KEY)) || now;
+                  localStorage.setItem(FIRST_SEEN_KEY, String(firstSeen));
+              } catch (e) { /* a visitor without storage is new, and gets no experiments anyway */ }
+              try {
+                  arrival = JSON.parse(sessionStorage.getItem(ARRIVAL_KEY));
+              } catch (e) { /* this page is taken for the first */ }
+              if (!arrival) {
+                  var campaign = /[?&#](?:mtm|utm|pk|piwik|matomo)_campaign=([^&#]*)/.exec(window.location.href);
+                  arrival = { campaign: campaign ? decodeURIComponent(campaign[1].replace(/\+/g, " ")) : "", referrer: document.referrer || "" };
+                  try { sessionStorage.setItem(ARRIVAL_KEY, JSON.stringify(arrival)); } catch (e) { /* asked again on the next page */ }
+              }
+
+              var agent = navigator.userAgent || "";
+              var device = /iPad|Tablet|Android(?!.*Mobile)/i.test(agent) ? "tablet" : (/Mobi|iPhone|iPod|Android/i.test(agent) ? "mobile" : "desktop");
+
+              return {
+                  // Returning means: was here before this visit.
+                  visitor: now - firstSeen > VISIT_SECONDS * 1000 ? "returning" : "new",
+                  device: device,
+                  campaign: arrival.campaign.toLowerCase(),
+                  referrer: arrival.referrer.toLowerCase(),
+                  language: (navigator.language || "").toLowerCase()
+              };
+          }
+
+          function isInAudience(audience) {
+              if (!audience) return true;
+
+              return (!audience.visitor || audience.visitor === visitor.visitor)
+                  && (!audience.devices.length || audience.devices.indexOf(visitor.device) !== -1)
+                  && (!audience.campaign || visitor.campaign.indexOf(audience.campaign.toLowerCase()) !== -1)
+                  && (!audience.referrer || visitor.referrer.indexOf(audience.referrer.toLowerCase()) !== -1)
+                  && (!audience.languages.length || audience.languages.some(function (language) {
+                      return visitor.language === language || visitor.language.indexOf(language + "-") === 0;
+                  }));
           }
 
           // Whether the experiment runs on this page: on one of its pages, and not on one it leaves out.

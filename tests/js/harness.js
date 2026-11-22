@@ -66,6 +66,8 @@ export function makeEnv(opts = {}) {
       ? Promise.reject(new Error("offline"))
       : Promise.resolve({ json: () => Promise.resolve({ experiments: env.experiments }) });
   };
+  env.navigator = { userAgent: opts.userAgent ?? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15", language: opts.language ?? "en-GB" };
+  env.document.referrer = opts.referrer ?? "";
   env.window = {
     _paq: env._paq,
     localStorage: env.localStorage,
@@ -80,8 +82,8 @@ export function makeEnv(opts = {}) {
 
 export function loadTag(env, params = {}) {
   const src = Deno.readTextFileSync(new URL("Template/Tag/RebelABTestingTag.web.js", root));
-  const Tag = new Function("window", "document", "localStorage", "sessionStorage", "crypto", "fetch", "return " + src.trim().replace(/;$/, ""))(
-    env.window, env.document, env.localStorage, env.sessionStorage, env.crypto, env.fetch);
+  const Tag = new Function("window", "document", "localStorage", "sessionStorage", "crypto", "fetch", "navigator", "return " + src.trim().replace(/;$/, ""))(
+    env.window, env.document, env.localStorage, env.sessionStorage, env.crypto, env.fetch, env.navigator);
   const all = { matomoUrl: "https://m.example/", container: { idsite: 1 }, hideTimeout: 500, ...params };
   const tag = new Tag({ get: (name, fallback) => (name in all ? all[name] : fallback) }, {});
   return {

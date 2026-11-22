@@ -15,6 +15,7 @@ use Piwik\Date;
 use Piwik\Db;
 use Piwik\DbHelper;
 use Piwik\Piwik;
+use Piwik\Plugins\RebelABTesting\Audience;
 use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
 
 class Experiments
@@ -44,6 +45,7 @@ class Experiments
             `exclude_match` VARCHAR(20) NOT NULL DEFAULT 'none',
             `exclude_value` TEXT,
             `confidence` TINYINT UNSIGNED NOT NULL DEFAULT 95,
+            `audience` TEXT,
             `variants` MEDIUMTEXT NOT NULL,
             `primary_measure` TEXT,
             `guardrails` TEXT,
@@ -66,7 +68,8 @@ class Experiments
     /**
      * @param array<string, mixed> $experiment name, hypothesis, description, from_date, to_date,
      *                                         traffic_share, target_match, target_value,
-     *                                         exclude_match, exclude_value, confidence, variants
+     *                                         exclude_match, exclude_value, confidence, audience,
+     *                                         variants
      *                                         primary_measure, guardrails, kind and door
      */
     public function insertExperiment(int $idSite, array $experiment): int
@@ -194,6 +197,7 @@ class Experiments
         $row['target_value'] = (string) $row['target_value'];
         $row['exclude_value'] = (string) $row['exclude_value'];
         $row['confidence'] = (int) $row['confidence'];
+        $row['audience'] = Audience::normalize(json_decode((string) $row['audience'], true));
         $row['notify'] = (bool) $row['notify'];
         $row['variants'] = ExperimentValidator::normalizeVariants(json_decode($row['variants'], true));
         $row['door'] = $row['door'] === null ? null : json_decode($row['door'], true);
@@ -244,6 +248,7 @@ class Experiments
             'primary_measure' => empty($experiment['primary_measure']) ? null : json_encode($experiment['primary_measure']),
             'guardrails' => json_encode($experiment['guardrails'] ?? []),
         ];
+        $audience = Audience::normalize($experiment['audience'] ?? null);
         $kind = (string) ($experiment['kind'] ?? ExperimentValidator::KIND_AB);
         $hasVariants = !ExperimentValidator::countsWhatIsShown($kind);
         $variants = $hasVariants ? ExperimentValidator::normalizeVariants($experiment['variants'] ?? null) : [];
@@ -265,6 +270,7 @@ class Experiments
             ?? ExperimentValidator::validateTarget($values['target_match'], $values['target_value'])
             ?? ExperimentValidator::validateExclude($values['exclude_match'], $values['exclude_value'])
             ?? ExperimentValidator::validateConfidence($values['confidence'])
+            ?? Audience::validate($audience)
             ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelABTesting_ErrorKind')
             ?? $kindError;
 
@@ -279,6 +285,7 @@ class Experiments
             $values['exclude_value'] = '';
         }
         $values['variants'] = json_encode($variants);
+        $values['audience'] = json_encode($audience);
         $values['kind'] = $kind;
         $values['door'] = $door === null ? null : json_encode($door);
         if (!$hasVariants) {

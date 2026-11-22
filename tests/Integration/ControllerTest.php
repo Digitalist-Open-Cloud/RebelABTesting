@@ -88,6 +88,7 @@ class ControllerTest extends IntegrationTestCase
                 'value' => '/pricing',
                 'exclude_match' => 'none',
                 'exclude_value' => '',
+                'audience' => ['visitor' => '', 'devices' => [], 'campaign' => '', 'referrer' => '', 'languages' => []],
                 'variants' => [['changes' => [['selector' => 'h1', 'action' => 'text', 'value' => 'New <headline>']], 'redirect' => '', 'css' => 'h1{}', 'js' => "a('<b>')"]],
             ]]],
             $this->getPublic(1)
@@ -101,7 +102,7 @@ class ControllerTest extends IntegrationTestCase
         $id = API::getInstance()->insertExperiment(2, 'door', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', [], 'fake_door', $door);
 
         $this->assertSame(
-            ['id' => $id, 'kind' => 'fake_door', 'door' => $door, 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'share' => 100, 'match' => 'any', 'value' => '', 'exclude_match' => 'none', 'exclude_value' => '', 'variants' => []],
+            ['id' => $id, 'kind' => 'fake_door', 'door' => $door, 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'share' => 100, 'match' => 'any', 'value' => '', 'exclude_match' => 'none', 'exclude_value' => '', 'audience' => ['visitor' => '', 'devices' => [], 'campaign' => '', 'referrer' => '', 'languages' => []], 'variants' => []],
             $this->getPublic(2)['experiments'][0]
         );
     }
@@ -185,6 +186,7 @@ class ControllerTest extends IntegrationTestCase
         $this->assertSame(['Form test', 25, 'starts_with', 'https://example.org/shop'], [$experiment['name'], $experiment['traffic_share'], $experiment['target_match'], $experiment['target_value']]);
         $this->assertSame(['type' => 'goal', 'idgoal' => $this->idGoal], $experiment['primary_measure']);
         $this->assertSame(['contains', '/checkout', 99], [$experiment['exclude_match'], $experiment['exclude_value'], $experiment['confidence']]);
+        $this->assertSame(['visitor' => 'new', 'devices' => ['tablet', 'mobile'], 'campaign' => 'spring', 'referrer' => '', 'languages' => ['sv', 'nb']], $experiment['audience']);
         $this->assertSame([['type' => 'event', 'category' => 'Video', 'action' => 'Play']], $experiment['guardrails']);
         $this->assertSame(
             [
@@ -462,6 +464,24 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('Internal', $html);
     }
 
+    public function testTheFormAndThePageOfAnExperimentShowItsAudience()
+    {
+        $id = API::getInstance()->insertExperiment(1, 'for some', '', '', '2024-03-01', '2024-03-31', [['name' => 'Green']], 100, 'any', '', [], 'ab', [], [], 95, 'none', '', true, ['visitor' => 'returning', 'devices' => ['mobile'], 'campaign' => 'spring', 'languages' => ['sv', 'nb']]);
+
+        $_GET = ['idSite' => '1', 'id' => (string) $id];
+        $edit = (new Controller())->editExperimentForm();
+        $this->assertStringContainsString('<option value="returning" selected>Returning visitors</option>', $edit);
+        $this->assertStringContainsString('name="audience[devices][]" value="mobile" checked>', $edit);
+        $this->assertStringContainsString('name="audience[devices][]" value="desktop">', $edit);
+        $this->assertStringContainsString('name="audience[languages]" id="audience_languages" value="sv, nb"', $edit);
+
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $id];
+        $this->assertStringContainsString('Returning visitors; Mobile; campaign contains &quot;spring&quot;; browser language sv, nb', (new Controller())->result());
+
+        $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
+        $this->assertStringNotContainsString('Audience:', (new Controller())->result());
+    }
+
     public function testThePageOfAnExperimentNeedsAccessToItsWebsite()
     {
         $_GET = ['idSite' => '1', 'idExperiment' => (string) $this->idExperiment];
@@ -500,6 +520,7 @@ class ControllerTest extends IntegrationTestCase
             'exclude_match' => 'contains',
             'exclude_value' => '/checkout',
             'confidence' => '99',
+            'audience' => ['visitor' => 'new', 'devices' => ['mobile', 'tablet'], 'campaign' => 'spring', 'referrer' => '', 'languages' => 'sv, nb'],
             'primary_measure' => 'goal:' . $this->idGoal,
             'primary_measure_category' => 'left over from another choice',
             'guardrail_0' => '',

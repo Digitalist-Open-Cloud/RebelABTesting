@@ -64,6 +64,10 @@ class API extends \Piwik\Plugin\API
      *                             with $excludeValue: none, equals, contains, starts_with or regexp
      * @param bool $notify whether to email the one who adds the experiment when a variant is found
      *                     better or worse on the primary measure, and when the experiment ends
+     * @param array $audience the visitors the experiment is for: `visitor` (new or returning),
+     *                        `devices` (desktop, tablet, mobile), `campaign` and `referrer` (a text
+     *                        each has to contain) and `languages` (codes such as sv or en-gb).
+     *                        Empty for everyone
      * @return int the ID of the experiment
      */
     public function insertExperiment(
@@ -84,7 +88,8 @@ class API extends \Piwik\Plugin\API
         int $confidence = 95,
         string $excludeMatch = 'none',
         string $excludeValue = '',
-        bool $notify = true
+        bool $notify = true,
+        array $audience = []
     ): int {
         $this->checkCanSave($idSite, $variants);
 
@@ -106,7 +111,8 @@ class API extends \Piwik\Plugin\API
             $confidence,
             $excludeMatch,
             $excludeValue,
-            $notify
+            $notify,
+            $audience
         );
 
         return $this->experiments->insertExperiment($idSite, $fields);
@@ -137,7 +143,8 @@ class API extends \Piwik\Plugin\API
         int $confidence = 95,
         string $excludeMatch = 'none',
         string $excludeValue = '',
-        bool $notify = true
+        bool $notify = true,
+        array $audience = []
     ): void {
         $this->checkCanSave($idSite, $variants, $this->experiments->getById($id, $idSite));
         $fields = self::toFields(
@@ -158,7 +165,8 @@ class API extends \Piwik\Plugin\API
             $confidence,
             $excludeMatch,
             $excludeValue,
-            $notify
+            $notify,
+            $audience
         );
         $this->experiments->updateExperiment($id, $idSite, $fields);
     }
@@ -250,6 +258,7 @@ class API extends \Piwik\Plugin\API
      * @param array<string, mixed> $primaryMeasure
      * @param array<string, mixed> $door
      * @param array<int, mixed> $guardrails
+     * @param array<string, mixed> $audience
      * @return array<string, mixed>
      */
     private static function toFields(
@@ -270,7 +279,8 @@ class API extends \Piwik\Plugin\API
         int $confidence,
         string $excludeMatch,
         string $excludeValue,
-        bool $notify
+        bool $notify,
+        array $audience
     ): array {
         return [
             'kind' => $kind,
@@ -281,6 +291,7 @@ class API extends \Piwik\Plugin\API
             'exclude_match' => $excludeMatch,
             'exclude_value' => $excludeValue,
             'notify' => $notify,
+            'audience' => $audience,
             'name' => $name,
             'hypothesis' => $hypothesis,
             'description' => $description,

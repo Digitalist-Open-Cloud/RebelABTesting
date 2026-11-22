@@ -43,6 +43,7 @@ class GetABTesting extends Widget
                 'exclude_value' => '',
                 'confidence' => 95,
                 'notify' => true,
+                'audience' => ['visitor' => '', 'devices' => [], 'campaign' => '', 'referrer' => '', 'languages' => []],
                 'primary_measure' => null,
                 'guardrails' => [],
                 'kind' => 'ab',
