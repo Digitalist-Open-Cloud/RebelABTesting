@@ -20,7 +20,8 @@ final class ExperimentValidator
 
     public const KIND_AB = 'ab';
     public const KIND_FAKE_DOOR = 'fake_door';
-    public const KINDS = [self::KIND_AB, self::KIND_FAKE_DOOR];
+    public const KIND_WATCH = 'watch';
+    public const KINDS = [self::KIND_AB, self::KIND_FAKE_DOOR, self::KIND_WATCH];
     public const DOOR_POSITIONS = ['after', 'before', 'append', 'prepend'];
     public const DOOR_ELEMENTS = ['button', 'link'];
 
@@ -135,6 +136,32 @@ final class ExperimentValidator
             default:
                 return $change['value'] !== '';
         }
+    }
+
+    /**
+     * Whether the experiment only counts the visits its tag tells about: the ones a fake door was
+     * shown to, or that saw a watched element. Such an experiment has no original and no variants.
+     */
+    public static function countsWhatIsShown(string $kind): bool
+    {
+        return in_array($kind, [self::KIND_FAKE_DOOR, self::KIND_WATCH], true);
+    }
+
+    /**
+     * @param mixed $watch what a request handed over
+     * @return array{selector: string}
+     */
+    public static function normalizeWatch($watch): array
+    {
+        return ['selector' => trim(is_array($watch) && is_scalar($watch['selector'] ?? null) ? (string) $watch['selector'] : '')];
+    }
+
+    /**
+     * @param array{selector: string} $watch
+     */
+    public static function validateWatch(array $watch): ?string
+    {
+        return $watch['selector'] === '' || mb_strlen($watch['selector']) > self::SELECTOR_MAX_LENGTH ? 'RebelABTesting_ErrorWatch' : null;
     }
 
     /**

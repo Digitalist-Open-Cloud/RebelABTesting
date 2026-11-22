@@ -127,6 +127,29 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('<option value="prepend" selected>', $edit);
     }
 
+    public function testAWatchedElementIsAddedFromTheFormAndHasAPageWithoutPreview()
+    {
+        $this->post(['idSite' => '2'], ['kind' => 'watch', 'watch' => ['selector' => '.signup'], 'door' => ['selector' => '#left-over']] + $this->getForm('Watch'));
+        $this->redirects('addExperiment');
+
+        $experiment = (new Experiments())->getAllForSite(2)[0];
+        $this->assertSame(['watch', ['selector' => '.signup']], [$experiment['kind'], $experiment['door']]);
+        Date::$now = strtotime('2024-05-10 12:00:00 UTC');
+        $this->assertSame(['selector' => '.signup'], $this->getPublic(2)['experiments'][0]['door']);
+
+        $_POST = [];
+        $_GET = ['idSite' => '2', 'idExperiment' => (string) $experiment['id']];
+        $html = (new Controller())->result();
+        $this->assertStringContainsString('Watch an element: .signup', $html);
+        $this->assertStringNotContainsString('rabt-preview', $html);
+
+        $_GET = ['idSite' => '2', 'id' => (string) $experiment['id']];
+        $edit = (new Controller())->editExperimentForm();
+        $this->assertStringContainsString('<option value="watch" selected>', $edit);
+        $this->assertStringContainsString('name="watch[selector]" id="watch_selector" value=".signup"', $edit);
+        $this->assertStringContainsString('name="door[selector]" id="door_selector" value=""', $edit);
+    }
+
     public function testAPreviewLinkAlsoGetsAnExperimentThatIsNotRunning()
     {
         $api = API::getInstance();

@@ -54,10 +54,12 @@ class API extends \Piwik\Plugin\API
      *                              event, bounce or search) and, for a goal, its `idgoal`, or for an
      *                              event, its `category` and optionally its `action`. Empty for none
      * @param string $kind `ab` for a test of variants, `fake_door` for a button to something that
-     *                     does not exist yet, to see how many visitors want it
+     *                     does not exist yet, to see how many visitors want it, `watch` to count the
+     *                     visits that see and click an element the page already has
      * @param array $door the fake door: `selector` of the element it is put next to, `position`
      *                    (after, before, append or prepend), `element` (button or link), `label`,
-     *                    `css_class` and the `message` shown after a click
+     *                    `css_class` and the `message` shown after a click. For `watch`: the `selector` of the
+     *                    element to watch
      * @param array $guardrails up to two measures that must not get worse
      * @return int the ID of the experiment
      */
@@ -68,7 +70,7 @@ class API extends \Piwik\Plugin\API
         string $description,
         string $fromDate,
         string $toDate,
-        array $variants,
+        array $variants = [],
         int $trafficShare = 100,
         string $targetMatch = 'any',
         string $targetValue = '',
@@ -96,7 +98,7 @@ class API extends \Piwik\Plugin\API
         string $description,
         string $fromDate,
         string $toDate,
-        array $variants,
+        array $variants = [],
         int $trafficShare = 100,
         string $targetMatch = 'any',
         string $targetValue = '',

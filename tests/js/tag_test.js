@@ -351,3 +351,72 @@ Deno.test("elements that arrive while the page loads are changed too, each once"
 
   assertEquals(page[".buy"].map((e) => e.className), ["btn green", "btn green"]);
 });
+
+const watched = (over = {}) => experiment({ kind: "watch", variants: [], door: { selector: ".signup" }, ...over });
+
+// A browser that tells what is in view when the test says so.
+function withIntersectionObserver(test) {
+  const observers = [];
+  globalThis.IntersectionObserver = class {
+    constructor(callback) { this.callback = callback; this.observed = []; observers.push(this); }
+    observe(node) { this.observed.push(node); }
+    disconnect() { this.disconnected = true; }
+  };
+  return test(observers).finally(() => { delete globalThis.IntersectionObserver; });
+}
+
+Deno.test("a watched element is told to Matomo when it comes into view and when it is clicked", () => withIntersectionObserver(async (observers) => {
+  const clicks = [];
+  const elements = [0, 1].map(() => ({ addEventListener(_type, listener) { clicks.push(listener); } }));
+  const env = makeEnv({ experiments: [watched()], page: { ".signup": elements } });
+  await fireWith([0], env);
+  const a = stored(env.localStorage, 7).a;
+
+  assertEquals(observers[0].observed, elements);
+  assert(!env._paq.some((call) => String(call[1]).includes("rabtd")));
+  assertEquals(env.appended, []);
+
+  env._paq.length = 0;
+  observers[0].callback([{ isIntersecting: false }]);
+  assertEquals(env._paq, []);
+  observers[0].callback([{ isIntersecting: false }, { isIntersecting: true }]);
+  assertEquals(env._paq, [["appendToTrackingUrl", `rabt=7-2-${a}&rabtd=7-s`], ["ping"], ["appendToTrackingUrl", `rabt=7-2-${a}`]]);
+  assert(observers[0].disconnected);
+
+  env._paq.length = 0;
+  clicks[1]();
+  clicks[0]();
+  assertEquals(env._paq, [
+    ["appendToTrackingUrl", `rabt=7-2-${a}&rabtd=7-c`],
+    ["trackEvent", "Watched element", "Click", "7"],
+    ["appendToTrackingUrl", `rabt=7-2-${a}`],
+  ]);
+}));
+
+Deno.test("a browser that cannot tell what is in view counts the page with the watched element", async () => {
+  const env = makeEnv({ experiments: [watched()], page: { ".signup": [{ addEventListener() {} }] } });
+  await fireWith([0], env);
+
+  assert(env._paq.some((call) => String(call[1]).endsWith("&rabtd=7-s")));
+});
+
+Deno.test("nothing is told on a page without the watched element, or to a visitor outside the share", async () => {
+  for (const [experiments, randoms] of [[[watched()], [0]], [[watched({ door: { selector: "(" } })], [0]], [[watched({ share: 10 })], [0.5]]]) {
+    const env = makeEnv({ experiments, page: { ".other": [{}] } });
+    await fireWith(randoms, env);
+
+    assert(!env._paq.some((call) => String(call[1]).includes("rabtd")));
+  }
+});
+
+Deno.test("the visit is told to the queue Matomo uses now, not to the one from before it loaded", async () => {
+  const env = makeEnv({ experiments: [experiment()] });
+  const before = env.window._paq;
+  const fetch = env.fetch;
+  // Matomo finishes loading while the experiments are fetched, and puts its own queue in place.
+  env.fetch = (url) => { env.window._paq = []; return fetch(url); };
+  await fireWith([0, 0.9], env);
+
+  assertEquals(before, []);
+  assertEquals(env.window._paq.map((call) => call[0]), ["appendToTrackingUrl", "ping"]);
+});

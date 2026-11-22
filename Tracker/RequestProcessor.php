@@ -20,8 +20,8 @@ class RequestProcessor extends MatomoRequestProcessor
 {
     /**
      * Logs the visit for each experiment the request names, when that experiment belongs to the
-     * website, is running and has the variant. A fake door only counts for the visits it was
-     * shown to.
+     * website, is running and has the variant. A fake door and a watched element only count for
+     * the visits they were shown to.
      */
     public function recordLogs(VisitProperties $visitProperties, Request $request)
     {
@@ -48,7 +48,7 @@ class RequestProcessor extends MatomoRequestProcessor
                 continue;
             }
 
-            $isDoor = $experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR;
+            $isDoor = ExperimentValidator::countsWhatIsShown($experiment['kind']);
             if ($isDoor && ($door === null || $door['idexperiment'] !== $idExperiment || $assignment['variant'] !== 2)) {
                 continue;
             }

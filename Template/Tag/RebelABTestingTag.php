@@ -42,13 +42,13 @@ class RebelABTestingTag extends BaseTag
     public function getParameters()
     {
         return [
-            $this->makeSetting('matomoOrigin', $this->detectMatomoOrigin(), FieldConfig::TYPE_STRING, function (FieldConfig $field) {
+            $this->makeSetting('matomoUrl', rtrim((string) SettingsPiwik::getPiwikUrl(), '/'), FieldConfig::TYPE_STRING, function (FieldConfig $field) {
                 $field->title = Piwik::translate('RebelABTesting_TagMatomoOrigin');
                 $field->uiControl = FieldConfig::UI_CONTROL_TEXT;
                 $field->description = Piwik::translate('RebelABTesting_TagMatomoOriginDescription');
                 $field->validators[] = new NotEmpty();
                 $field->validate = function ($value) {
-                    if (!preg_match('#^https?://[a-zA-Z0-9.\-]+(:[0-9]+)?$#', (string) $value)) {
+                    if (!preg_match('#^https?://[a-zA-Z0-9.\-]+(:[0-9]+)?(/[A-Za-z0-9._~/-]*)?$#', (string) $value)) {
                         throw new \Exception(Piwik::translate('RebelABTesting_TagMatomoOriginInvalid'));
                     }
                 };
@@ -65,18 +65,5 @@ class RebelABTestingTag extends BaseTag
     public function getCategory()
     {
         return self::CATEGORY_DEVELOPERS;
-    }
-
-    /**
-     * The origin of this Matomo, so that it does not have to be typed in.
-     */
-    private function detectMatomoOrigin(): string
-    {
-        $parts = parse_url((string) SettingsPiwik::getPiwikUrl());
-        if (empty($parts['scheme']) || empty($parts['host'])) {
-            return '';
-        }
-
-        return $parts['scheme'] . '://' . $parts['host'] . (empty($parts['port']) ? '' : ':' . $parts['port']);
     }
 }

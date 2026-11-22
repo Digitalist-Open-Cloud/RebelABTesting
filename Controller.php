@@ -249,6 +249,7 @@ class Controller extends \Piwik\Plugin\Controller
     private function getExperimentFields(): array
     {
         $post = Request::fromPost();
+        $kind = $post->getStringParameter('kind', ExperimentValidator::KIND_AB);
 
         return [
             trim($post->getStringParameter('name', '')),
@@ -261,8 +262,8 @@ class Controller extends \Piwik\Plugin\Controller
             $post->getStringParameter('target_match', ExperimentValidator::MATCH_ANY),
             $post->getStringParameter('target_value', ''),
             $this->getMeasure('primary_measure') ?? [],
-            $post->getStringParameter('kind', ExperimentValidator::KIND_AB),
-            $post->getArrayParameter('door', []),
+            $kind,
+            $post->getArrayParameter($kind === ExperimentValidator::KIND_WATCH ? 'watch' : 'door', []),
             array_values(array_filter(array_map([$this, 'getMeasure'], ['guardrail_0', 'guardrail_1']))),
         ];
     }
@@ -281,6 +282,9 @@ class Controller extends \Piwik\Plugin\Controller
             ? $experiment['target_value']
             : Site::getMainUrlFor($experiment['idsite']);
 
+        if ($experiment['kind'] === ExperimentValidator::KIND_WATCH) {
+            return [];
+        }
         if ($experiment['kind'] === ExperimentValidator::KIND_FAKE_DOOR) {
             $variants = [['name' => Piwik::translate('RebelABTesting_Kind_fake_door'), 'variant' => 2]];
         }

@@ -184,6 +184,15 @@ final class ExperimentValidatorTest extends TestCase
         $this->assertTrue(ExperimentValidator::hasCode(ExperimentValidator::normalizeVariants([['js' => 'x()']])));
     }
 
+    public function testAWatchedElementNeedsASelector(): void
+    {
+        $this->assertSame(['selector' => '.signup'], ExperimentValidator::normalizeWatch(['selector' => ' .signup ', 'label' => 'ignored']));
+        $this->assertNull(ExperimentValidator::validateWatch(['selector' => '.signup']));
+        $this->assertSame('RebelABTesting_ErrorWatch', ExperimentValidator::validateWatch(ExperimentValidator::normalizeWatch([])));
+        $this->assertSame('RebelABTesting_ErrorWatch', ExperimentValidator::validateWatch(ExperimentValidator::normalizeWatch(['selector' => ['a']])));
+        $this->assertSame('RebelABTesting_ErrorWatch', ExperimentValidator::validateWatch(['selector' => str_repeat('a', 501)]));
+    }
+
     public function testAnExperimentHasOneToTenVariants(): void
     {
         $variant = ['name' => '', 'changes' => [], 'css' => '', 'js' => ''];

@@ -264,6 +264,20 @@ class TrackingTest extends IntegrationTestCase
         $this->assertGreaterThan(0.5, $result['click_rate_range'][1]);
     }
 
+    public function testAWatchedElementCountsTheVisitsThatSawItAndTheirClicks()
+    {
+        $id = API::getInstance()->insertExperiment(1, 'watch', '', '', '2024-03-01', '2024-03-31', [], 100, 'any', '', [], 'watch', ['selector' => '.signup']);
+        $assigned = $id . '-2-' . self::ASSIGNMENT;
+
+        $this->trackVisit(1, $assigned);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing'], 0, [0 => ['rabtd' => $id . '-s'], 1 => ['rabtd' => $id . '-c']]);
+
+        $result = API::getInstance()->getExperimentResult(1, $id);
+
+        $this->assertSame([2, 1, 0.5], [$result['nb_visits'], $result['nb_clicks'], $result['click_rate']]);
+    }
+
     public function testASignalForAFakeDoorDoesNotClickAnABTest()
     {
         $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/'], 0, ['rabtd' => $this->idExperiment . '-c']);

@@ -1,0 +1,12 @@
+body { font-family: system-ui, sans-serif; margin: 0; color: #222; }
+nav { display: flex; gap: 16px; padding: 12px 24px; background: #263238; }
+nav a, nav button { color: #fff; background: none; border: 0; font: inherit; text-decoration: none; cursor: pointer; }
+main { max-width: 720px; margin: 0 auto; padding: 24px; }
+.promo-banner { background: #fff3cd; padding: 8px 12px; border-radius: 4px; }
+.buy-button { display: inline-block; padding: 10px 20px; background: #1565c0; color: #fff; border-radius: 4px; text-decoration: none; }
+.buy-button.green { background: #2e7d32; }
+.plans { display: flex; gap: 24px; }
+.plan { border: 1px solid #ccc; border-radius: 4px; padding: 16px; flex: 1; }
+.filler { min-height: 1600px; }
+.newsletter-signup { border-top: 1px solid #ccc; padding: 24px 0; }
+footer { max-width: 720px; margin: 0 auto; padding: 12px 24px; font: 12px monospace; color: #666; white-space: pre-wrap; }

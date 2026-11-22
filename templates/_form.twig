@@ -115,7 +115,7 @@
     </div>
 
     <div data-kind="fake_door">
-        {% set door = experiment.door ?: {selector: '', position: 'after', element: 'button', label: '', css_class: '', message: ''} %}
+        {% set door = experiment.kind == 'fake_door' ? experiment.door : {selector: '', position: 'after', element: 'button', label: '', css_class: '', message: ''} %}
         <h3 class="form-section-title">{{ 'RebelABTesting_DoorTitle'|translate }}</h3>
         <p class="section-help">{{ 'RebelABTesting_DoorHelp'|translate }}</p>
         <div class="row">
@@ -157,6 +157,18 @@
                 <label for="door_css_class">{{ 'RebelABTesting_DoorCssClass'|translate }}</label>
                 <input type="text" name="door[css_class]" id="door_css_class" value="{{ door.css_class }}" maxlength="200">
                 <span class="form-hint">{{ 'RebelABTesting_DoorCssClassHint'|translate }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div data-kind="watch">
+        <h3 class="form-section-title">{{ 'RebelABTesting_WatchTitle'|translate }}</h3>
+        <p class="section-help">{{ 'RebelABTesting_WatchHelp'|translate }}</p>
+        <div class="row">
+            <div class="col s12 m6 form-field">
+                <label for="watch_selector">{{ 'RebelABTesting_WatchSelector'|translate }}</label>
+                <input type="text" name="watch[selector]" id="watch_selector" value="{{ experiment.kind == 'watch' ? experiment.door.selector : '' }}" maxlength="500">
+                <span class="form-hint">{{ 'RebelABTesting_WatchSelectorHint'|translate }}</span>
             </div>
         </div>
     </div>

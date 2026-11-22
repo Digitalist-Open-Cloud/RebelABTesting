@@ -116,6 +116,14 @@ class ExperimentsTest extends IntegrationTestCase
         $this->assertSame(['fake_door', $door, [], null, []], [$experiment['kind'], $experiment['door'], $experiment['variants'], $experiment['primary_measure'], $experiment['guardrails']]);
     }
 
+    public function testAWatchedElementIsStoredWithItsSelectorOnly()
+    {
+        $id = $this->api->insertExperiment(1, 'watch', '', '', '2024-03-01', '2024-03-31', [['js' => 'ignored()']], 100, 'any', '', ['type' => 'bounce'], 'watch', ['selector' => '.signup', 'label' => 'ignored']);
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['watch', ['selector' => '.signup'], [], null], [$experiment['kind'], $experiment['door'], $experiment['variants'], $experiment['primary_measure']]);
+    }
+
     public function testEachExperimentHasItsOwnSecretForPreviews()
     {
         $one = $this->api->getExperiment($this->add(1, 'one', '2024-03-01', '2024-03-31'), 1);
@@ -215,6 +223,7 @@ class ExperimentsTest extends IntegrationTestCase
             'a goal the website does not have' => [['measure' => ['type' => 'goal', 'idgoal' => 99]], 'A measure is'],
             'an event without a category' => [['measure' => ['type' => 'event', 'action' => 'Play']], 'A measure is'],
             'an unknown measure' => [['measure' => ['type' => 'happiness']], 'A measure is'],
+            'a watched element without a selector' => [['kind' => 'watch', 'door' => []], 'element to watch'],
             'an unknown kind' => [['kind' => 'survey'], 'Unknown kind'],
             'a fake door without its fields' => [['kind' => 'fake_door', 'door' => ['label' => 'Export']], 'A fake door needs'],
             'a goal that is not a number' => [['measure' => ['type' => 'goal', 'idgoal' => '1 OR 1']], 'A measure is'],

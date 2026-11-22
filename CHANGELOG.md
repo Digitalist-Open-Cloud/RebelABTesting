@@ -35,6 +35,10 @@ not take over data of SimpleABTesting.
   class, set a style, change an image or a link.
 - Users with write access to a website can run experiments without code. CSS and JavaScript in a
   variant need admin access.
+- Watch an element: an experiment that changes nothing and counts the visits that see and click
+  an element the page already has.
+- The tag takes the address of Matomo with a path, for a Matomo that is installed in a directory.
+- A test website in `tests/site` to try experiments on.
 - Swedish translation.
 
 ### Security
