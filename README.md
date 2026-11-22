@@ -29,21 +29,36 @@ them can only be changed by an admin.
 
 - **First and last day**, in UTC. **Stop now** in the list ends an experiment before its last day.
 - **Pages**: all pages, or the pages whose address equals, contains, starts with or matches a
-  regular expression. The whole address is compared, including `https://`.
+  regular expression. The whole address is compared, including `https://`. Pages can also be left
+  out in the same way.
 - **Share of visitors**: the percentage of visitors that take part. They are split evenly between
   the original and the variants. The others get the original and are not counted.
 - **Variants**: one to ten. A variant is a list of changes, each doing one thing to the elements a
-  CSS selector matches: change the text, hide it, add a CSS class, set a style, change the image or
-  change where a link goes. Admins of the website can also give a variant CSS and JavaScript.
+  CSS selector matches: change the text, hide it, add a CSS class, set a style, change the image,
+  change where a link goes, or insert a text before, after or at the top of it. A template fills in
+  the changes for the things that are tested most: a headline, a button, a banner, an image, a line
+  of text after a button, a shorter form. Admins of the website can also give a variant CSS and
+  JavaScript.
+- **Another page**: a variant can send the visitor to another page instead, for a test between two
+  pages. What the address carries, such as the parameters of a campaign, goes along. Limit the
+  experiment to the page of the original.
 - **Primary measure**: what the experiment is judged by. Choose it before the start. It is one of:
   - a goal of the website;
   - ecommerce orders, or the revenue per visit;
+  - the revenue per visit of a goal, or of all goals and orders together;
+  - visits that reach any goal;
   - an event, by its category and optionally its action;
+  - page views per visit, or the length of a visit;
   - bounces, where fewer is better;
   - visits that search the website, where fewer is better: visitors who find what they came for
     do not need to search.
 - **Guardrails**: up to two more measures that must not get worse while the primary measure gets
   better, for example orders when the experiment is about clicks.
+- **Email me the result**: the one who adds the experiment gets an email when a variant is found
+  better or worse on the primary measure, and when the experiment has ended. Matomo sends it with
+  its scheduled tasks, once a day.
+- **How sure to be**: 90, 95 or 99%. A variant is called better or worse when the chance is at
+  least that high. Higher needs more visits.
 
 ### How long to run
 
@@ -101,16 +116,21 @@ number the form asks for when it works out how long an A/B test has to run.
 
 ## Results
 
+**Manage experiments** lists the experiments with what their primary measure says so far. The name
+of an experiment leads to its page.
+
 Each experiment has a page in the reporting menu, under **A/B Testing**. It shows, for all the time
 the experiment ran:
 
 - the visitors and the visits per variant;
+- a chart of the primary measure per variant, from the first day up to each day. Lines that still
+  cross have not settled;
 - for the primary measure, the guardrails and each goal that was reached: the visits, the share of
   the visits or the average per visit, the difference to the original and the chance that the
   variant is better than the original.
 
 A variant is called better or worse on the primary measure and the guardrails when that chance is at
-least 95%. With too few visits the page says there is not enough data. The goals are shown without a
+least as high as the experiment asks for, 95% unless you chose otherwise. With too few visits the page says there is not enough data. The goals are shown without a
 verdict: with many measures, one of them reaches 95% by chance more often than one in twenty. An
 experiment without a primary measure gets a verdict for every goal.
 
@@ -118,8 +138,14 @@ The page warns when the visitors are split between the groups far more unevenly 
 explains. Then visitors are not assigned or counted as they should be, for example because a variant
 breaks the page, and the result cannot be trusted.
 
-Only what a visit does from the moment it is in the experiment counts. A goal reached earlier in the
-same visit is left out. Bounces and site searches are counted for the whole visit.
+Goals, revenue and events count from the moment a visit is in the experiment. A goal reached earlier
+in the same visit is left out. Bounces, site searches, page views and the length of a visit are
+counted for the whole visit.
+
+The segment chosen at the top of Matomo limits the result to its visits, for example to visits from
+mobile devices.
+
+With the RebelAuditLog plugin, adding, changing, stopping and deleting an experiment is logged.
 
 The result is read from the log of visits. If Matomo deletes old logs while an experiment runs, the
 visits of the deleted days leave the result.
@@ -151,19 +177,21 @@ about experiments that have ended or not started.
 
 | Method | Access |
 | --- | --- |
-| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails) | write, admin with CSS or JavaScript |
+| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails, confidence, excludeMatch, excludeValue, notify) | write, admin with CSS or JavaScript |
 | `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | write, admin with CSS or JavaScript |
 | `RebelABTesting.stopExperiment` (id, idSite) | write |
 | `RebelABTesting.deleteExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiment` (id, idSite) | write |
 | `RebelABTesting.getExperiments` (idSite) | view |
-| `RebelABTesting.getExperimentResult` (idSite, id) | view |
+| `RebelABTesting.getExperimentResult` (idSite, id, segment) | view |
+| `RebelABTesting.getExperimentEvolution` (idSite, id, segment) | view |
 
 `variants` is a list. Each variant has a `name`, a list of `changes` with `selector`, `action` (`text`,
 `hide`, `add_class`, `style`, `image` or `link`) and `value`, and optionally `css` and `js`. For example
 `variants[0][name]=Green&variants[0][changes][0][selector]=h1&variants[0][changes][0][action]=text&variants[0][changes][0][value]=Hello`.
 `targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryMeasure` has a `type`
-(`goal`, `orders`, `revenue`, `event`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
+(`goal`, `goal_revenue`, `orders`, `revenue`, `conversions`, `total_revenue`, `event`, `pageviews`,
+`visit_length`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
 event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `fake_door` or `watch`. For a fake door, `door` has `selector`, `position`
 (`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
 `message`. For `watch` it has the `selector` of the element.

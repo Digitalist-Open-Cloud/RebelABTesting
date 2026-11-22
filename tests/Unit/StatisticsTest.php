@@ -47,6 +47,14 @@ final class StatisticsTest extends TestCase
         $this->assertNull(Statistics::chanceOfHigherAverage(100, 0, 0, 100, 0, 0));
     }
 
+    public function testVariantsWhoseVisitsAllHaveTheSameAmountDifferForSure(): void
+    {
+        // 100 visits of 1 each against 100 visits of 3 each.
+        $this->assertSame(1.0, Statistics::chanceOfHigherAverage(100, 100, 100, 100, 300, 900));
+        $this->assertSame(0.0, Statistics::chanceOfHigherAverage(100, 300, 900, 100, 100, 100));
+        $this->assertNull(Statistics::chanceOfHigherAverage(100, 300, 900, 100, 300, 900));
+    }
+
     /**
      * @dataProvider getSplits
      * @param int[] $visitors
@@ -90,6 +98,12 @@ final class StatisticsTest extends TestCase
         $this->assertSame([0.0, 0.0], Statistics::rateInterval(0, 0));
     }
 
+    public function testAGroupWithoutAnyConversionsIsADifferenceToo(): void
+    {
+        $this->assertLessThan(0.001, Statistics::chanceToBeat(40, 30, 40, 0));
+        $this->assertGreaterThan(0.999, Statistics::chanceToBeat(40, 0, 40, 30));
+    }
+
     /**
      * @dataProvider getTooLittleData
      */
@@ -103,9 +117,9 @@ final class StatisticsTest extends TestCase
         return [
             'no visits' => [0, 0, 0, 0],
             'few visits' => [29, 10, 1000, 100],
-            'few conversions of the original' => [1000, 4, 1000, 100],
-            'few conversions of the variant' => [1000, 100, 1000, 4],
-            'nearly all visits converted' => [1000, 100, 1000, 996],
+            'few conversions' => [1000, 4, 1000, 4],
+            'nearly all visits converted' => [1000, 997, 1000, 996],
+            'few conversions for the smaller group' => [30, 1, 10000, 300],
         ];
     }
 }

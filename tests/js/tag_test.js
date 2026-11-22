@@ -484,3 +484,12 @@ Deno.test("each visit is told to Matomo once, also when the experiments are kept
   await fireWith([], env);
   assertEquals(env._paq, [["appendToTrackingUrl", `rabt=7-2-${A}`], ["ping"]]);
 });
+
+Deno.test("an experiment does not run on a page it leaves out", async () => {
+  const leftOut = { match: "any", value: "", exclude_match: "contains", exclude_value: "/pricing" };
+  const env = makeEnv({ experiments: [experiment(leftOut), experiment({ id: 8, exclude_match: "regexp", exclude_value: "/checkout|/login" })] });
+  await fireWith([0, 0.9], env);
+
+  assertEquals(stored(env.localStorage, 7), null);
+  assertEquals(stored(env.localStorage, 8).v, 2);
+});

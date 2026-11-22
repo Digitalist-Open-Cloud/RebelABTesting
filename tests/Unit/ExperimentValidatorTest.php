@@ -70,6 +70,19 @@ final class ExperimentValidatorTest extends TestCase
         ];
     }
 
+    public function testPagesCanBeLeftOutAndTheLevelOfCertaintyIsOneOfThree(): void
+    {
+        $this->assertNull(ExperimentValidator::validateExclude('none', ''));
+        $this->assertNull(ExperimentValidator::validateExclude('regexp', '/checkout|/login'));
+        $this->assertSame('RebelABTesting_ErrorTargetMatch', ExperimentValidator::validateExclude('any', ''));
+        $this->assertSame('RebelABTesting_ErrorTargetValue', ExperimentValidator::validateExclude('contains', ''));
+
+        foreach ([90, 95, 99] as $confidence) {
+            $this->assertNull(ExperimentValidator::validateConfidence($confidence));
+        }
+        $this->assertSame('RebelABTesting_ErrorConfidence', ExperimentValidator::validateConfidence(100));
+    }
+
     public function testTrafficShareIsAPercentage(): void
     {
         $this->assertNull(ExperimentValidator::validateTrafficShare(1));

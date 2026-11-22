@@ -15,6 +15,7 @@ use Piwik\Db;
 use Piwik\Piwik;
 use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
+use Piwik\Segment;
 use Piwik\Site;
 use Piwik\Tracker\Action;
 
@@ -32,11 +33,28 @@ class Measures
     public const EVENT = 'event';
     public const BOUNCE = 'bounce';
     public const SEARCH = 'search';
+    public const GOAL_REVENUE = 'goal_revenue';
+    public const CONVERSIONS = 'conversions';
+    public const TOTAL_REVENUE = 'total_revenue';
+    public const PAGEVIEWS = 'pageviews';
+    public const VISIT_LENGTH = 'visit_length';
+
+    public const UNIT_SHARE = 'share';
+    public const UNIT_MONEY = 'money';
+    public const UNIT_NUMBER = 'number';
+    public const UNIT_SECONDS = 'seconds';
 
     public const MAX_GUARDRAILS = 2;
 
     private const ECOMMERCE_ORDER = 0;
     private const LOWER_IS_BETTER = [self::BOUNCE, self::SEARCH];
+    private const UNITS = [
+        self::REVENUE => self::UNIT_MONEY,
+        self::GOAL_REVENUE => self::UNIT_MONEY,
+        self::TOTAL_REVENUE => self::UNIT_MONEY,
+        self::PAGEVIEWS => self::UNIT_NUMBER,
+        self::VISIT_LENGTH => self::UNIT_SECONDS,
+    ];
 
     /**
      * @param mixed $measure what a request handed over
@@ -50,6 +68,7 @@ class Measures
             case '':
                 return null;
             case self::GOAL:
+            case self::GOAL_REVENUE:
                 $idGoal = (int) ($measure['idgoal'] ?? 0);
                 if (!isset(GoalsApi::getInstance()->getGoals($idSite)[$idGoal])) {
                     break;
@@ -65,6 +84,10 @@ class Measures
             case self::REVENUE:
             case self::BOUNCE:
             case self::SEARCH:
+            case self::CONVERSIONS:
+            case self::TOTAL_REVENUE:
+            case self::PAGEVIEWS:
+            case self::VISIT_LENGTH:
                 return ['type' => $type];
         }
 
@@ -100,10 +123,13 @@ class Measures
         foreach (GoalsApi::getInstance()->getGoals($idSite) as $goal) {
             $choices[self::GOAL . ':' . $goal['idgoal']] = self::getName($idSite, ['type' => self::GOAL, 'idgoal' => (int) $goal['idgoal']]);
         }
+        foreach (GoalsApi::getInstance()->getGoals($idSite) as $goal) {
+            $choices[self::GOAL_REVENUE . ':' . $goal['idgoal']] = self::getName($idSite, ['type' => self::GOAL_REVENUE, 'idgoal' => (int) $goal['idgoal']]);
+        }
         foreach (Site::isEcommerceEnabledFor($idSite) ? [self::ORDERS, self::REVENUE] : [] as $type) {
             $choices[$type] = self::getName($idSite, ['type' => $type]);
         }
-        foreach ([self::BOUNCE, self::SEARCH] as $type) {
+        foreach ([self::CONVERSIONS, self::TOTAL_REVENUE, self::PAGEVIEWS, self::VISIT_LENGTH, self::BOUNCE, self::SEARCH] as $type) {
             $choices[$type] = self::getName($idSite, ['type' => $type]);
         }
         $choices[self::EVENT] = Piwik::translate('RebelABTesting_MeasureEventChoice');
@@ -121,7 +147,7 @@ class Measures
             return '';
         }
 
-        return $measure['type'] === self::GOAL ? self::GOAL . ':' . $measure['idgoal'] : $measure['type'];
+        return isset($measure['idgoal']) ? $measure['type'] . ':' . $measure['idgoal'] : $measure['type'];
     }
 
     /**
@@ -145,9 +171,10 @@ class Measures
     {
         switch ($measure['type']) {
             case self::GOAL:
+            case self::GOAL_REVENUE:
                 $goals = GoalsApi::getInstance()->getGoals($idSite);
                 $name = Common::unsanitizeInputValue($goals[$measure['idgoal']]['name'] ?? Piwik::translate('General_Unknown'));
-                return Piwik::translate('RebelABTesting_MeasureGoal', $name);
+                return Piwik::translate($measure['type'] === self::GOAL ? 'RebelABTesting_MeasureGoal' : 'RebelABTesting_MeasureGoalRevenue', $name);
             case self::EVENT:
                 return Piwik::translate('RebelABTesting_MeasureEvent', $measure['category'] . ($measure['action'] === '' ? '' : ' / ' . $measure['action']));
             default:
@@ -170,7 +197,40 @@ class Measures
      */
     public static function isAmount(array $measure): bool
     {
-        return $measure['type'] === self::REVENUE;
+        return isset(self::UNITS[$measure['type']]);
+    }
+
+    /**
+     * @param array<string, mixed> $measure
+     * @return string how its value reads: as a share of the visits, or as money, a number or
+     *                seconds per visit
+     */
+    public static function getUnit(array $measure): string
+    {
+        return self::UNITS[$measure['type']] ?? self::UNIT_SHARE;
+    }
+
+    /**
+     * Limits the visits of an experiment to those of a segment.
+     *
+     * @param array<string, mixed> $experiment
+     * @return array{0: string, 1: array<int, mixed>} what to add to the condition of a query on the
+     *         log of the plugin as `l`, and the values it binds
+     */
+    public static function getSegmentFilter(array $experiment, string $segment): array
+    {
+        if (trim($segment) === '') {
+            return ['', []];
+        }
+
+        $query = (new Segment($segment, [$experiment['idsite']]))->getSelectQuery(
+            'log_visit.idvisit',
+            'log_visit',
+            'log_visit.idsite = ? AND log_visit.visit_last_action_time >= ? AND log_visit.visit_first_action_time <= ?',
+            [$experiment['idsite'], $experiment['from_date'] . ' 00:00:00', $experiment['to_date'] . ' 23:59:59']
+        );
+
+        return [' AND l.idvisit IN (SELECT idvisit FROM (' . $query['sql'] . ') segment)', $query['bind']];
     }
 
     /**
@@ -182,31 +242,46 @@ class Measures
     }
 
     /**
-     * What the visits of each variant did, from the moment they were in the experiment.
+     * What the visits of each variant did. Goals, revenue and events count from the moment the visit
+     * was in the experiment; what Matomo keeps for a visit as a whole counts for the whole visit.
      *
      * @param array<string, mixed> $experiment
      * @param array<string, mixed> $measure
-     * @return array<int, array{count: int, sum: float, sum_of_squares: float}> by variant: the visits
-     *         with the outcome and, for an amount, the amounts of the visits added up
+     * @param array{0: string, 1: array<int, mixed>} $filter see getSegmentFilter()
+     * @param bool $byDay whether to tell the days apart, by the day the visit got into the experiment
+     * @return array<int, array{variant: int, day: ?string, count: int, sum: float, sum_of_squares: float}>
+     *         for each variant, and day: the visits with the outcome and, for an amount, the
+     *         amounts of the visits added up
      */
-    public function count(array $experiment, array $measure): array
+    public function count(array $experiment, array $measure, array $filter = ['', []], bool $byDay = false): array
     {
         $log = Common::prefixTable(LogExperiment::TABLE);
-        $bind = [$experiment['id'], $experiment['idsite']];
-        $where = 'l.idexperiment = ? AND l.idsite = ?';
+        $where = 'l.idexperiment = ? AND l.idsite = ?' . $filter[0];
+        $bind = array_merge([$experiment['id'], $experiment['idsite']], $filter[1]);
+        $day = $byDay ? ', DATE(l.server_time) AS day' : '';
+        $visit = 'l.idvisit, l.variant' . ($byDay ? ', DATE(l.server_time)' : '');
 
         switch ($measure['type']) {
             case self::GOAL:
+            case self::GOAL_REVENUE:
             case self::ORDERS:
             case self::REVENUE:
-                $conversions = "SELECT l.idvisit, l.variant, SUM(c.revenue) AS amount
-                                  FROM $log l
-                                  INNER JOIN " . Common::prefixTable('log_conversion') . " c
-                                    ON c.idvisit = l.idvisit AND c.idsite = l.idsite AND c.server_time >= l.server_time
-                                 WHERE $where AND c.idgoal = ?
-                                 GROUP BY l.idvisit, l.variant";
-                $sql = "SELECT variant, COUNT(*) AS nb, SUM(amount) AS total, SUM(amount * amount) AS squares FROM ($conversions) visits GROUP BY variant";
-                $bind[] = $measure['type'] === self::GOAL ? $measure['idgoal'] : self::ECOMMERCE_ORDER;
+            case self::CONVERSIONS:
+            case self::TOTAL_REVENUE:
+                $goal = 'c.idgoal = ?';
+                if ($measure['type'] === self::CONVERSIONS) {
+                    $goal = 'c.idgoal > ' . self::ECOMMERCE_ORDER;
+                } elseif ($measure['type'] === self::TOTAL_REVENUE) {
+                    $goal = 'c.idgoal >= ' . self::ECOMMERCE_ORDER;
+                } else {
+                    $bind[] = $measure['idgoal'] ?? self::ECOMMERCE_ORDER;
+                }
+                $visits = "SELECT l.variant$day, SUM(c.revenue) AS amount
+                             FROM $log l
+                             INNER JOIN " . Common::prefixTable('log_conversion') . " c
+                               ON c.idvisit = l.idvisit AND c.idsite = l.idsite AND c.server_time >= l.server_time
+                            WHERE $where AND $goal
+                            GROUP BY $visit";
                 break;
             case self::EVENT:
                 $category = $this->getIdAction($measure['category'], Action::TYPE_EVENT_CATEGORY);
@@ -214,32 +289,55 @@ class Measures
                 if ($category === 0 || $action === 0) {
                     return [];
                 }
-                $sql = "SELECT l.variant, COUNT(DISTINCT l.idvisit) AS nb, 0 AS total, 0 AS squares
-                          FROM $log l
-                          INNER JOIN " . Common::prefixTable('log_link_visit_action') . " a
-                            ON a.idvisit = l.idvisit AND a.server_time >= l.server_time
-                         WHERE $where AND a.idaction_event_category = ?" . ($action === null ? '' : ' AND a.idaction_event_action = ?') . '
-                         GROUP BY l.variant';
+                $visits = "SELECT l.variant$day, 0 AS amount
+                             FROM $log l
+                             INNER JOIN " . Common::prefixTable('log_link_visit_action') . " a
+                               ON a.idvisit = l.idvisit AND a.server_time >= l.server_time
+                            WHERE $where AND a.idaction_event_category = ?" . ($action === null ? '' : ' AND a.idaction_event_action = ?') . "
+                            GROUP BY $visit";
                 $bind[] = $category;
                 if ($action !== null) {
                     $bind[] = $action;
                 }
                 break;
+            case self::PAGEVIEWS:
+                $visits = "SELECT l.variant$day, COUNT(*) AS amount
+                             FROM $log l
+                             INNER JOIN " . Common::prefixTable('log_link_visit_action') . " a ON a.idvisit = l.idvisit
+                             INNER JOIN " . Common::prefixTable('log_action') . " u ON u.idaction = a.idaction_url AND u.type = " . Action::TYPE_PAGE_URL . "
+                            WHERE $where AND a.idaction_event_category IS NULL
+                            GROUP BY $visit";
+                break;
             default:
-                $condition = $measure['type'] === self::BOUNCE ? 'v.visit_total_actions <= 1' : 'v.visit_total_searches > 0';
-                $sql = "SELECT l.variant, COUNT(*) AS nb, 0 AS total, 0 AS squares
-                          FROM $log l
-                          INNER JOIN " . Common::prefixTable('log_visit') . " v ON v.idvisit = l.idvisit
-                         WHERE $where AND $condition
-                         GROUP BY l.variant";
+                $conditions = [
+                    self::BOUNCE => 'v.visit_total_actions <= 1',
+                    self::SEARCH => 'v.visit_total_searches > 0',
+                    self::VISIT_LENGTH => 'v.visit_total_time > 0',
+                ];
+                $visits = "SELECT l.variant$day, " . ($measure['type'] === self::VISIT_LENGTH ? 'v.visit_total_time' : '0') . " AS amount
+                             FROM $log l
+                             INNER JOIN " . Common::prefixTable('log_visit') . " v ON v.idvisit = l.idvisit
+                            WHERE $where AND " . $conditions[$measure['type']];
         }
 
-        $counts = [];
-        foreach (Db::fetchAll($sql, $bind) as $row) {
-            $counts[(int) $row['variant']] = ['count' => (int) $row['nb'], 'sum' => (float) $row['total'], 'sum_of_squares' => (float) $row['squares']];
-        }
+        $group = 'variant' . ($byDay ? ', day' : '');
+        $rows = Db::fetchAll(
+            'SELECT variant' . ($byDay ? ', day' : ', NULL AS day') . ", COUNT(*) AS nb, SUM(amount) AS total, SUM(amount * amount) AS squares
+               FROM ($visits) visits
+              GROUP BY $group
+              ORDER BY $group",
+            $bind
+        );
 
-        return $counts;
+        return array_map(function (array $row): array {
+            return [
+                'variant' => (int) $row['variant'],
+                'day' => $row['day'],
+                'count' => (int) $row['nb'],
+                'sum' => (float) $row['total'],
+                'sum_of_squares' => (float) $row['squares'],
+            ];
+        }, $rows);
     }
 
     /**

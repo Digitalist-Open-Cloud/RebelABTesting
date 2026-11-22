@@ -9,16 +9,19 @@
 // form arrives with the page of the reporting menu, after this file has run, so events are caught
 // on the document.
 (function () {
+    // How far from the average a result has to be, to be as sure as the experiment asks for.
+    var CERTAINTY = { 90: 1.2816, 95: 1.6449, 99: 2.3263 };
+
     // The visits each group needs to find a difference of the given size four times out of five,
-    // judged the way the result page does, at 95%.
-    function requiredVisits(conversionRate, relativeEffect) {
+    // judged the way the result page does.
+    function requiredVisits(conversionRate, relativeEffect, confidence) {
         var original = conversionRate;
         var variant = conversionRate * (1 + relativeEffect);
         if (!(original > 0 && original < 1 && variant < 1 && relativeEffect > 0)) {
             return null;
         }
 
-        var z = 1.6449 + 0.8416;
+        var z = (CERTAINTY[confidence] || CERTAINTY[95]) + 0.8416;
         return Math.ceil(z * z * (original * (1 - original) + variant * (1 - variant)) / Math.pow(variant - original, 2));
     }
 
@@ -116,6 +119,7 @@
 
         var isAnyPage = form.querySelector('#target_match').value === 'any';
         form.querySelector('.rebelABTestingTargetValue').hidden = isAnyPage;
+        form.querySelector('.rebelABTestingExcludeValue').hidden = form.querySelector('#exclude_match').value === 'none';
     }
 
     function plan(form) {
@@ -124,7 +128,7 @@
             return parseFloat(form.querySelector(selector).value);
         };
         var groups = form.querySelectorAll('.rebelABTestingVariant').length + 1;
-        var visits = requiredVisits(number('.rebelABTestingPlannerRate') / 100, number('.rebelABTestingPlannerEffect') / 100);
+        var visits = requiredVisits(number('.rebelABTestingPlannerRate') / 100, number('.rebelABTestingPlannerEffect') / 100, number('#confidence'));
         var days = requiredDays(visits, groups, number('.rebelABTestingPlannerVisits'), number('#traffic_share') / 100);
 
         planner.querySelector('.rebelABTestingPlannerResult').textContent = days

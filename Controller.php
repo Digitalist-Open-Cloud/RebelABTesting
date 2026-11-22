@@ -10,6 +10,7 @@
 namespace Piwik\Plugins\RebelABTesting;
 
 use Exception;
+use Piwik\API\Request as ApiRequest;
 use Piwik\Common;
 use Piwik\Date;
 use Piwik\Nonce;
@@ -66,6 +67,8 @@ class Controller extends \Piwik\Plugin\Controller
             'matches' => ExperimentValidator::MATCHES,
             'maxVariants' => ExperimentValidator::MAX_VARIANTS,
             'kinds' => ExperimentValidator::KINDS,
+            'excludes' => ExperimentValidator::EXCLUDES,
+            'confidences' => ExperimentValidator::CONFIDENCES,
             'doorPositions' => ExperimentValidator::DOOR_POSITIONS,
             'doorElements' => ExperimentValidator::DOOR_ELEMENTS,
         ];
@@ -76,15 +79,15 @@ class Controller extends \Piwik\Plugin\Controller
         $idSite = $this->checkWriteRequest();
 
         try {
-            API::getInstance()->insertExperiment($idSite, ...$this->getExperimentFields());
+            ApiRequest::processRequest('RebelABTesting.insertExperiment', ['idSite' => $idSite] + $this->getExperimentFields(), []);
             $this->notify('RebelABTesting_ExperimentCreated', Notification::CONTEXT_SUCCESS);
         } catch (Exception $e) {
             $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
-            $this->redirect($this->getReportingUrl($idSite, self::CREATE_PAGE));
+            $this->redirect(self::getReportingUrl($idSite, self::CREATE_PAGE));
             return;
         }
 
-        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
+        $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
     }
 
     public function updateExperiment()
@@ -93,35 +96,35 @@ class Controller extends \Piwik\Plugin\Controller
         $id = Request::fromRequest()->getIntegerParameter('id', 0);
 
         try {
-            API::getInstance()->updateExperiment($id, $idSite, ...$this->getExperimentFields());
+            ApiRequest::processRequest('RebelABTesting.updateExperiment', ['id' => $id, 'idSite' => $idSite] + $this->getExperimentFields(), []);
             $this->notify('RebelABTesting_ExperimentUpdated', Notification::CONTEXT_SUCCESS);
         } catch (Exception $e) {
             $this->notify($e->getMessage(), Notification::CONTEXT_ERROR);
-            $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
+            $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
             return;
         }
 
-        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
+        $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
     }
 
     public function stop()
     {
         $idSite = $this->checkWriteRequest();
 
-        API::getInstance()->stopExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite);
+        ApiRequest::processRequest('RebelABTesting.stopExperiment', ['id' => Request::fromRequest()->getIntegerParameter('id', 0), 'idSite' => $idSite], []);
         $this->notify('RebelABTesting_ExperimentStopped', Notification::CONTEXT_SUCCESS);
 
-        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
+        $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
     }
 
     public function delete()
     {
         $idSite = $this->checkWriteRequest();
 
-        API::getInstance()->deleteExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite);
+        ApiRequest::processRequest('RebelABTesting.deleteExperiment', ['id' => Request::fromRequest()->getIntegerParameter('id', 0), 'idSite' => $idSite], []);
         $this->notify('RebelABTesting_ExperimentDeleted', Notification::CONTEXT_SUCCESS);
 
-        $this->redirect($this->getReportingUrl($idSite, self::LIST_PAGE));
+        $this->redirect(self::getReportingUrl($idSite, self::LIST_PAGE));
     }
 
     /**
@@ -134,7 +137,7 @@ class Controller extends \Piwik\Plugin\Controller
         return $this->renderTemplate('edit', self::getFormVariables($idSite) + [
             'experiment' => API::getInstance()->getExperiment(Request::fromRequest()->getIntegerParameter('id', 0), $idSite),
             'actionUrl' => self::getActionUrl('updateExperiment', $idSite),
-            'backUrl' => $this->getReportingUrl($idSite, self::LIST_PAGE),
+            'backUrl' => self::getReportingUrl($idSite, self::LIST_PAGE),
         ]);
     }
 
@@ -146,12 +149,29 @@ class Controller extends \Piwik\Plugin\Controller
         $this->checkSitePermission();
         $experiment = (new Experiments())->getById(Request::fromRequest()->getIntegerParameter('idExperiment', 0), $this->idSite);
 
-        $result = $experiment ? (new Results())->get($experiment) : null;
+        $segment = (string) ApiRequest::getRawSegmentFromRequest();
+        $results = new Results();
+        $result = $experiment ? $results->get($experiment, $segment) : null;
+        $evolution = $experiment ? $results->getEvolution($experiment, $segment) : null;
         $canWrite = Piwik::isUserHasWriteAccess($this->idSite);
+
+        if ($evolution !== null) {
+            $idSite = $this->idSite;
+            $evolution['chart'] = Chart::lines($evolution['series']);
+            foreach ($evolution['chart']['grid'] as &$line) {
+                $line['label'] = Results::format($evolution['unit'], $line['value'], $idSite);
+            }
+            foreach ($evolution['chart']['lines'] as &$line) {
+                $line['labels'] = array_map(function (?float $value) use ($evolution, $idSite): string {
+                    return $value === null ? '' : Results::format($evolution['unit'], $value, $idSite);
+                }, $line['values']);
+            }
+        }
 
         return $this->renderTemplate('result', [
             'experiment' => $experiment,
             'result' => $result,
+            'evolution' => $evolution,
             'canWrite' => $canWrite,
             'previewLinks' => $experiment && $canWrite ? $this->getPreviewLinks($experiment, $result['variants'] ?? []) : [],
         ]);
@@ -187,6 +207,8 @@ class Controller extends \Piwik\Plugin\Controller
                 'share' => $experiment['traffic_share'],
                 'match' => $experiment['target_match'],
                 'value' => $experiment['target_value'],
+                'exclude_match' => $experiment['exclude_match'],
+                'exclude_value' => $experiment['exclude_value'],
                 'variants' => array_map(function (array $variant): array {
                     return ['changes' => $variant['changes'], 'redirect' => $variant['redirect'], 'css' => $variant['css'], 'js' => $variant['js']];
                 }, $experiment['variants']),
@@ -212,7 +234,10 @@ class Controller extends \Piwik\Plugin\Controller
     }
 
     /**
-     * @return array<int, mixed> the fields of the form, in the order the API takes them
+     * Changes go through Matomo's API, so that plugins that listen to it, such as an audit log, see
+     * them.
+     *
+     * @return array<string, mixed> the fields of the form, by the name the API has for them
      */
     private function getExperimentFields(): array
     {
@@ -220,19 +245,23 @@ class Controller extends \Piwik\Plugin\Controller
         $kind = $post->getStringParameter('kind', ExperimentValidator::KIND_AB);
 
         return [
-            trim($post->getStringParameter('name', '')),
-            trim($post->getStringParameter('hypothesis', '')),
-            trim($post->getStringParameter('description', '')),
-            trim($post->getStringParameter('from_date', '')),
-            trim($post->getStringParameter('to_date', '')),
-            array_values($post->getArrayParameter('variants', [])),
-            $post->getIntegerParameter('traffic_share', 100),
-            $post->getStringParameter('target_match', ExperimentValidator::MATCH_ANY),
-            $post->getStringParameter('target_value', ''),
-            $this->getMeasure('primary_measure') ?? [],
-            $kind,
-            $post->getArrayParameter($kind === ExperimentValidator::KIND_WATCH ? 'watch' : 'door', []),
-            array_values(array_filter(array_map([$this, 'getMeasure'], ['guardrail_0', 'guardrail_1']))),
+            'name' => trim($post->getStringParameter('name', '')),
+            'hypothesis' => trim($post->getStringParameter('hypothesis', '')),
+            'description' => trim($post->getStringParameter('description', '')),
+            'fromDate' => trim($post->getStringParameter('from_date', '')),
+            'toDate' => trim($post->getStringParameter('to_date', '')),
+            'variants' => array_values($post->getArrayParameter('variants', [])),
+            'trafficShare' => $post->getIntegerParameter('traffic_share', 100),
+            'targetMatch' => $post->getStringParameter('target_match', ExperimentValidator::MATCH_ANY),
+            'targetValue' => $post->getStringParameter('target_value', ''),
+            'primaryMeasure' => $this->getMeasure('primary_measure') ?? [],
+            'kind' => $kind,
+            'door' => $post->getArrayParameter($kind === ExperimentValidator::KIND_WATCH ? 'watch' : 'door', []),
+            'guardrails' => array_values(array_filter(array_map([$this, 'getMeasure'], ['guardrail_0', 'guardrail_1']))),
+            'confidence' => $post->getIntegerParameter('confidence', 95),
+            'excludeMatch' => $post->getStringParameter('exclude_match', ExperimentValidator::EXCLUDE_NONE),
+            'excludeValue' => $post->getStringParameter('exclude_value', ''),
+            'notify' => $post->getStringParameter('notify', '') !== '',
         ];
     }
 
@@ -301,7 +330,11 @@ class Controller extends \Piwik\Plugin\Controller
         ];
     }
 
-    private function getReportingUrl(int $idSite, string $subcategory): string
+    /**
+     * @param string $subcategory the page of the plugin in the reporting menu: one of the pages of
+     *                            this class, or the ID of an experiment for its result
+     */
+    public static function getReportingUrl(int $idSite, string $subcategory): string
     {
         $page = self::getPageParameters($idSite);
 

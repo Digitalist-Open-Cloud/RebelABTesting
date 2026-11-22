@@ -212,6 +212,24 @@
             </div>
         </div>
 
+        <details class="rebelABTestingMore"{% if experiment.exclude_match != 'none' %} open{% endif %}>
+            <summary>{{ 'RebelABTesting_FormExclude'|translate }}</summary>
+            <div class="rebelABTestingColumns">
+                <div class="rebelABTestingField">
+                    <label for="exclude_match">{{ 'RebelABTesting_FormExcludeMatch'|translate }}</label>
+                    <select name="exclude_match" id="exclude_match" class="browser-default">
+                        {% for match in excludes %}
+                        <option value="{{ match }}"{% if match == experiment.exclude_match %} selected{% endif %}>{{ (match == 'none' ? 'RebelABTesting_ExcludeNone' : 'RebelABTesting_Match_' ~ match)|translate }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="rebelABTestingField rebelABTestingExcludeValue">
+                    <label for="exclude_value">{{ 'RebelABTesting_FormTargetValue'|translate }}</label>
+                    <input type="text" name="exclude_value" id="exclude_value" value="{{ experiment.exclude_value }}" maxlength="1000" placeholder="/checkout">
+                </div>
+            </div>
+        </details>
+
         <h3 class="form-section-title">{{ 'RebelABTesting_FormVisitors'|translate }}</h3>
         <div class="rebelABTestingField rebelABTestingNarrow">
             <label for="traffic_share">{{ 'RebelABTesting_FormTrafficShare'|translate }}</label>
@@ -223,6 +241,19 @@
     <section class="rebelABTestingPanel" data-panel="measures" data-kind="ab">
         <h3 class="form-section-title">{{ 'RebelABTesting_FormMeasures'|translate }}</h3>
         {{ _self.measure('primary_measure', 'RebelABTesting_FormPrimaryMeasure'|translate, 'RebelABTesting_FormPrimaryMeasureHint'|translate, experiment.primary_measure, measures) }}
+        <div class="rebelABTestingField rebelABTestingNarrow">
+            <label for="confidence">{{ 'RebelABTesting_FormConfidence'|translate }}</label>
+            <select name="confidence" id="confidence" class="browser-default">
+                {% for confidence in confidences %}
+                <option value="{{ confidence }}"{% if confidence == experiment.confidence %} selected{% endif %}>{{ confidence }}%</option>
+                {% endfor %}
+            </select>
+            <span class="form-hint">{{ 'RebelABTesting_FormConfidenceHint'|translate }}</span>
+        </div>
+        <div class="rebelABTestingField">
+            <label><input type="checkbox" name="notify" value="1"{% if experiment.notify %} checked{% endif %}><span>{{ 'RebelABTesting_FormNotify'|translate }}</span></label>
+            <span class="form-hint">{{ 'RebelABTesting_FormNotifyHint'|translate }}</span>
+        </div>
         <details class="rebelABTestingMore"{% if experiment.guardrails is not empty %} open{% endif %}>
             <summary>{{ 'RebelABTesting_FormGuardrails'|translate }}</summary>
             <p class="form-hint">{{ 'RebelABTesting_FormGuardrailHint'|translate }}</p>

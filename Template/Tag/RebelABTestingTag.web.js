@@ -347,15 +347,21 @@
               element.insertAdjacentElement(position, inserted);
           }
 
+          // Whether the experiment runs on this page: on one of its pages, and not on one it leaves out.
           function matches(experiment) {
+              return compare(experiment.match, experiment.value, true)
+                  && !compare(experiment.exclude_match, experiment.exclude_value, false);
+          }
+
+          function compare(match, value, otherwise) {
               var url = window.location.href;
-              switch (experiment.match) {
-                  case "equals": return url === experiment.value;
-                  case "contains": return url.indexOf(experiment.value) !== -1;
-                  case "starts_with": return url.indexOf(experiment.value) === 0;
+              switch (match) {
+                  case "equals": return url === value;
+                  case "contains": return url.indexOf(value) !== -1;
+                  case "starts_with": return url.indexOf(value) === 0;
                   case "regexp":
-                      try { return new RegExp(experiment.value).test(url); } catch (e) { return false; }
-                  default: return true;
+                      try { return new RegExp(value).test(url); } catch (e) { return false; }
+                  default: return otherwise;
               }
           }
 

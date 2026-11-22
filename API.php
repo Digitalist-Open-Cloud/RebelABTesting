@@ -59,6 +59,11 @@ class API extends \Piwik\Plugin\API
      *                    `css_class` and the `message` shown after a click. For `watch`: the `selector` of the
      *                    element to watch
      * @param array $guardrails up to two measures that must not get worse
+     * @param int $confidence how sure to be before a variant is called better or worse: 90, 95 or 99
+     * @param string $excludeMatch how the address of a page the experiment leaves out is compared
+     *                             with $excludeValue: none, equals, contains, starts_with or regexp
+     * @param bool $notify whether to email the one who adds the experiment when a variant is found
+     *                     better or worse on the primary measure, and when the experiment ends
      * @return int the ID of the experiment
      */
     public function insertExperiment(
@@ -75,11 +80,36 @@ class API extends \Piwik\Plugin\API
         array $primaryMeasure = [],
         string $kind = 'ab',
         array $door = [],
-        array $guardrails = []
+        array $guardrails = [],
+        int $confidence = 95,
+        string $excludeMatch = 'none',
+        string $excludeValue = '',
+        bool $notify = true
     ): int {
         $this->checkCanSave($idSite, $variants);
 
-        return $this->experiments->insertExperiment($idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryMeasure, $kind, $door, $guardrails));
+        $fields = self::toFields(
+            $idSite,
+            $name,
+            $hypothesis,
+            $description,
+            $fromDate,
+            $toDate,
+            $variants,
+            $trafficShare,
+            $targetMatch,
+            $targetValue,
+            $primaryMeasure,
+            $kind,
+            $door,
+            $guardrails,
+            $confidence,
+            $excludeMatch,
+            $excludeValue,
+            $notify
+        );
+
+        return $this->experiments->insertExperiment($idSite, $fields);
     }
 
     /**
@@ -103,10 +133,34 @@ class API extends \Piwik\Plugin\API
         array $primaryMeasure = [],
         string $kind = 'ab',
         array $door = [],
-        array $guardrails = []
+        array $guardrails = [],
+        int $confidence = 95,
+        string $excludeMatch = 'none',
+        string $excludeValue = '',
+        bool $notify = true
     ): void {
         $this->checkCanSave($idSite, $variants, $this->experiments->getById($id, $idSite));
-        $this->experiments->updateExperiment($id, $idSite, self::toFields($idSite, $name, $hypothesis, $description, $fromDate, $toDate, $variants, $trafficShare, $targetMatch, $targetValue, $primaryMeasure, $kind, $door, $guardrails));
+        $fields = self::toFields(
+            $idSite,
+            $name,
+            $hypothesis,
+            $description,
+            $fromDate,
+            $toDate,
+            $variants,
+            $trafficShare,
+            $targetMatch,
+            $targetValue,
+            $primaryMeasure,
+            $kind,
+            $door,
+            $guardrails,
+            $confidence,
+            $excludeMatch,
+            $excludeValue,
+            $notify
+        );
+        $this->experiments->updateExperiment($id, $idSite, $fields);
     }
 
     /**
@@ -154,18 +208,41 @@ class API extends \Piwik\Plugin\API
      * the value per variant, the difference to the original and how likely the variant is to be
      * better than the original. For a fake door: the visits it was shown to and their clicks.
      *
+     * @param string $segment limits the result to the visits of a segment
      * @return array<string, mixed>
      */
-    public function getExperimentResult(int $idSite, int $id): array
+    public function getExperimentResult(int $idSite, int $id, string $segment = ''): array
     {
         Piwik::checkUserHasViewAccess($idSite);
 
+        return (new Results())->get($this->getExistingExperiment($idSite, $id), $segment);
+    }
+
+    /**
+     * How the primary measure of each variant developed day by day, counted from the first day of the
+     * experiment. Without a primary measure: the visits of each variant.
+     *
+     * @param string $segment limits it to the visits of a segment
+     * @return array<string, mixed>|null null when there is nothing to show
+     */
+    public function getExperimentEvolution(int $idSite, int $id, string $segment = ''): ?array
+    {
+        Piwik::checkUserHasViewAccess($idSite);
+
+        return (new Results())->getEvolution($this->getExistingExperiment($idSite, $id), $segment);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getExistingExperiment(int $idSite, int $id): array
+    {
         $experiment = $this->experiments->getById($id, $idSite);
         if ($experiment === null) {
             throw new Exception(Piwik::translate('RebelABTesting_ExperimentNotFound'));
         }
 
-        return (new Results())->get($experiment);
+        return $experiment;
     }
 
     /**
@@ -189,13 +266,21 @@ class API extends \Piwik\Plugin\API
         array $primaryMeasure,
         string $kind,
         array $door,
-        array $guardrails
+        array $guardrails,
+        int $confidence,
+        string $excludeMatch,
+        string $excludeValue,
+        bool $notify
     ): array {
         return [
             'kind' => $kind,
             'door' => $door,
             'primary_measure' => Measures::normalize($idSite, $primaryMeasure),
             'guardrails' => Measures::normalizeList($idSite, $guardrails),
+            'confidence' => $confidence,
+            'exclude_match' => $excludeMatch,
+            'exclude_value' => $excludeValue,
+            'notify' => $notify,
             'name' => $name,
             'hypothesis' => $hypothesis,
             'description' => $description,
