@@ -1,8 +1,8 @@
 # Rebel Experiments
 
-[![PHPCS check](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/phpcs.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/phpcs.yaml)
-[![Semgrep OSS scan](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/semgrep.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/semgrep.yaml)
-[![Test plugin with Matomo](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/matomo.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/matomo.yaml)
+[![PHPCS check](https://github.com/Digitalist-Open-Cloud/RebelExperiments/actions/workflows/phpcs.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/RebelExperiments/actions/workflows/phpcs.yaml)
+[![Semgrep OSS scan](https://github.com/Digitalist-Open-Cloud/RebelExperiments/actions/workflows/semgrep.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/RebelExperiments/actions/workflows/semgrep.yaml)
+[![Test plugin with Matomo](https://github.com/Digitalist-Open-Cloud/RebelExperiments/actions/workflows/matomo.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/RebelExperiments/actions/workflows/matomo.yaml)
 
 *Stop guessing. Test it on your own visitors.*
 
