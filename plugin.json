@@ -1,7 +1,7 @@
 {
     "name": "RebelExperiments",
     "description": "Experiments on a website with Matomo Tag Manager: A/B tests, rollouts, fake doors and more, with results per variant.",
-    "version": "0.2.0",
+    "version": "5.0.0",
     "theme": false,
     "require": {
         "php": ">=8.2.0",
