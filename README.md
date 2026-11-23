@@ -1,7 +1,14 @@
-# Rebel A/B Testing
+# Rebel Experiments
 
-A/B testing for Matomo. An experiment shows variants of a page to a share of the visitors and tells
-you which of them converts better than the original.
+[![PHPCS check](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/phpcs.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/phpcs.yaml)
+[![Semgrep OSS scan](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/semgrep.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/semgrep.yaml)
+[![Test plugin with Matomo](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/matomo.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/matomo.yaml)
+
+*Stop guessing. Test it on your own visitors.*
+
+Experiments on a website with Matomo: A/B tests, rollouts, fake doors and watching an element. An
+A/B test shows variants of a page to a share of the visitors and tells you which of them does
+better than the original.
 
 A variant is a list of changes to the page, such as another headline or a hidden banner, which a tag
 of Matomo Tag Manager makes in the browser of the visitor.
@@ -14,7 +21,7 @@ of Matomo Tag Manager makes in the browser of the visitor.
 
 ## Put the tag on the website
 
-1. In a container of Matomo Tag Manager, create a tag of the type **Rebel A/B Testing**.
+1. In a container of Matomo Tag Manager, create a tag of the type **Rebel Experiments**.
 2. Give it a trigger that fires on every page, for example Pageview.
 3. Publish the container.
 
@@ -23,7 +30,7 @@ changed experiment needs no new version of the container.
 
 ## Create an experiment
 
-Go to **A/B Testing > Create a new experiment** in the reporting menu of the website. You need write
+Go to **Experiments > Create a new experiment** in the reporting menu of the website. You need write
 access to the website. CSS and JavaScript in a variant need admin access, and an experiment that has
 them can only be changed by an admin.
 
@@ -54,7 +61,11 @@ them can only be changed by an admin.
   - page views per visit, or the length of a visit;
   - bounces, where fewer is better;
   - visits that search the website, where fewer is better: visitors who find what they came for
-    do not need to search.
+    do not need to search;
+  - visits that complete a funnel, when the plugin RebelFunnels is active;
+  - visits that answer a feedback form, when the plugin UserFeedback is active. The result then
+    also shows what the visits of each variant answered, for questions with answers to choose
+    from.
 - **Guardrails**: up to two more measures that must not get worse while the primary measure gets
   better, for example orders when the experiment is about clicks.
 - **Email me the result**: the one who adds the experiment gets an email when a variant is found
@@ -70,9 +81,25 @@ experiment, the share of visits that reach the primary measure today, and the sm
 find. Set the last day accordingly, and do not end the experiment earlier because the numbers look
 good: a test that is ended on its first good day often shows a difference that is not there.
 
+## Roll out a change
+
+A rollout is one change that a share of the visitors gets. The others are counted
+without it, to compare with. It serves three purposes:
+
+- **Roll out step by step.** Start with a few percent and raise the share when the measures hold.
+  A visitor who has the change keeps it, and raising the share brings more visitors in.
+- **Personalise.** Give it an audience and a share of 100: every visitor of the audience gets the
+  change, and nobody else.
+- **Hold out.** A share of 95 leaves a few visitors without the change, which shows over time what
+  the change is worth.
+
+The page of an A/B test has **Show a variant to everyone**. It ends the test and starts a rollout of
+the chosen variant for the same pages and audience, for a year. Change the website itself within
+that time.
+
 ## Fake door
 
-A fake door is the other kind of experiment. It adds a button or a link to something that does not
+A fake door is a kind of experiment of its own. It adds a button or a link to something that does not
 exist yet, to see how many visitors want it before you build it.
 
 - Give the text of the button or link, the element of the page it is put next to as a CSS selector,
@@ -91,7 +118,7 @@ a page, as two experiments that change the same thing disturb each other.
 ## How visitors are assigned
 
 A visitor gets the original or a variant by chance and keeps it until the experiment ends. The
-choice is kept in the `localStorage` of the browser, under `sabt:<id of the experiment>`. A browser
+choice is kept in the `localStorage` of the browser, under `rexp:<id of the experiment>`. A browser
 without `localStorage` gets the original and is not counted.
 
 ### What the audience goes by
@@ -116,7 +143,7 @@ A variant is applied when the tag fires, so let the tag fire as early as the con
 
 ## Watch an element
 
-The third kind of experiment changes nothing. It counts the visits that see an element the page
+Watching an element changes nothing. It counts the visits that see an element the page
 already has, and the visits that click it.
 
 - Give the element as a CSS selector. All elements that match are watched as one.
@@ -132,7 +159,7 @@ number the form asks for when it works out how long an A/B test has to run.
 **Manage experiments** lists the experiments with what their primary measure says so far. The name
 of an experiment leads to its page.
 
-Each experiment has a page in the reporting menu, under **A/B Testing**. It shows, for all the time
+Each experiment has a page in the reporting menu, under **Experiments**. It shows, for all the time
 the experiment ran:
 
 - the visitors and the visits per variant;
@@ -152,8 +179,8 @@ explains. Then visitors are not assigned or counted as they should be, for examp
 breaks the page, and the result cannot be trusted.
 
 Goals, revenue and events count from the moment a visit is in the experiment. A goal reached earlier
-in the same visit is left out. Bounces, site searches, page views and the length of a visit are
-counted for the whole visit.
+in the same visit is left out. Bounces, site searches, page views, the length of a visit, a
+funnel and an answered form are counted for the whole visit. A funnel is not shown in the chart.
 
 The segment chosen at the top of Matomo limits the result to its visits, for example to visits from
 mobile devices.
@@ -163,13 +190,24 @@ With the RebelAuditLog plugin, adding, changing, stopping and deleting an experi
 The result is read from the log of visits. If Matomo deletes old logs while an experiment runs, the
 visits of the deleted days leave the result.
 
+## Decisions
+
+The page of an experiment ends with its decision: use the change, keep things as they are, or no
+conclusion, with a note on why and what was learned. Anyone who can change experiments can record
+it, and take it back. It is shown with who recorded it and when, and in the list of experiments.
+
+Rolling out a variant records "Use the change" for its test.
+
+Write the note for whoever looks at the experiment in a year. The list of experiments with their
+results and decisions is the record of what was tried on the website.
+
 ## Preview
 
 The page of an experiment has a link for the original and for each variant, shown to admins of the
 website. A link opens the website with that variant, whatever the state of the experiment, so you
 can check a variant before the first day.
 
-- The variant stays for the browser tab. Add `#rabt-preview=off` to the address to end it.
+- The variant stays for the browser tab. Add `#rexp-preview=off` to the address to end it.
 - A previewed visit is not counted.
 - The link carries a secret of the experiment. Anyone who has the link can see the variant.
 
@@ -190,14 +228,16 @@ about experiments that have ended or not started.
 
 | Method | Access |
 | --- | --- |
-| `RebelABTesting.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails, confidence, excludeMatch, excludeValue, notify, audience) | write, admin with CSS or JavaScript |
-| `RebelABTesting.updateExperiment` (id, idSite, and the same as above) | write, admin with CSS or JavaScript |
-| `RebelABTesting.stopExperiment` (id, idSite) | write |
-| `RebelABTesting.deleteExperiment` (id, idSite) | write |
-| `RebelABTesting.getExperiment` (id, idSite) | write |
-| `RebelABTesting.getExperiments` (idSite) | view |
-| `RebelABTesting.getExperimentResult` (idSite, id, segment) | view |
-| `RebelABTesting.getExperimentEvolution` (idSite, id, segment) | view |
+| `RebelExperiments.insertExperiment` (idSite, name, hypothesis, description, fromDate, toDate, variants, trafficShare, targetMatch, targetValue, primaryMeasure, kind, door, guardrails, confidence, excludeMatch, excludeValue, notify, audience) | write, admin with CSS or JavaScript |
+| `RebelExperiments.updateExperiment` (id, idSite, and the same as above) | write, admin with CSS or JavaScript |
+| `RebelExperiments.stopExperiment` (id, idSite) | write |
+| `RebelExperiments.rollOutVariant` (idSite, id, variant) | write, admin when the variant has CSS or JavaScript |
+| `RebelExperiments.setDecision` (id, idSite, decision, note) | write |
+| `RebelExperiments.deleteExperiment` (id, idSite) | write |
+| `RebelExperiments.getExperiment` (id, idSite) | write |
+| `RebelExperiments.getExperiments` (idSite) | view |
+| `RebelExperiments.getExperimentResult` (idSite, id, segment) | view |
+| `RebelExperiments.getExperimentEvolution` (idSite, id, segment) | view |
 
 `variants` is a list. Each variant has a `name`, a list of `changes` with `selector`, `action` (`text`,
 `hide`, `add_class`, `style`, `image` or `link`) and `value`, and optionally `css` and `js`. For example
@@ -205,7 +245,9 @@ about experiments that have ended or not started.
 `targetMatch` is `any`, `equals`, `contains`, `starts_with` or `regexp`. `primaryMeasure` has a `type`
 (`goal`, `goal_revenue`, `orders`, `revenue`, `conversions`, `total_revenue`, `event`, `pageviews`,
 `visit_length`, `bounce` or `search`) and, for a goal, its `idgoal`, or for an
-event, its `category` and optionally its `action`. `guardrails` is a list of up to two of those. `kind` is `ab`, `fake_door` or `watch`. For a fake door, `door` has `selector`, `position`
+event, its `category` and optionally its `action`. With RebelFunnels it can also be `funnel` with an
+`idfunnel`, and with UserFeedback `feedback` with an `idform`. `guardrails` is a list of up to two of those. `kind` is `ab`, `rollout`, `fake_door` or `watch`. `decision` is `adopt`, `keep`, `inconclusive` or
+empty. For a fake door, `door` has `selector`, `position`
 (`after`, `before`, `append`, `prepend`), `element` (`button`, `link`), `label`, `css_class` and
 `message`. For `watch` it has the `selector` of the element.
 
@@ -221,9 +263,9 @@ yours, and what they do with personal data is up to you.
 From the root of Matomo:
 
 ```sh
-./console tests:run RebelABTesting
-./console tests:run-ui --plugin=RebelABTesting
-deno test --allow-read plugins/RebelABTesting/tests/js
+./console tests:run RebelExperiments
+./console tests:run-ui --plugin=RebelExperiments
+deno test --allow-read plugins/RebelExperiments/tests/js
 ```
 
 ### The test website
@@ -235,9 +277,9 @@ tests run the tag of the plugin on it.
 Open it in a browser through the web server of Matomo:
 
 - With a container of Matomo Tag Manager that has the tag, as on a real website:
-  `<matomo>/plugins/RebelABTesting/tests/site/index.html?mtm=/js/container_<id>.js`
+  `<matomo>/plugins/RebelExperiments/tests/site/index.html?mtm=/js/container_<id>.js`
 - Without Tag Manager, with the tracker and the tag straight from Matomo:
-  `<matomo>/plugins/RebelABTesting/tests/site/index.html?matomo=&idsite=<id of the website>`
+  `<matomo>/plugins/RebelExperiments/tests/site/index.html?matomo=&idsite=<id of the website>`
 
 The foot of each page shows the variant the browser got. Open a private window to be a new visitor.
 Limit your experiments to addresses that contain `/tests/site/`, so that they stay on the test

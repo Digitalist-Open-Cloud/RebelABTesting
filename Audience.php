@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Piwik\Piwik;
 
@@ -58,11 +58,11 @@ class Audience
             || mb_strlen($audience['referrer']) > self::TEXT_MAX_LENGTH
             || count($audience['languages']) > 20
         ) {
-            return 'RebelABTesting_ErrorAudience';
+            return 'RebelExperiments_ErrorAudience';
         }
         foreach ($audience['languages'] as $language) {
             if (!preg_match('/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/', $language)) {
-                return 'RebelABTesting_ErrorAudience';
+                return 'RebelExperiments_ErrorAudience';
             }
         }
 
@@ -77,21 +77,21 @@ class Audience
     {
         $parts = [];
         if ($audience['visitor'] !== '') {
-            $parts[] = Piwik::translate('RebelABTesting_AudienceVisitor_' . $audience['visitor']);
+            $parts[] = Piwik::translate('RebelExperiments_AudienceVisitor_' . $audience['visitor']);
         }
         if (!empty($audience['devices']) && count($audience['devices']) < count(self::DEVICES)) {
             $parts[] = implode(', ', array_map(function (string $device): string {
-                return Piwik::translate('RebelABTesting_AudienceDevice_' . $device);
+                return Piwik::translate('RebelExperiments_AudienceDevice_' . $device);
             }, $audience['devices']));
         }
         if ($audience['campaign'] !== '') {
-            $parts[] = Piwik::translate('RebelABTesting_AudienceCampaignIs', $audience['campaign']);
+            $parts[] = Piwik::translate('RebelExperiments_AudienceCampaignIs', $audience['campaign']);
         }
         if ($audience['referrer'] !== '') {
-            $parts[] = Piwik::translate('RebelABTesting_AudienceReferrerIs', $audience['referrer']);
+            $parts[] = Piwik::translate('RebelExperiments_AudienceReferrerIs', $audience['referrer']);
         }
         if (!empty($audience['languages'])) {
-            $parts[] = Piwik::translate('RebelABTesting_AudienceLanguageIs', implode(', ', $audience['languages']));
+            $parts[] = Piwik::translate('RebelExperiments_AudienceLanguageIs', implode(', ', $audience['languages']));
         }
 
         return implode('; ', $parts);

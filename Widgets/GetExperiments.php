@@ -7,15 +7,15 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Widgets;
+namespace Piwik\Plugins\RebelExperiments\Widgets;
 
 use Piwik\Nonce;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Results;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Results;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 use Piwik\Request;
-use Piwik\Plugins\RebelABTesting\Controller;
+use Piwik\Plugins\RebelExperiments\Controller;
 use Piwik\Widget\Widget;
 use Piwik\Widget\WidgetConfig;
 
@@ -23,9 +23,9 @@ class GetExperiments extends Widget
 {
     public static function configure(WidgetConfig $config)
     {
-        $config->setCategoryId('RebelABTesting_RebelABTesting');
-        $config->setSubcategoryId('RebelABTesting_ManageExperiments');
-        $config->setName('RebelABTesting_ManageExperiments');
+        $config->setCategoryId('RebelExperiments_RebelExperiments');
+        $config->setSubcategoryId('RebelExperiments_ManageExperiments');
+        $config->setName('RebelExperiments_ManageExperiments');
         $config->setOrder(1);
     }
 
@@ -45,6 +45,7 @@ class GetExperiments extends Widget
                 'status' => $experiment['status'],
                 'from_date' => $experiment['from_date'],
                 'to_date' => $experiment['to_date'],
+                'decision' => $experiment['decision'],
                 'has_code' => ExperimentValidator::hasCode($experiment['variants']),
                 'summary' => $experiment['status'] === Experiments::STATUS_PLANNED ? null : $results->getSummary($experiment),
             ];

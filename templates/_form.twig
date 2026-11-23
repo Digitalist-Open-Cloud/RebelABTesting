@@ -1,7 +1,8 @@
 {% macro measure(field, label, hint, selected, measures) %}
-    {% set choice = selected is null ? '' : (selected.type == 'goal' ? 'goal:' ~ selected.idgoal : selected.type) %}
-    <div class="rebelABTestingMeasure">
-        <div class="rebelABTestingField">
+    {% set id = selected.idgoal ?? selected.idfunnel ?? selected.idform ?? null %}
+    {% set choice = selected is null ? '' : (id is null ? selected.type : selected.type ~ ':' ~ id) %}
+    <div class="rebelExperimentsMeasure">
+        <div class="rebelExperimentsField">
             <label for="{{ field }}">{{ label }}</label>
             <select name="{{ field }}" id="{{ field }}" class="browser-default">
                 {% for value, name in measures %}
@@ -10,178 +11,178 @@
             </select>
             {% if hint %}<span class="form-hint">{{ hint }}</span>{% endif %}
         </div>
-        <div class="rebelABTestingColumns rebelABTestingMeasureEvent">
-            <div class="rebelABTestingField">
-                <label for="{{ field }}_category">{{ 'RebelABTesting_FormEventCategory'|translate }}</label>
+        <div class="rebelExperimentsColumns rebelExperimentsMeasureEvent">
+            <div class="rebelExperimentsField">
+                <label for="{{ field }}_category">{{ 'RebelExperiments_FormEventCategory'|translate }}</label>
                 <input type="text" name="{{ field }}_category" id="{{ field }}_category" value="{{ selected.category ?? '' }}" maxlength="200">
             </div>
-            <div class="rebelABTestingField">
-                <label for="{{ field }}_action">{{ 'RebelABTesting_FormEventAction'|translate }}</label>
+            <div class="rebelExperimentsField">
+                <label for="{{ field }}_action">{{ 'RebelExperiments_FormEventAction'|translate }}</label>
                 <input type="text" name="{{ field }}_action" id="{{ field }}_action" value="{{ selected.action ?? '' }}" maxlength="200">
             </div>
         </div>
     </div>
 {% endmacro %}
 
-<form method="post" action="{{ actionUrl }}" class="rebelABTestingForm">
+<form method="post" action="{{ actionUrl }}" class="rebelExperimentsForm">
     <input type="hidden" name="nonce" value="{{ nonce }}">
     {% if experiment.id is defined %}<input type="hidden" name="id" value="{{ experiment.id }}">{% endif %}
 
-    <nav class="rebelABTestingSteps" aria-label="{{ 'RebelABTesting_StepsLabel'|translate }}">
-        <button type="button" class="rebelABTestingStep" data-panel="basics"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepBasics'|translate }}</button>
-        <button type="button" class="rebelABTestingStep" data-panel="changes"><span class="rebelABTestingStepNumber"></span><span data-kind="ab">{{ 'RebelABTesting_StepChanges'|translate }}</span><span data-kind="fake_door">{{ 'RebelABTesting_Kind_fake_door'|translate }}</span><span data-kind="watch">{{ 'RebelABTesting_StepWatch'|translate }}</span></button>
-        <button type="button" class="rebelABTestingStep" data-panel="audience"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepAudience'|translate }}</button>
-        <button type="button" class="rebelABTestingStep" data-panel="measures" data-kind="ab"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepMeasures'|translate }}</button>
-        <button type="button" class="rebelABTestingStep" data-panel="schedule"><span class="rebelABTestingStepNumber"></span>{{ 'RebelABTesting_StepSchedule'|translate }}</button>
+    <nav class="rebelExperimentsSteps" aria-label="{{ 'RebelExperiments_StepsLabel'|translate }}">
+        <button type="button" class="rebelExperimentsStep" data-panel="basics"><span class="rebelExperimentsStepNumber"></span>{{ 'RebelExperiments_StepBasics'|translate }}</button>
+        <button type="button" class="rebelExperimentsStep" data-panel="changes"><span class="rebelExperimentsStepNumber"></span><span data-kind="ab">{{ 'RebelExperiments_StepChanges'|translate }}</span><span data-kind="rollout">{{ 'RebelExperiments_StepChange'|translate }}</span><span data-kind="fake_door">{{ 'RebelExperiments_Kind_fake_door'|translate }}</span><span data-kind="watch">{{ 'RebelExperiments_StepWatch'|translate }}</span></button>
+        <button type="button" class="rebelExperimentsStep" data-panel="audience"><span class="rebelExperimentsStepNumber"></span>{{ 'RebelExperiments_StepAudience'|translate }}</button>
+        <button type="button" class="rebelExperimentsStep" data-panel="measures" data-kind="ab rollout"><span class="rebelExperimentsStepNumber"></span>{{ 'RebelExperiments_StepMeasures'|translate }}</button>
+        <button type="button" class="rebelExperimentsStep" data-panel="schedule"><span class="rebelExperimentsStepNumber"></span>{{ 'RebelExperiments_StepSchedule'|translate }}</button>
     </nav>
 
-    <section class="rebelABTestingPanel" data-panel="basics">
-        <h3 class="form-section-title">{{ 'RebelABTesting_FormKind'|translate }}</h3>
-        <div class="rebelABTestingKinds">
+    <section class="rebelExperimentsPanel" data-panel="basics">
+        <h3 class="form-section-title">{{ 'RebelExperiments_FormKind'|translate }}</h3>
+        <div class="rebelExperimentsKinds">
             {% for kind in kinds %}
-            <label class="rebelABTestingKindChoice">
-                <input type="radio" name="kind" value="{{ kind }}" class="rebelABTestingKind"{% if kind == experiment.kind %} checked{% endif %}>
-                <span class="rebelABTestingKindName">{{ ('RebelABTesting_Kind_' ~ kind)|translate }}</span>
-                <span class="rebelABTestingKindHelp">{{ ('RebelABTesting_KindHelp_' ~ kind)|translate }}</span>
+            <label class="rebelExperimentsKindChoice">
+                <input type="radio" name="kind" value="{{ kind }}" class="rebelExperimentsKind"{% if kind == experiment.kind %} checked{% endif %}>
+                <span class="rebelExperimentsKindName">{{ ('RebelExperiments_Kind_' ~ kind)|translate }}</span>
+                <span class="rebelExperimentsKindHelp">{{ ('RebelExperiments_KindHelp_' ~ kind)|translate }}</span>
             </label>
             {% endfor %}
         </div>
 
-        <h3 class="form-section-title">{{ 'RebelABTesting_FormBasicInfo'|translate }}</h3>
-        <div class="rebelABTestingField">
-            <label for="name">{{ 'RebelABTesting_ExperimentName'|translate }}</label>
+        <h3 class="form-section-title">{{ 'RebelExperiments_FormBasicInfo'|translate }}</h3>
+        <div class="rebelExperimentsField">
+            <label for="name">{{ 'RebelExperiments_ExperimentName'|translate }}</label>
             <input type="text" name="name" id="name" value="{{ experiment.name }}" maxlength="255" required>
         </div>
-        <div class="rebelABTestingField">
-            <label for="hypothesis">{{ 'RebelABTesting_FormHypothesis'|translate }} <span class="rebelABTestingOptional">{{ 'RebelABTesting_FormOptional'|translate }}</span></label>
+        <div class="rebelExperimentsField">
+            <label for="hypothesis">{{ 'RebelExperiments_FormHypothesis'|translate }} <span class="rebelExperimentsOptional">{{ 'RebelExperiments_FormOptional'|translate }}</span></label>
             <input type="text" name="hypothesis" id="hypothesis" value="{{ experiment.hypothesis }}">
-            <span class="form-hint">{{ 'RebelABTesting_FormHypothesisHint'|translate }}</span>
+            <span class="form-hint">{{ 'RebelExperiments_FormHypothesisHint'|translate }}</span>
         </div>
-        <div class="rebelABTestingField">
-            <label for="description">{{ 'General_Description'|translate }} <span class="rebelABTestingOptional">{{ 'RebelABTesting_FormOptional'|translate }}</span></label>
+        <div class="rebelExperimentsField">
+            <label for="description">{{ 'General_Description'|translate }} <span class="rebelExperimentsOptional">{{ 'RebelExperiments_FormOptional'|translate }}</span></label>
             <input type="text" name="description" id="description" value="{{ experiment.description }}">
         </div>
     </section>
 
-    <section class="rebelABTestingPanel" data-panel="changes">
+    <section class="rebelExperimentsPanel" data-panel="changes">
         <div data-kind="fake_door">
             {% set door = experiment.kind == 'fake_door' ? experiment.door : {selector: '', position: 'after', element: 'button', label: '', css_class: '', message: ''} %}
-            <h3 class="form-section-title">{{ 'RebelABTesting_DoorTitle'|translate }}</h3>
-            <p class="section-help">{{ 'RebelABTesting_DoorHelp'|translate }}</p>
-            <div class="rebelABTestingColumns">
-                <div class="rebelABTestingField">
-                    <label for="door_label">{{ 'RebelABTesting_DoorLabel'|translate }}</label>
+            <h3 class="form-section-title">{{ 'RebelExperiments_DoorTitle'|translate }}</h3>
+            <p class="section-help">{{ 'RebelExperiments_DoorHelp'|translate }}</p>
+            <div class="rebelExperimentsColumns">
+                <div class="rebelExperimentsField">
+                    <label for="door_label">{{ 'RebelExperiments_DoorLabel'|translate }}</label>
                     <input type="text" name="door[label]" id="door_label" value="{{ door.label }}" maxlength="200">
                 </div>
-                <div class="rebelABTestingField">
-                    <label for="door_element">{{ 'RebelABTesting_DoorElement'|translate }}</label>
+                <div class="rebelExperimentsField">
+                    <label for="door_element">{{ 'RebelExperiments_DoorElement'|translate }}</label>
                     <select name="door[element]" id="door_element" class="browser-default">
                         {% for element in doorElements %}
-                        <option value="{{ element }}"{% if element == door.element %} selected{% endif %}>{{ ('RebelABTesting_DoorElement_' ~ element)|translate }}</option>
+                        <option value="{{ element }}"{% if element == door.element %} selected{% endif %}>{{ ('RebelExperiments_DoorElement_' ~ element)|translate }}</option>
                         {% endfor %}
                     </select>
                 </div>
             </div>
-            <div class="rebelABTestingField">
-                <label for="door_message">{{ 'RebelABTesting_DoorMessage'|translate }}</label>
+            <div class="rebelExperimentsField">
+                <label for="door_message">{{ 'RebelExperiments_DoorMessage'|translate }}</label>
                 <input type="text" name="door[message]" id="door_message" value="{{ door.message }}" maxlength="500">
-                <span class="form-hint">{{ 'RebelABTesting_DoorMessageHint'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_DoorMessageHint'|translate }}</span>
             </div>
-            <div class="rebelABTestingColumns">
-                <div class="rebelABTestingField">
-                    <label for="door_selector">{{ 'RebelABTesting_DoorSelector'|translate }}</label>
+            <div class="rebelExperimentsColumns">
+                <div class="rebelExperimentsField">
+                    <label for="door_selector">{{ 'RebelExperiments_DoorSelector'|translate }}</label>
                     <input type="text" name="door[selector]" id="door_selector" value="{{ door.selector }}" maxlength="500" placeholder="#main-menu">
-                    <span class="form-hint">{{ 'RebelABTesting_DoorSelectorHint'|translate }}</span>
+                    <span class="form-hint">{{ 'RebelExperiments_DoorSelectorHint'|translate }}</span>
                 </div>
-                <div class="rebelABTestingField">
-                    <label for="door_position">{{ 'RebelABTesting_DoorPosition'|translate }}</label>
+                <div class="rebelExperimentsField">
+                    <label for="door_position">{{ 'RebelExperiments_DoorPosition'|translate }}</label>
                     <select name="door[position]" id="door_position" class="browser-default">
                         {% for position in doorPositions %}
-                        <option value="{{ position }}"{% if position == door.position %} selected{% endif %}>{{ ('RebelABTesting_DoorPosition_' ~ position)|translate }}</option>
+                        <option value="{{ position }}"{% if position == door.position %} selected{% endif %}>{{ ('RebelExperiments_DoorPosition_' ~ position)|translate }}</option>
                         {% endfor %}
                     </select>
                 </div>
             </div>
-            <details class="rebelABTestingMore"{% if door.css_class %} open{% endif %}>
-                <summary>{{ 'RebelABTesting_FormMore'|translate }}</summary>
-                <div class="rebelABTestingField">
-                    <label for="door_css_class">{{ 'RebelABTesting_DoorCssClass'|translate }}</label>
+            <details class="rebelExperimentsMore"{% if door.css_class %} open{% endif %}>
+                <summary>{{ 'RebelExperiments_FormMore'|translate }}</summary>
+                <div class="rebelExperimentsField">
+                    <label for="door_css_class">{{ 'RebelExperiments_DoorCssClass'|translate }}</label>
                     <input type="text" name="door[css_class]" id="door_css_class" value="{{ door.css_class }}" maxlength="200">
-                    <span class="form-hint">{{ 'RebelABTesting_DoorCssClassHint'|translate }}</span>
+                    <span class="form-hint">{{ 'RebelExperiments_DoorCssClassHint'|translate }}</span>
                 </div>
             </details>
         </div>
 
         <div data-kind="watch">
-            <h3 class="form-section-title">{{ 'RebelABTesting_WatchTitle'|translate }}</h3>
-            <p class="section-help">{{ 'RebelABTesting_WatchHelp'|translate }}</p>
-            <div class="rebelABTestingField">
-                <label for="watch_selector">{{ 'RebelABTesting_WatchSelector'|translate }}</label>
+            <h3 class="form-section-title">{{ 'RebelExperiments_WatchTitle'|translate }}</h3>
+            <p class="section-help">{{ 'RebelExperiments_WatchHelp'|translate }}</p>
+            <div class="rebelExperimentsField">
+                <label for="watch_selector">{{ 'RebelExperiments_WatchSelector'|translate }}</label>
                 <input type="text" name="watch[selector]" id="watch_selector" value="{{ experiment.kind == 'watch' ? experiment.door.selector : '' }}" maxlength="500" placeholder=".newsletter-signup">
-                <span class="form-hint">{{ 'RebelABTesting_WatchSelectorHint'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_WatchSelectorHint'|translate }}</span>
             </div>
         </div>
 
-        <div data-kind="ab">
-            <p class="section-help">{{ 'RebelABTesting_FormVariantsHelp'|translate }}</p>
-            <div class="rebelABTestingVariants" data-max="{{ maxVariants }}">
+        <div data-kind="ab rollout">
+            <p class="section-help">{{ 'RebelExperiments_FormVariantsHelp'|translate }}</p>
+            <div class="rebelExperimentsVariants" data-max="{{ maxVariants }}">
                 {% for variant in experiment.variants %}
-                <fieldset class="rebelABTestingVariant">
-                    <div class="rebelABTestingVariantHead">
-                        <span class="rebelABTestingVariantTitle">{{ 'RebelABTesting_Variant'|translate }} <span class="rebelABTestingVariantNumber">{{ loop.index }}</span></span>
-                        <input type="text" name="variants[{{ loop.index0 }}][name]" value="{{ variant.name }}" maxlength="100" placeholder="{{ 'RebelABTesting_VariantNamePlaceholder'|translate }}" aria-label="{{ 'General_Name'|translate }}">
-                        <button type="button" class="rebelABTestingLink rebelABTestingRemoveVariant">{{ 'RebelABTesting_FormRemoveVariant'|translate }}</button>
+                <fieldset class="rebelExperimentsVariant">
+                    <div class="rebelExperimentsVariantHead">
+                        <span class="rebelExperimentsVariantTitle">{{ 'RebelExperiments_Variant'|translate }} <span class="rebelExperimentsVariantNumber">{{ loop.index }}</span></span>
+                        <input type="text" name="variants[{{ loop.index0 }}][name]" value="{{ variant.name }}" maxlength="100" placeholder="{{ 'RebelExperiments_VariantNamePlaceholder'|translate }}" aria-label="{{ 'General_Name'|translate }}">
+                        <button type="button" class="rebelExperimentsLink rebelExperimentsRemoveVariant">{{ 'RebelExperiments_FormRemoveVariant'|translate }}</button>
                     </div>
 
-                    <div class="rebelABTestingField rebelABTestingTemplateField">
-                        <label>{{ 'RebelABTesting_TemplateStart'|translate }}</label>
-                        <select class="browser-default rebelABTestingTemplate">
-                            <option value="">{{ 'RebelABTesting_TemplateNone'|translate }}</option>
+                    <div class="rebelExperimentsField rebelExperimentsTemplateField">
+                        <label>{{ 'RebelExperiments_TemplateStart'|translate }}</label>
+                        <select class="browser-default rebelExperimentsTemplate">
+                            <option value="">{{ 'RebelExperiments_TemplateNone'|translate }}</option>
                             {% for key, template in templates %}
                             <option value="{{ key }}" data-changes="{{ template.changes|json_encode }}">{{ template.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <div class="rebelABTestingChangeHead">
-                        <span>{{ 'RebelABTesting_ChangeSelector'|translate }}</span>
-                        <span>{{ 'RebelABTesting_ChangeAction'|translate }}</span>
-                        <span>{{ 'RebelABTesting_ChangeValue'|translate }}</span>
+                    <div class="rebelExperimentsChangeHead">
+                        <span>{{ 'RebelExperiments_ChangeSelector'|translate }}</span>
+                        <span>{{ 'RebelExperiments_ChangeAction'|translate }}</span>
+                        <span>{{ 'RebelExperiments_ChangeValue'|translate }}</span>
                     </div>
-                    <div class="rebelABTestingChanges">
+                    <div class="rebelExperimentsChanges">
                         {% for change in (variant.changes is empty ? [{selector: '', action: 'text', value: ''}] : variant.changes) %}
-                        <div class="rebelABTestingChange">
-                            <input type="text" name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][selector]" value="{{ change.selector }}" maxlength="500" placeholder="h1" aria-label="{{ 'RebelABTesting_ChangeSelector'|translate }}">
-                            <select name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][action]" class="browser-default" aria-label="{{ 'RebelABTesting_ChangeAction'|translate }}">
+                        <div class="rebelExperimentsChange">
+                            <input type="text" name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][selector]" value="{{ change.selector }}" maxlength="500" placeholder="h1" aria-label="{{ 'RebelExperiments_ChangeSelector'|translate }}">
+                            <select name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][action]" class="browser-default" aria-label="{{ 'RebelExperiments_ChangeAction'|translate }}">
                                 {% for action in actions %}
-                                <option value="{{ action }}" data-placeholder="{{ ('RebelABTesting_ActionValue_' ~ action)|translate }}"{% if action == change.action %} selected{% endif %}>{{ ('RebelABTesting_Action_' ~ action)|translate }}</option>
+                                <option value="{{ action }}" data-placeholder="{{ ('RebelExperiments_ActionValue_' ~ action)|translate }}"{% if action == change.action %} selected{% endif %}>{{ ('RebelExperiments_Action_' ~ action)|translate }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="text" name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][value]" value="{{ change.value }}" maxlength="2000" aria-label="{{ 'RebelABTesting_ChangeValue'|translate }}">
-                            <button type="button" class="rebelABTestingIconButton rebelABTestingRemoveChange" title="{{ 'RebelABTesting_ChangeRemove'|translate }}" aria-label="{{ 'RebelABTesting_ChangeRemove'|translate }}">&times;</button>
+                            <input type="text" name="variants[{{ loop.parent.loop.index0 }}][changes][{{ loop.index0 }}][value]" value="{{ change.value }}" maxlength="2000" aria-label="{{ 'RebelExperiments_ChangeValue'|translate }}">
+                            <button type="button" class="rebelExperimentsIconButton rebelExperimentsRemoveChange" title="{{ 'RebelExperiments_ChangeRemove'|translate }}" aria-label="{{ 'RebelExperiments_ChangeRemove'|translate }}">&times;</button>
                         </div>
                         {% endfor %}
                     </div>
-                    <button type="button" class="rebelABTestingLink rebelABTestingAddChange">+ {{ 'RebelABTesting_ChangeAdd'|translate }}</button>
-                    <p class="form-hint">{{ 'RebelABTesting_ChangesHelp'|translate }}</p>
+                    <button type="button" class="rebelExperimentsLink rebelExperimentsAddChange">+ {{ 'RebelExperiments_ChangeAdd'|translate }}</button>
+                    <p class="form-hint">{{ 'RebelExperiments_ChangesHelp'|translate }}</p>
 
-                    <details class="rebelABTestingMore"{% if variant.redirect %} open{% endif %}>
-                        <summary>{{ 'RebelABTesting_RedirectTitle'|translate }}</summary>
-                        <div class="rebelABTestingField">
-                            <label>{{ 'RebelABTesting_RedirectAddress'|translate }}</label>
+                    <details class="rebelExperimentsMore"{% if variant.redirect %} open{% endif %}>
+                        <summary>{{ 'RebelExperiments_RedirectTitle'|translate }}</summary>
+                        <div class="rebelExperimentsField">
+                            <label>{{ 'RebelExperiments_RedirectAddress'|translate }}</label>
                             <input type="text" name="variants[{{ loop.index0 }}][redirect]" value="{{ variant.redirect }}" maxlength="2000" placeholder="/pricing-b">
-                            <span class="form-hint">{{ 'RebelABTesting_RedirectHint'|translate }}</span>
+                            <span class="form-hint">{{ 'RebelExperiments_RedirectHint'|translate }}</span>
                         </div>
                     </details>
 
                     {% if canUseCode %}
-                    <details class="rebelABTestingMore"{% if variant.css or variant.js %} open{% endif %}>
-                        <summary>{{ 'RebelABTesting_CodeTitle'|translate }}</summary>
-                        <div class="rebelABTestingField">
+                    <details class="rebelExperimentsMore"{% if variant.css or variant.js %} open{% endif %}>
+                        <summary>{{ 'RebelExperiments_CodeTitle'|translate }}</summary>
+                        <div class="rebelExperimentsField">
                             <label>CSS</label>
                             <textarea name="variants[{{ loop.index0 }}][css]" class="code-textarea" placeholder=".btn { background-color: #ff5722; }">{{ variant.css }}</textarea>
                         </div>
-                        <div class="rebelABTestingField">
+                        <div class="rebelExperimentsField">
                             <label>JavaScript</label>
                             <textarea name="variants[{{ loop.index0 }}][js]" class="code-textarea" placeholder="document.querySelector('h1').textContent = 'New headline';">{{ variant.js }}</textarea>
                         </div>
@@ -190,163 +191,164 @@
                 </fieldset>
                 {% endfor %}
             </div>
-            <button type="button" class="rebelABTestingLink rebelABTestingAddVariant">+ {{ 'RebelABTesting_FormAddVariant'|translate }}</button>
+            <button type="button" class="rebelExperimentsLink rebelExperimentsAddVariant">+ {{ 'RebelExperiments_FormAddVariant'|translate }}</button>
         </div>
     </section>
 
-    <section class="rebelABTestingPanel" data-panel="audience">
-        <h3 class="form-section-title">{{ 'RebelABTesting_FormPages'|translate }}</h3>
-        <div class="rebelABTestingColumns">
-            <div class="rebelABTestingField">
-                <label for="target_match">{{ 'RebelABTesting_FormTargetMatch'|translate }}</label>
+    <section class="rebelExperimentsPanel" data-panel="audience">
+        <h3 class="form-section-title">{{ 'RebelExperiments_FormPages'|translate }}</h3>
+        <div class="rebelExperimentsColumns">
+            <div class="rebelExperimentsField">
+                <label for="target_match">{{ 'RebelExperiments_FormTargetMatch'|translate }}</label>
                 <select name="target_match" id="target_match" class="browser-default">
                     {% for match in matches %}
-                    <option value="{{ match }}"{% if match == experiment.target_match %} selected{% endif %}>{{ ('RebelABTesting_Match_' ~ match)|translate }}</option>
+                    <option value="{{ match }}"{% if match == experiment.target_match %} selected{% endif %}>{{ ('RebelExperiments_Match_' ~ match)|translate }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="rebelABTestingField rebelABTestingTargetValue">
-                <label for="target_value">{{ 'RebelABTesting_FormTargetValue'|translate }}</label>
+            <div class="rebelExperimentsField rebelExperimentsTargetValue">
+                <label for="target_value">{{ 'RebelExperiments_FormTargetValue'|translate }}</label>
                 <input type="text" name="target_value" id="target_value" value="{{ experiment.target_value }}" maxlength="1000" placeholder="/pricing">
-                <span class="form-hint">{{ 'RebelABTesting_FormTargetValueHint'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_FormTargetValueHint'|translate }}</span>
             </div>
         </div>
 
-        <details class="rebelABTestingMore"{% if experiment.exclude_match != 'none' %} open{% endif %}>
-            <summary>{{ 'RebelABTesting_FormExclude'|translate }}</summary>
-            <div class="rebelABTestingColumns">
-                <div class="rebelABTestingField">
-                    <label for="exclude_match">{{ 'RebelABTesting_FormExcludeMatch'|translate }}</label>
+        <details class="rebelExperimentsMore"{% if experiment.exclude_match != 'none' %} open{% endif %}>
+            <summary>{{ 'RebelExperiments_FormExclude'|translate }}</summary>
+            <div class="rebelExperimentsColumns">
+                <div class="rebelExperimentsField">
+                    <label for="exclude_match">{{ 'RebelExperiments_FormExcludeMatch'|translate }}</label>
                     <select name="exclude_match" id="exclude_match" class="browser-default">
                         {% for match in excludes %}
-                        <option value="{{ match }}"{% if match == experiment.exclude_match %} selected{% endif %}>{{ (match == 'none' ? 'RebelABTesting_ExcludeNone' : 'RebelABTesting_Match_' ~ match)|translate }}</option>
+                        <option value="{{ match }}"{% if match == experiment.exclude_match %} selected{% endif %}>{{ (match == 'none' ? 'RebelExperiments_ExcludeNone' : 'RebelExperiments_Match_' ~ match)|translate }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="rebelABTestingField rebelABTestingExcludeValue">
-                    <label for="exclude_value">{{ 'RebelABTesting_FormTargetValue'|translate }}</label>
+                <div class="rebelExperimentsField rebelExperimentsExcludeValue">
+                    <label for="exclude_value">{{ 'RebelExperiments_FormTargetValue'|translate }}</label>
                     <input type="text" name="exclude_value" id="exclude_value" value="{{ experiment.exclude_value }}" maxlength="1000" placeholder="/checkout">
                 </div>
             </div>
         </details>
 
-        <h3 class="form-section-title">{{ 'RebelABTesting_FormVisitors'|translate }}</h3>
-        <div class="rebelABTestingField rebelABTestingNarrow">
-            <label for="traffic_share">{{ 'RebelABTesting_FormTrafficShare'|translate }}</label>
+        <h3 class="form-section-title">{{ 'RebelExperiments_FormVisitors'|translate }}</h3>
+        <div class="rebelExperimentsField rebelExperimentsNarrow">
+            <label for="traffic_share"><span data-kind="ab fake_door watch">{{ 'RebelExperiments_FormTrafficShare'|translate }}</span><span data-kind="rollout">{{ 'RebelExperiments_RolloutShare'|translate }}</span></label>
             <input type="number" name="traffic_share" id="traffic_share" value="{{ experiment.traffic_share }}" min="1" max="100" required>
-            <span class="form-hint">{{ 'RebelABTesting_FormTrafficShareHint'|translate }}</span>
+            <span class="form-hint" data-kind="ab fake_door watch">{{ 'RebelExperiments_FormTrafficShareHint'|translate }}</span>
+            <span class="form-hint" data-kind="rollout">{{ 'RebelExperiments_RolloutShareHint'|translate }}</span>
         </div>
 
-        <h3 class="form-section-title">{{ 'RebelABTesting_AudienceTitle'|translate }}</h3>
-        <p class="section-help">{{ 'RebelABTesting_AudienceHelp'|translate }}</p>
-        <div class="rebelABTestingColumns">
-            <div class="rebelABTestingField">
-                <label for="audience_visitor">{{ 'RebelABTesting_AudienceVisitor'|translate }}</label>
+        <h3 class="form-section-title">{{ 'RebelExperiments_AudienceTitle'|translate }}</h3>
+        <p class="section-help">{{ 'RebelExperiments_AudienceHelp'|translate }}</p>
+        <div class="rebelExperimentsColumns">
+            <div class="rebelExperimentsField">
+                <label for="audience_visitor">{{ 'RebelExperiments_AudienceVisitor'|translate }}</label>
                 <select name="audience[visitor]" id="audience_visitor" class="browser-default">
                     {% for visitor in audienceVisitors %}
-                    <option value="{{ visitor }}"{% if visitor == experiment.audience.visitor %} selected{% endif %}>{{ (visitor == '' ? 'RebelABTesting_AudienceEveryone' : 'RebelABTesting_AudienceVisitor_' ~ visitor)|translate }}</option>
+                    <option value="{{ visitor }}"{% if visitor == experiment.audience.visitor %} selected{% endif %}>{{ (visitor == '' ? 'RebelExperiments_AudienceEveryone' : 'RebelExperiments_AudienceVisitor_' ~ visitor)|translate }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="rebelABTestingField">
-                <label>{{ 'RebelABTesting_AudienceDevices'|translate }}</label>
-                <div class="rebelABTestingChecks">
+            <div class="rebelExperimentsField">
+                <label>{{ 'RebelExperiments_AudienceDevices'|translate }}</label>
+                <div class="rebelExperimentsChecks">
                     {% for device in audienceDevices %}
-                    <label><input type="checkbox" name="audience[devices][]" value="{{ device }}"{% if device in experiment.audience.devices %} checked{% endif %}><span>{{ ('RebelABTesting_AudienceDevice_' ~ device)|translate }}</span></label>
+                    <label><input type="checkbox" name="audience[devices][]" value="{{ device }}"{% if device in experiment.audience.devices %} checked{% endif %}><span>{{ ('RebelExperiments_AudienceDevice_' ~ device)|translate }}</span></label>
                     {% endfor %}
                 </div>
-                <span class="form-hint">{{ 'RebelABTesting_AudienceDevicesHint'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_AudienceDevicesHint'|translate }}</span>
             </div>
         </div>
-        <details class="rebelABTestingMore"{% if experiment.audience.campaign or experiment.audience.referrer or experiment.audience.languages %} open{% endif %}>
-            <summary>{{ 'RebelABTesting_AudienceMore'|translate }}</summary>
-            <div class="rebelABTestingColumns">
-                <div class="rebelABTestingField">
-                    <label for="audience_campaign">{{ 'RebelABTesting_AudienceCampaign'|translate }}</label>
+        <details class="rebelExperimentsMore"{% if experiment.audience.campaign or experiment.audience.referrer or experiment.audience.languages %} open{% endif %}>
+            <summary>{{ 'RebelExperiments_AudienceMore'|translate }}</summary>
+            <div class="rebelExperimentsColumns">
+                <div class="rebelExperimentsField">
+                    <label for="audience_campaign">{{ 'RebelExperiments_AudienceCampaign'|translate }}</label>
                     <input type="text" name="audience[campaign]" id="audience_campaign" value="{{ experiment.audience.campaign }}" maxlength="200" placeholder="spring-sale">
-                    <span class="form-hint">{{ 'RebelABTesting_AudienceCampaignHint'|translate }}</span>
+                    <span class="form-hint">{{ 'RebelExperiments_AudienceCampaignHint'|translate }}</span>
                 </div>
-                <div class="rebelABTestingField">
-                    <label for="audience_referrer">{{ 'RebelABTesting_AudienceReferrer'|translate }}</label>
+                <div class="rebelExperimentsField">
+                    <label for="audience_referrer">{{ 'RebelExperiments_AudienceReferrer'|translate }}</label>
                     <input type="text" name="audience[referrer]" id="audience_referrer" value="{{ experiment.audience.referrer }}" maxlength="200" placeholder="google.">
-                    <span class="form-hint">{{ 'RebelABTesting_AudienceReferrerHint'|translate }}</span>
+                    <span class="form-hint">{{ 'RebelExperiments_AudienceReferrerHint'|translate }}</span>
                 </div>
             </div>
-            <div class="rebelABTestingField rebelABTestingNarrow">
-                <label for="audience_languages">{{ 'RebelABTesting_AudienceLanguages'|translate }}</label>
+            <div class="rebelExperimentsField rebelExperimentsNarrow">
+                <label for="audience_languages">{{ 'RebelExperiments_AudienceLanguages'|translate }}</label>
                 <input type="text" name="audience[languages]" id="audience_languages" value="{{ experiment.audience.languages|join(', ') }}" maxlength="200" placeholder="sv, en">
-                <span class="form-hint">{{ 'RebelABTesting_AudienceLanguagesHint'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_AudienceLanguagesHint'|translate }}</span>
             </div>
         </details>
     </section>
 
-    <section class="rebelABTestingPanel" data-panel="measures" data-kind="ab">
-        <h3 class="form-section-title">{{ 'RebelABTesting_FormMeasures'|translate }}</h3>
-        {{ _self.measure('primary_measure', 'RebelABTesting_FormPrimaryMeasure'|translate, 'RebelABTesting_FormPrimaryMeasureHint'|translate, experiment.primary_measure, measures) }}
-        <div class="rebelABTestingField rebelABTestingNarrow">
-            <label for="confidence">{{ 'RebelABTesting_FormConfidence'|translate }}</label>
+    <section class="rebelExperimentsPanel" data-panel="measures" data-kind="ab rollout">
+        <h3 class="form-section-title">{{ 'RebelExperiments_FormMeasures'|translate }}</h3>
+        {{ _self.measure('primary_measure', 'RebelExperiments_FormPrimaryMeasure'|translate, 'RebelExperiments_FormPrimaryMeasureHint'|translate, experiment.primary_measure, measures) }}
+        <div class="rebelExperimentsField rebelExperimentsNarrow">
+            <label for="confidence">{{ 'RebelExperiments_FormConfidence'|translate }}</label>
             <select name="confidence" id="confidence" class="browser-default">
                 {% for confidence in confidences %}
                 <option value="{{ confidence }}"{% if confidence == experiment.confidence %} selected{% endif %}>{{ confidence }}%</option>
                 {% endfor %}
             </select>
-            <span class="form-hint">{{ 'RebelABTesting_FormConfidenceHint'|translate }}</span>
+            <span class="form-hint">{{ 'RebelExperiments_FormConfidenceHint'|translate }}</span>
         </div>
-        <div class="rebelABTestingField">
-            <label><input type="checkbox" name="notify" value="1"{% if experiment.notify %} checked{% endif %}><span>{{ 'RebelABTesting_FormNotify'|translate }}</span></label>
-            <span class="form-hint">{{ 'RebelABTesting_FormNotifyHint'|translate }}</span>
+        <div class="rebelExperimentsField">
+            <label><input type="checkbox" name="notify" value="1"{% if experiment.notify %} checked{% endif %}><span>{{ 'RebelExperiments_FormNotify'|translate }}</span></label>
+            <span class="form-hint">{{ 'RebelExperiments_FormNotifyHint'|translate }}</span>
         </div>
-        <details class="rebelABTestingMore"{% if experiment.guardrails is not empty %} open{% endif %}>
-            <summary>{{ 'RebelABTesting_FormGuardrails'|translate }}</summary>
-            <p class="form-hint">{{ 'RebelABTesting_FormGuardrailHint'|translate }}</p>
+        <details class="rebelExperimentsMore"{% if experiment.guardrails is not empty %} open{% endif %}>
+            <summary>{{ 'RebelExperiments_FormGuardrails'|translate }}</summary>
+            <p class="form-hint">{{ 'RebelExperiments_FormGuardrailHint'|translate }}</p>
             {% for slot in guardrailSlots %}
-            {{ _self.measure('guardrail_' ~ slot, 'RebelABTesting_FormGuardrail'|translate(slot + 1), '', experiment.guardrails[slot] ?? null, measures) }}
+            {{ _self.measure('guardrail_' ~ slot, 'RebelExperiments_FormGuardrail'|translate(slot + 1), '', experiment.guardrails[slot] ?? null, measures) }}
             {% endfor %}
         </details>
     </section>
 
-    <section class="rebelABTestingPanel" data-panel="schedule">
-        <h3 class="form-section-title">{{ 'RebelABTesting_FormSchedule'|translate }}</h3>
-        <div class="rebelABTestingColumns">
-            <div class="rebelABTestingField">
-                <label for="from_date">{{ 'RebelABTesting_FormFromDate'|translate }}</label>
+    <section class="rebelExperimentsPanel" data-panel="schedule">
+        <h3 class="form-section-title">{{ 'RebelExperiments_FormSchedule'|translate }}</h3>
+        <div class="rebelExperimentsColumns">
+            <div class="rebelExperimentsField">
+                <label for="from_date">{{ 'RebelExperiments_FormFromDate'|translate }}</label>
                 <input type="date" name="from_date" id="from_date" value="{{ experiment.from_date }}" required>
-                <span class="form-hint">{{ 'RebelABTesting_FormFromDateHint'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_FormFromDateHint'|translate }}</span>
             </div>
-            <div class="rebelABTestingField">
-                <label for="to_date">{{ 'RebelABTesting_FormToDate'|translate }}</label>
+            <div class="rebelExperimentsField">
+                <label for="to_date">{{ 'RebelExperiments_FormToDate'|translate }}</label>
                 <input type="date" name="to_date" id="to_date" value="{{ experiment.to_date }}" required>
-                <span class="form-hint">{{ 'RebelABTesting_FormToDateHint'|translate }}</span>
+                <span class="form-hint">{{ 'RebelExperiments_FormToDateHint'|translate }}</span>
             </div>
         </div>
 
-        <details class="rebelABTestingMore rebelABTestingPlanner" data-kind="ab" data-result="{{ 'RebelABTesting_PlannerResult'|translate('{days}', '{visits}', '{groups}') }}" data-unknown="{{ 'RebelABTesting_PlannerUnknown'|translate }}">
-            <summary>{{ 'RebelABTesting_PlannerTitle'|translate }}</summary>
-            <p class="form-hint">{{ 'RebelABTesting_PlannerHelp'|translate }}</p>
-            <div class="rebelABTestingColumns rebelABTestingColumns-3">
-                <div class="rebelABTestingField">
-                    <label for="planner_visits">{{ 'RebelABTesting_PlannerVisits'|translate }}</label>
-                    <input type="number" id="planner_visits" class="rebelABTestingPlannerVisits" min="1">
+        <details class="rebelExperimentsMore rebelExperimentsPlanner" data-kind="ab" data-result="{{ 'RebelExperiments_PlannerResult'|translate('{days}', '{visits}', '{groups}') }}" data-unknown="{{ 'RebelExperiments_PlannerUnknown'|translate }}">
+            <summary>{{ 'RebelExperiments_PlannerTitle'|translate }}</summary>
+            <p class="form-hint">{{ 'RebelExperiments_PlannerHelp'|translate }}</p>
+            <div class="rebelExperimentsColumns rebelExperimentsColumns-3">
+                <div class="rebelExperimentsField">
+                    <label for="planner_visits">{{ 'RebelExperiments_PlannerVisits'|translate }}</label>
+                    <input type="number" id="planner_visits" class="rebelExperimentsPlannerVisits" min="1">
                 </div>
-                <div class="rebelABTestingField">
-                    <label for="planner_rate">{{ 'RebelABTesting_PlannerRate'|translate }}</label>
-                    <input type="number" id="planner_rate" class="rebelABTestingPlannerRate" min="0.01" max="99" step="0.01">
+                <div class="rebelExperimentsField">
+                    <label for="planner_rate">{{ 'RebelExperiments_PlannerRate'|translate }}</label>
+                    <input type="number" id="planner_rate" class="rebelExperimentsPlannerRate" min="0.01" max="99" step="0.01">
                 </div>
-                <div class="rebelABTestingField">
-                    <label for="planner_effect">{{ 'RebelABTesting_PlannerEffect'|translate }}</label>
-                    <input type="number" id="planner_effect" class="rebelABTestingPlannerEffect" min="1" value="10">
-                    <span class="form-hint">{{ 'RebelABTesting_PlannerEffectHint'|translate }}</span>
+                <div class="rebelExperimentsField">
+                    <label for="planner_effect">{{ 'RebelExperiments_PlannerEffect'|translate }}</label>
+                    <input type="number" id="planner_effect" class="rebelExperimentsPlannerEffect" min="1" value="10">
+                    <span class="form-hint">{{ 'RebelExperiments_PlannerEffectHint'|translate }}</span>
                 </div>
             </div>
-            <p class="rebelABTestingPlannerResult" role="status"></p>
+            <p class="rebelExperimentsPlannerResult" role="status"></p>
         </details>
     </section>
 
-    <div class="rebelABTestingFooter">
-        <button type="button" class="rebelABTestingSecondary rebelABTestingPrevious">{{ 'RebelABTesting_StepPrevious'|translate }}</button>
-        <button type="button" class="rebelABTestingSecondary rebelABTestingNext">{{ 'RebelABTesting_StepNext'|translate }}</button>
-        <span class="rebelABTestingFooterSpace"></span>
-        {% if backUrl is defined %}<a href="{{ backUrl }}" class="rebelABTestingLink rebelABTestingBack">{{ 'General_Cancel'|translate }}</a>{% endif %}
+    <div class="rebelExperimentsFooter">
+        <button type="button" class="rebelExperimentsSecondary rebelExperimentsPrevious">{{ 'RebelExperiments_StepPrevious'|translate }}</button>
+        <button type="button" class="rebelExperimentsSecondary rebelExperimentsNext">{{ 'RebelExperiments_StepNext'|translate }}</button>
+        <span class="rebelExperimentsFooterSpace"></span>
+        {% if backUrl is defined %}<a href="{{ backUrl }}" class="rebelExperimentsLink rebelExperimentsBack">{{ 'General_Cancel'|translate }}</a>{% endif %}
         <input type="submit" value="{{ submitLabel }}" class="btn">
     </div>
 </form>

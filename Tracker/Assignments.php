@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Tracker;
+namespace Piwik\Plugins\RebelExperiments\Tracker;
 
 /**
  * The experiments a tracking request says its visitor takes part in. What the browser sends is
@@ -15,8 +15,8 @@ namespace Piwik\Plugins\RebelABTesting\Tracker;
  */
 class Assignments
 {
-    public const PARAMETER = 'rabt';
-    public const DOOR_PARAMETER = 'rabtd';
+    public const PARAMETER = 'rexp';
+    public const DOOR_PARAMETER = 'rexpd';
     public const DOOR_SHOWN = 's';
     public const DOOR_CLICKED = 'c';
 

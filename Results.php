@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Piwik\Common;
 use Piwik\Db;
@@ -15,8 +15,8 @@ use Piwik\Metrics\Formatter;
 use Piwik\NumberFormatter;
 use Piwik\Piwik;
 use Piwik\Plugins\Goals\API as GoalsApi;
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 
 /**
  * How the variants of an experiment did, over all the time it ran.
@@ -110,17 +110,29 @@ class Results
             $add(['type' => Measures::GOAL, 'idgoal' => (int) $goal['idgoal']], self::ROLE_OTHER);
         }
 
-        // Visitors are what is split, a visitor can come back for several visits.
-        $chanceOfSplit = Statistics::chanceOfSplit(array_column($variants, 'nb_visitors'));
+        // Visitors are what is split, a visitor can come back for several visits. A rollout is not
+        // split evenly, by design.
+        $chanceOfSplit = $experiment['kind'] === ExperimentValidator::KIND_ROLLOUT ? null : Statistics::chanceOfSplit(array_column($variants, 'nb_visitors'));
 
         foreach ($variants as &$variant) {
             unset($variant['idsite']);
+        }
+
+        $feedback = [];
+        foreach (array_merge([$experiment['primary_measure']], $experiment['guardrails']) as $measure) {
+            if (($measure['type'] ?? '') === Measures::FEEDBACK && !isset($feedback[$measure['idform']])) {
+                $feedback[$measure['idform']] = [
+                    'name' => Measures::getName($idSite, $measure),
+                    'answers' => (new Measures())->getFeedbackAnswers($experiment, $measure['idform'], $filter),
+                ];
+            }
         }
 
         return [
             'variants' => array_values($variants),
             'is_split_even' => $chanceOfSplit === null ? null : $chanceOfSplit >= self::UNLIKELY_SPLIT,
             'measures' => array_values($measures),
+            'feedback' => array_values($feedback),
         ];
     }
 
@@ -218,7 +230,7 @@ class Results
         if (ExperimentValidator::countsWhatIsShown($experiment['kind'])) {
             return $result['nb_visits'] === 0 ? null : [
                 'verdict' => self::VERDICT_NO_DIFFERENCE,
-                'text' => Piwik::translate('RebelABTesting_SummaryClicked', self::format(Measures::UNIT_SHARE, $result['click_rate'], (int) $experiment['idsite'])),
+                'text' => Piwik::translate('RebelExperiments_SummaryClicked', self::format(Measures::UNIT_SHARE, $result['click_rate'], (int) $experiment['idsite'])),
             ];
         }
         if (empty($result['measures']) || array_sum(array_column($result['variants'], 'nb_visits')) === 0) {
@@ -237,15 +249,15 @@ class Results
             });
             $uplift = $better[0]['uplift'] === null ? '' : ' (' . ($better[0]['uplift'] > 0 ? '+' : '') . self::format(Measures::UNIT_SHARE, $better[0]['uplift'], (int) $experiment['idsite']) . ')';
 
-            return ['verdict' => self::VERDICT_BETTER, 'text' => Piwik::translate('RebelABTesting_SummaryBetter', $better[0]['name']) . $uplift];
+            return ['verdict' => self::VERDICT_BETTER, 'text' => Piwik::translate('RebelExperiments_SummaryBetter', $better[0]['name']) . $uplift];
         }
         if (array_unique($verdicts) === [self::VERDICT_WORSE]) {
-            return ['verdict' => self::VERDICT_WORSE, 'text' => Piwik::translate('RebelABTesting_SummaryWorse')];
+            return ['verdict' => self::VERDICT_WORSE, 'text' => Piwik::translate('RebelExperiments_SummaryWorse')];
         }
 
         $verdict = in_array(self::VERDICT_NOT_ENOUGH_DATA, $verdicts, true) ? self::VERDICT_NOT_ENOUGH_DATA : self::VERDICT_NO_DIFFERENCE;
 
-        return ['verdict' => $verdict, 'text' => Piwik::translate('RebelABTesting_Verdict_' . $verdict)];
+        return ['verdict' => $verdict, 'text' => Piwik::translate('RebelExperiments_Verdict_' . $verdict)];
     }
 
     /**
@@ -307,7 +319,7 @@ class Results
         }
 
         return [
-            'name' => $measure === null ? Piwik::translate('RebelABTesting_ResultVisits') : Measures::getName((int) $experiment['idsite'], $measure),
+            'name' => $measure === null ? Piwik::translate('RebelExperiments_ResultVisits') : Measures::getName((int) $experiment['idsite'], $measure),
             'unit' => $measure === null ? Measures::UNIT_NUMBER : Measures::getUnit($measure),
             'days' => $days,
             'series' => $series,
@@ -320,9 +332,14 @@ class Results
      */
     private function getVariantNames(array $experiment): array
     {
-        $names = [1 => Piwik::translate('RebelABTesting_Original')];
+        $isRollout = $experiment['kind'] === ExperimentValidator::KIND_ROLLOUT;
+        $names = [1 => Piwik::translate($isRollout ? 'RebelExperiments_RolloutWithout' : 'RebelExperiments_Original')];
         foreach ($experiment['variants'] as $index => $variant) {
-            $names[$index + 2] = $variant['name'] !== '' ? $variant['name'] : Piwik::translate('RebelABTesting_VariantNumber', $index + 1);
+            if ($isRollout && $variant['name'] === '') {
+                $names[2] = Piwik::translate('RebelExperiments_RolloutWith');
+                continue;
+            }
+            $names[$index + 2] = $variant['name'] !== '' ? $variant['name'] : Piwik::translate('RebelExperiments_VariantNumber', $index + 1);
         }
 
         return $names;

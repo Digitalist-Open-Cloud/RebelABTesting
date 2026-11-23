@@ -7,9 +7,9 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Tracker;
+namespace Piwik\Plugins\RebelExperiments\Tracker;
 
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
+use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
 use Piwik\Tracker\LogTable;
 
 /**

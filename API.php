@@ -7,17 +7,18 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Exception;
+use Piwik\Date;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 
 /**
  * Experiments, which show variants of a page to a share of the visitors, and how the variants did.
  *
- * @method static \Piwik\Plugins\RebelABTesting\API getInstance()
+ * @method static \Piwik\Plugins\RebelExperiments\API getInstance()
  */
 class API extends \Piwik\Plugin\API
 {
@@ -51,7 +52,8 @@ class API extends \Piwik\Plugin\API
      * @param array $primaryMeasure what the experiment is judged by: its `type` (goal, orders, revenue,
      *                              event, bounce or search) and, for a goal, its `idgoal`, or for an
      *                              event, its `category` and optionally its `action`. Empty for none
-     * @param string $kind `ab` for a test of variants, `fake_door` for a button to something that
+     * @param string $kind `ab` for a test of variants, `rollout` for one change that a share of the
+     *                     visitors gets while the rest are counted without it, `fake_door` for a button to something that
      *                     does not exist yet, to see how many visitors want it, `watch` to count the
      *                     visits that see and click an element the page already has
      * @param array $door the fake door: `selector` of the element it is put next to, `position`
@@ -172,12 +174,64 @@ class API extends \Piwik\Plugin\API
     }
 
     /**
+     * Shows a variant of an A/B test to everyone the test was for, as a rollout of its own that runs
+     * for a year. The test is ended.
+     *
+     * @param int $variant the number of the variant: 2 for the first one
+     * @return int the ID of the rollout
+     */
+    public function rollOutVariant(int $idSite, int $id, int $variant): int
+    {
+        Piwik::checkUserHasWriteAccess($idSite);
+
+        $experiment = $this->getExistingExperiment($idSite, $id);
+        $chosen = $experiment['variants'][$variant - 2] ?? null;
+        if ($experiment['kind'] !== ExperimentValidator::KIND_AB || $chosen === null) {
+            throw new Exception(Piwik::translate('RebelExperiments_ErrorRollOut'));
+        }
+        if (ExperimentValidator::hasCode([$chosen])) {
+            Piwik::checkUserHasAdminAccess($idSite);
+        }
+
+        $chosenName = $chosen['name'] !== '' ? $chosen['name'] : Piwik::translate('RebelExperiments_VariantNumber', $variant - 1);
+        $name = $experiment['name'] . ': ' . $chosenName;
+        $idRollout = $this->experiments->insertExperiment($idSite, [
+            'kind' => ExperimentValidator::KIND_ROLLOUT,
+            'name' => mb_substr($name, 0, 230) . ' (' . Date::now()->toString() . ')',
+            'hypothesis' => '',
+            'description' => Piwik::translate('RebelExperiments_RolledOutFrom', $experiment['name']),
+            'from_date' => Date::now()->toString(),
+            'to_date' => Date::now()->addPeriod(1, 'year')->toString(),
+            'variants' => [$chosen],
+            'traffic_share' => 100,
+            'notify' => false,
+        ] + array_intersect_key($experiment, array_flip(['target_match', 'target_value', 'exclude_match', 'exclude_value', 'audience', 'primary_measure', 'guardrails', 'confidence'])));
+        $this->experiments->stopExperiment($id, $idSite);
+        $this->experiments->setDecision($id, $idSite, 'adopt', Piwik::translate('RebelExperiments_DecisionRolledOut', $chosenName));
+
+        return $idRollout;
+    }
+
+    /**
      * Ends an experiment now.
      */
     public function stopExperiment(int $id, int $idSite): void
     {
         Piwik::checkUserHasWriteAccess($idSite);
         $this->experiments->stopExperiment($id, $idSite);
+    }
+
+    /**
+     * Records what was decided about an experiment and why.
+     *
+     * @param string $decision `adopt` to use the change, `keep` to keep things as they are,
+     *                         `inconclusive` when nothing could be concluded, or empty to take the
+     *                         decision back
+     */
+    public function setDecision(int $id, int $idSite, string $decision, string $note = ''): void
+    {
+        Piwik::checkUserHasWriteAccess($idSite);
+        $this->experiments->setDecision($id, $idSite, $decision, $note);
     }
 
     public function deleteExperiment(int $id, int $idSite): void
@@ -197,7 +251,7 @@ class API extends \Piwik\Plugin\API
     }
 
     /**
-     * The experiments of a website, without what their variants do.
+     * The experiments of a website and what was decided about them, without what their variants do.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -206,7 +260,7 @@ class API extends \Piwik\Plugin\API
         Piwik::checkUserHasViewAccess($idSite);
 
         return array_map(function (array $experiment): array {
-            return array_intersect_key($experiment, array_flip(['id', 'idsite', 'name', 'kind', 'from_date', 'to_date', 'status']))
+            return array_intersect_key($experiment, array_flip(['id', 'idsite', 'name', 'kind', 'from_date', 'to_date', 'status', 'decision', 'decision_note']))
                 + ['has_code' => ExperimentValidator::hasCode($experiment['variants'])];
         }, $this->experiments->getAllForSite($idSite));
     }
@@ -247,7 +301,7 @@ class API extends \Piwik\Plugin\API
     {
         $experiment = $this->experiments->getById($id, $idSite);
         if ($experiment === null) {
-            throw new Exception(Piwik::translate('RebelABTesting_ExperimentNotFound'));
+            throw new Exception(Piwik::translate('RebelExperiments_ExperimentNotFound'));
         }
 
         return $experiment;

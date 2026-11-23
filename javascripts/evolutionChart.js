@@ -23,8 +23,8 @@
         var xs = JSON.parse(chart.dataset.xs);
         var index = nearest(xs, (event.clientX - box.left) * svg.viewBox.baseVal.width / box.width);
         var lines = JSON.parse(chart.dataset.lines);
-        var crosshair = chart.querySelector('.rebelABTestingChartCrosshair');
-        var tip = chart.querySelector('.rebelABTestingChartTip');
+        var crosshair = chart.querySelector('.rebelExperimentsChartCrosshair');
+        var tip = chart.querySelector('.rebelExperimentsChartTip');
 
         crosshair.setAttribute('x1', xs[index]);
         crosshair.setAttribute('x2', xs[index]);
@@ -40,7 +40,7 @@
             }
             var row = document.createElement('div');
             var swatch = document.createElement('span');
-            swatch.className = 'rebelABTestingChartSwatch';
+            swatch.className = 'rebelExperimentsChartSwatch';
             swatch.style.background = line.colour;
             row.appendChild(swatch);
             row.appendChild(document.createTextNode(line.name + ': ' + line.labels[index]));
@@ -53,13 +53,13 @@
     }
 
     function hide(chart) {
-        chart.querySelector('.rebelABTestingChartCrosshair').setAttribute('hidden', '');
-        chart.querySelector('.rebelABTestingChartTip').hidden = true;
+        chart.querySelector('.rebelExperimentsChartCrosshair').setAttribute('hidden', '');
+        chart.querySelector('.rebelExperimentsChartTip').hidden = true;
     }
 
     document.addEventListener('mousemove', function (event) {
-        var chart = event.target instanceof Element ? event.target.closest('.rebelABTestingChart') : null;
-        document.querySelectorAll('.rebelABTestingChart').forEach(function (other) {
+        var chart = event.target instanceof Element ? event.target.closest('.rebelExperimentsChart') : null;
+        document.querySelectorAll('.rebelExperimentsChart').forEach(function (other) {
             if (other !== chart) {
                 hide(other);
             }

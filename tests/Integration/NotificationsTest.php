@@ -1,6 +1,6 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\tests\Integration;
+namespace Piwik\Plugins\RebelExperiments\tests\Integration;
 
 use Piwik\Common;
 use Piwik\Date;
@@ -8,10 +8,10 @@ use Piwik\Db;
 use Piwik\Mail;
 use Piwik\Piwik;
 use Piwik\Plugins\Goals\API as GoalsApi;
-use Piwik\Plugins\RebelABTesting\API;
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
-use Piwik\Plugins\RebelABTesting\Tasks;
-use Piwik\Plugins\RebelABTesting\Widgets\GetExperiments;
+use Piwik\Plugins\RebelExperiments\API;
+use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
+use Piwik\Plugins\RebelExperiments\Tasks;
+use Piwik\Plugins\RebelExperiments\Widgets\GetExperiments;
 use Piwik\Tests\Framework\Fixture;
 use Piwik\Tests\Framework\Mock\FakeAccess;
 use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
@@ -19,7 +19,7 @@ use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 /**
  * The result of an experiment in the list, and in the email to the one who added it.
  *
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 class NotificationsTest extends IntegrationTestCase
@@ -82,11 +82,11 @@ class NotificationsTest extends IntegrationTestCase
 
         $html = (new GetExperiments())->render();
 
-        $this->assertStringContainsString('rebelABTestingVerdict-better">Green is better (+150%)</span>', $html);
-        $this->assertStringContainsString('rebelABTestingVerdict-not_enough_data">Not enough data yet</span>', $html);
-        $this->assertStringContainsString('rebelABTestingVerdict-no_difference">25% clicked</span>', $html);
-        $this->assertStringContainsString('rebelABTestingVerdict-worse">The original is better</span>', $html);
-        $this->assertSame(4, substr_count($html, 'rebelABTestingVerdict '));
+        $this->assertStringContainsString('rebelExperimentsVerdict-better">Green is better (+150%)</span>', $html);
+        $this->assertStringContainsString('rebelExperimentsVerdict-not_enough_data">Not enough data yet</span>', $html);
+        $this->assertStringContainsString('rebelExperimentsVerdict-no_difference">25% clicked</span>', $html);
+        $this->assertStringContainsString('rebelExperimentsVerdict-worse">The original is better</span>', $html);
+        $this->assertSame(4, substr_count($html, 'rebelExperimentsVerdict '));
     }
 
     public function testTheOneWhoAddedAnExperimentIsEmailedOnceWhenAVariantIsBetter()
@@ -100,7 +100,7 @@ class NotificationsTest extends IntegrationTestCase
         $this->assertSame(['hello@example.org'], $this->mails[0]['to']);
         $this->assertSame('Experiment button has a result', $this->mails[0]['subject']);
         $this->assertStringContainsString('Result: Green is better (+150%)', $this->mails[0]['body']);
-        $this->assertStringContainsString('category=RebelABTesting_RebelABTesting&subcategory=' . $this->idExperiment, $this->mails[0]['body']);
+        $this->assertStringContainsString('category=RebelExperiments_RebelExperiments&subcategory=' . $this->idExperiment, $this->mails[0]['body']);
     }
 
     public function testNothingIsSentWithoutAResultOrWhenItIsNotAskedFor()
@@ -173,6 +173,6 @@ class NotificationsTest extends IntegrationTestCase
     {
         parent::configureFixture($fixture);
 
-        $fixture->extraPluginsToLoad = ['RebelABTesting'];
+        $fixture->extraPluginsToLoad = ['RebelExperiments'];
     }
 }

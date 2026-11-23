@@ -1,6 +1,6 @@
 {
-    "name": "RebelABTesting",
-    "description": "A/B testing with Matomo Tag Manager. Write CSS or JavaScript for the variant and see visits and conversions per variant.",
+    "name": "RebelExperiments",
+    "description": "Experiments on a website with Matomo Tag Manager: A/B tests, rollouts, fake doors and more, with results per variant.",
     "version": "0.2.0",
     "theme": false,
     "require": {
@@ -19,14 +19,15 @@
         }
     ],
     "support": {
-        "issues": "https://github.com/Digitalist-Open-Cloud/RebelABTesting/issues",
-        "source": "https://github.com/Digitalist-Open-Cloud/RebelABTesting"
+        "issues": "https://github.com/Digitalist-Open-Cloud/RebelExperiments/issues",
+        "source": "https://github.com/Digitalist-Open-Cloud/RebelExperiments"
     },
     "homepage": "https://digitalist.cloud/matomo",
     "license": "GPL-3.0-or-later",
     "keywords": [
-        "ab testing",
         "experiments",
+        "ab testing",
+        "rollout",
         "tag manager"
     ]
 }

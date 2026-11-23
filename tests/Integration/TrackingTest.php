@@ -1,6 +1,6 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\tests\Integration;
+namespace Piwik\Plugins\RebelExperiments\tests\Integration;
 
 use Piwik\Common;
 use Piwik\Container\StaticContainer;
@@ -9,14 +9,14 @@ use Piwik\Db;
 use Piwik\LogDeleter;
 use Piwik\Plugins\Goals\API as GoalsApi;
 use Piwik\Plugins\PrivacyManager\Model\DataSubjects;
-use Piwik\Plugins\RebelABTesting\API;
-use Piwik\Plugins\RebelABTesting\Dao\LogExperiment;
+use Piwik\Plugins\RebelExperiments\API;
+use Piwik\Plugins\RebelExperiments\Dao\LogExperiment;
 use Piwik\Plugins\VisitsSummary\API as VisitsSummaryApi;
 use Piwik\Tests\Framework\Fixture;
 use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 class TrackingTest extends IntegrationTestCase
@@ -333,12 +333,12 @@ class TrackingTest extends IntegrationTestCase
         $assigned = $id . '-2-' . self::ASSIGNMENT;
 
         $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing']);
-        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $id . '-s']);
-        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing'], 0, ['rabtd' => $id . '-s']);
-        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing', '/pricing'], 0, [0 => ['rabtd' => $id . '-s'], 1 => ['rabtd' => $id . '-c'], 2 => ['rabtd' => $id . '-c']]);
-        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $id . '-c']);
-        $this->trackVisit(1, $id . '-1-' . self::ASSIGNMENT, self::DAY, ['/'], 0, ['rabtd' => $id . '-s']);
-        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $this->idExperiment . '-c']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rexpd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing'], 0, ['rexpd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing', '/pricing'], 0, [0 => ['rexpd' => $id . '-s'], 1 => ['rexpd' => $id . '-c'], 2 => ['rexpd' => $id . '-c']]);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rexpd' => $id . '-c']);
+        $this->trackVisit(1, $id . '-1-' . self::ASSIGNMENT, self::DAY, ['/'], 0, ['rexpd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rexpd' => $this->idExperiment . '-c']);
 
         $result = API::getInstance()->getExperimentResult(1, $id);
 
@@ -353,8 +353,8 @@ class TrackingTest extends IntegrationTestCase
         $assigned = $id . '-2-' . self::ASSIGNMENT;
 
         $this->trackVisit(1, $assigned);
-        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rabtd' => $id . '-s']);
-        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing'], 0, [0 => ['rabtd' => $id . '-s'], 1 => ['rabtd' => $id . '-c']]);
+        $this->trackVisit(1, $assigned, self::DAY, ['/'], 0, ['rexpd' => $id . '-s']);
+        $this->trackVisit(1, $assigned, self::DAY, ['/', '/pricing'], 0, [0 => ['rexpd' => $id . '-s'], 1 => ['rexpd' => $id . '-c']]);
 
         $result = API::getInstance()->getExperimentResult(1, $id);
 
@@ -363,9 +363,28 @@ class TrackingTest extends IntegrationTestCase
 
     public function testASignalForAFakeDoorDoesNotClickAnABTest()
     {
-        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/'], 0, ['rabtd' => $this->idExperiment . '-c']);
+        $this->trackVisit(1, [$this->idExperiment => 2], self::DAY, ['/'], 0, ['rexpd' => $this->idExperiment . '-c']);
 
         $this->assertSame('0', (string) Db::fetchOne('SELECT SUM(clicked) FROM ' . Common::prefixTable(LogExperiment::TABLE)));
+    }
+
+    public function testARolloutComparesTheVisitsWithTheChangeWithTheRest()
+    {
+        $id = API::getInstance()->insertExperiment(1, 'rollout', '', '', '2024-03-01', '2024-03-31', [['js' => '']], 20, 'any', '', ['type' => 'bounce'], 'rollout');
+        for ($visit = 0; $visit < 80; $visit++) {
+            $this->trackVisit(1, [$id => 1], self::DAY, $visit < 60 ? ['/'] : ['/', '/more']);
+        }
+        for ($visit = 0; $visit < 30; $visit++) {
+            $this->trackVisit(1, [$id => 2], self::DAY, $visit < 6 ? ['/'] : ['/', '/more']);
+        }
+        $this->trackVisit(1, [$id => 3]);
+
+        $result = API::getInstance()->getExperimentResult(1, $id);
+
+        $this->assertSame([['Without the change', 80], ['With the change', 30]], array_map(null, array_column($result['variants'], 'name'), array_column($result['variants'], 'nb_visits')));
+        // 80 against 30 is what a rollout looks like, and no sign of a fault.
+        $this->assertNull($result['is_split_even']);
+        $this->assertSame([0.75, 0.2, 'better'], [$result['measures'][0]['variants'][0]['value'], $result['measures'][0]['variants'][1]['value'], $result['measures'][0]['variants'][1]['verdict']]);
     }
 
     public function testAConversionBeforeTheVisitWasInTheExperimentDoesNotCount()
@@ -434,7 +453,7 @@ class TrackingTest extends IntegrationTestCase
 
         foreach ($paths as $minutes => $path) {
             if ($experiments !== '' && $minutes >= $exposedFrom) {
-                $tracker->setCustomTrackingParameter('rabt', $experiments);
+                $tracker->setCustomTrackingParameter('rexp', $experiments);
             }
             foreach (isset($extra[0]) ? ($extra[$minutes] ?? []) : $extra as $name => $value) {
                 $tracker->setCustomTrackingParameter($name, $value);
@@ -466,6 +485,6 @@ class TrackingTest extends IntegrationTestCase
     {
         parent::configureFixture($fixture);
 
-        $fixture->extraPluginsToLoad = ['RebelABTesting'];
+        $fixture->extraPluginsToLoad = ['RebelExperiments'];
     }
 }

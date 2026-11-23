@@ -1,4 +1,4 @@
-.rebelABTestingPlugin {
+.rebelExperimentsPlugin {
 
     .alert {
         border: 1px solid #ddd;
@@ -109,29 +109,29 @@
         overflow-x: auto;
     }
 
-    table.rebelABTestingTable {
+    table.rebelExperimentsTable {
         width: 100%;
         border-collapse: collapse;
         margin-top: 10px;
     }
 
-    table.rebelABTestingTable th,
-    table.rebelABTestingTable td {
+    table.rebelExperimentsTable th,
+    table.rebelExperimentsTable td {
         text-align: left;
         padding: 8px 12px;
         border-bottom: 1px solid #e0e0e0;
     }
 
-    table.rebelABTestingTable th {
+    table.rebelExperimentsTable th {
         background: #f5f5f5;
         font-weight: bold;
     }
 
-    table.rebelABTestingTable tbody tr:hover {
+    table.rebelExperimentsTable tbody tr:hover {
         background: #fafafa;
     }
 
-    table.rebelABTestingTable td.code-cell span {
+    table.rebelExperimentsTable td.code-cell span {
         display: inline-block;
         max-width: 220px;
         font-family: Consolas, Monaco, "Courier New", monospace;
@@ -142,7 +142,7 @@
         vertical-align: middle;
     }
 
-    table.rebelABTestingTable td.actions-cell {
+    table.rebelExperimentsTable td.actions-cell {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -200,7 +200,7 @@
         font-size: 14px;
     }
 
-    fieldset.rebelABTestingVariant {
+    fieldset.rebelExperimentsVariant {
         border: 1px solid #e0e0e0;
         border-radius: 2px;
         padding: 12px 16px;
@@ -212,8 +212,8 @@
         }
     }
 
-    .rebelABTestingStatus,
-    .rebelABTestingVerdict {
+    .rebelExperimentsStatus,
+    .rebelExperimentsVerdict {
         display: inline-block;
         padding: 2px 8px;
         border-radius: 10px;
@@ -222,46 +222,46 @@
         color: #333;
     }
 
-    .rebelABTestingStatus-running,
-    .rebelABTestingVerdict-better {
+    .rebelExperimentsStatus-running,
+    .rebelExperimentsVerdict-better {
         background: #e2f3e4;
         color: #1b5e20;
     }
 
-    .rebelABTestingVerdict-worse {
+    .rebelExperimentsVerdict-worse {
         background: #fbe3e1;
         color: #b71c1c;
     }
 
-    .rebelABTestingForm [hidden] {
+    .rebelExperimentsForm [hidden] {
         display: none !important;
     }
 
-    .rebelABTestingPlannerResult {
+    .rebelExperimentsPlannerResult {
         font-weight: bold;
     }
 
-    h4.rebelABTestingSubtitle {
+    h4.rebelExperimentsSubtitle {
         font-size: 14px;
         font-weight: bold;
         margin: 16px 0 4px 0;
     }
 
-    .rebelABTestingChange {
+    .rebelExperimentsChange {
         margin-bottom: 0;
 
         .form-field {
             margin-bottom: 8px;
         }
 
-        .rebelABTestingRemoveChange {
+        .rebelExperimentsRemoveChange {
             margin-top: 22px;
             padding: 0 12px;
         }
     }
 
     // The form of an experiment: steps, of which one is shown at a time.
-    .rebelABTestingSteps {
+    .rebelExperimentsSteps {
         display: flex;
         flex-wrap: wrap;
         gap: 4px;
@@ -269,7 +269,7 @@
         margin: 8px 0 24px 0;
     }
 
-    .rebelABTestingStep {
+    .rebelExperimentsStep {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -288,18 +288,18 @@
         }
     }
 
-    .rebelABTestingStep-current {
+    .rebelExperimentsStep-current {
         color: #1565c0;
         font-weight: bold;
         border-bottom-color: #1565c0;
 
-        .rebelABTestingStepNumber {
+        .rebelExperimentsStepNumber {
             background: #1565c0;
             color: #fff;
         }
     }
 
-    .rebelABTestingStepNumber {
+    .rebelExperimentsStepNumber {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -312,12 +312,12 @@
         font-weight: bold;
     }
 
-    .rebelABTestingPanel {
+    .rebelExperimentsPanel {
         max-width: 880px;
         min-height: 260px;
     }
 
-    .rebelABTestingField {
+    .rebelExperimentsField {
         margin-bottom: 18px;
 
         label {
@@ -344,34 +344,34 @@
         }
     }
 
-    .rebelABTestingOptional {
+    .rebelExperimentsOptional {
         font-weight: normal;
         color: #757575;
     }
 
-    .rebelABTestingNarrow {
+    .rebelExperimentsNarrow {
         max-width: 280px;
     }
 
-    .rebelABTestingColumns {
+    .rebelExperimentsColumns {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0 24px;
     }
 
-    .rebelABTestingColumns-3 {
+    .rebelExperimentsColumns-3 {
         grid-template-columns: 1fr 1fr 1fr;
     }
 
-    .rebelABTestingKinds {
+    .rebelExperimentsKinds {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: 12px;
         margin-bottom: 8px;
     }
 
     // Matomo draws the radio button in the text that follows it.
-    .rebelABTestingKindChoice {
+    .rebelExperimentsKindChoice {
         display: block;
         padding: 14px 16px;
         border: 1px solid #ccc;
@@ -383,19 +383,19 @@
         }
     }
 
-    .rebelABTestingKindChoice:has(input:checked) {
+    .rebelExperimentsKindChoice:has(input:checked) {
         border-color: #1565c0;
         background: #f1f6fc;
     }
 
-    .rebelABTestingKindName {
+    .rebelExperimentsKindName {
         display: block;
         font-weight: bold;
         font-size: 14px;
         color: #222;
     }
 
-    .rebelABTestingKindHelp {
+    .rebelExperimentsKindHelp {
         display: block;
         font-size: 12px;
         color: #555;
@@ -403,12 +403,12 @@
         margin: 4px 0 0 35px;
     }
 
-    fieldset.rebelABTestingVariant {
+    fieldset.rebelExperimentsVariant {
         padding: 16px;
         background: #fafafa;
     }
 
-    .rebelABTestingVariantHead {
+    .rebelExperimentsVariantHead {
         display: flex;
         align-items: center;
         gap: 12px;
@@ -426,32 +426,32 @@
         }
     }
 
-    .rebelABTestingVariantTitle {
+    .rebelExperimentsVariantTitle {
         font-weight: bold;
         font-size: 15px;
         white-space: nowrap;
     }
 
-    .rebelABTestingTemplateField {
+    .rebelExperimentsTemplateField {
         max-width: 420px;
     }
 
-    .rebelABTestingChangeHead,
-    .rebelABTestingChange {
+    .rebelExperimentsChangeHead,
+    .rebelExperimentsChange {
         display: grid;
         grid-template-columns: 3fr 3fr 4fr 32px;
         gap: 8px;
         align-items: start;
     }
 
-    .rebelABTestingChangeHead {
+    .rebelExperimentsChangeHead {
         font-size: 12px;
         font-weight: bold;
         color: #555;
         margin-bottom: 4px;
     }
 
-    .rebelABTestingChange {
+    .rebelExperimentsChange {
         margin-bottom: 8px;
 
         input[type="text"],
@@ -468,7 +468,7 @@
         }
     }
 
-    .rebelABTestingIconButton {
+    .rebelExperimentsIconButton {
         width: 32px;
         height: 32px;
         border: 0;
@@ -486,7 +486,7 @@
         }
     }
 
-    .rebelABTestingLink {
+    .rebelExperimentsLink {
         border: 0;
         background: none;
         padding: 4px 0;
@@ -501,7 +501,7 @@
         }
     }
 
-    details.rebelABTestingMore {
+    details.rebelExperimentsMore {
         margin: 16px 0;
         border-top: 1px solid #e0e0e0;
         padding-top: 10px;
@@ -515,7 +515,7 @@
         }
     }
 
-    .rebelABTestingFooter {
+    .rebelExperimentsFooter {
         display: flex;
         align-items: center;
         gap: 12px;
@@ -528,11 +528,11 @@
         }
     }
 
-    .rebelABTestingFooterSpace {
+    .rebelExperimentsFooterSpace {
         flex: 1;
     }
 
-    .rebelABTestingSecondary {
+    .rebelExperimentsSecondary {
         padding: 8px 18px;
         border: 1px solid #1565c0;
         border-radius: 2px;
@@ -549,23 +549,23 @@
     }
 
     @media (max-width: 800px) {
-        .rebelABTestingColumns,
-        .rebelABTestingColumns-3,
-        .rebelABTestingKinds {
+        .rebelExperimentsColumns,
+        .rebelExperimentsColumns-3,
+        .rebelExperimentsKinds {
             grid-template-columns: 1fr;
         }
 
-        .rebelABTestingChangeHead {
+        .rebelExperimentsChangeHead {
             display: none;
         }
 
-        .rebelABTestingChange {
+        .rebelExperimentsChange {
             grid-template-columns: 1fr 32px;
         }
     }
 
     // The chart of how an experiment developed.
-    .rebelABTestingChart {
+    .rebelExperimentsChart {
         position: relative;
         max-width: 760px;
 
@@ -576,39 +576,39 @@
         }
     }
 
-    .rebelABTestingChartGrid {
+    .rebelExperimentsChartGrid {
         stroke: #e6e6e6;
         stroke-width: 1;
     }
 
-    .rebelABTestingChartAxis {
+    .rebelExperimentsChartAxis {
         fill: #757575;
         font-size: 11px;
     }
 
-    .rebelABTestingChartLine {
+    .rebelExperimentsChartLine {
         fill: none;
         stroke-width: 2;
         stroke-linejoin: round;
         stroke-linecap: round;
     }
 
-    .rebelABTestingChartEnd {
+    .rebelExperimentsChartEnd {
         stroke: #fff;
         stroke-width: 2;
     }
 
-    .rebelABTestingChartLabel {
+    .rebelExperimentsChartLabel {
         fill: #333;
         font-size: 12px;
     }
 
-    .rebelABTestingChartCrosshair {
+    .rebelExperimentsChartCrosshair {
         stroke: #999;
         stroke-width: 1;
     }
 
-    .rebelABTestingChartTip {
+    .rebelExperimentsChartTip {
         position: absolute;
         top: 8px;
         padding: 8px 10px;
@@ -627,7 +627,7 @@
         }
     }
 
-    .rebelABTestingChartLegend {
+    .rebelExperimentsChartLegend {
         display: flex;
         flex-wrap: wrap;
         gap: 4px 20px;
@@ -638,7 +638,7 @@
         color: #333;
     }
 
-    .rebelABTestingChartSwatch {
+    .rebelExperimentsChartSwatch {
         display: inline-block;
         width: 10px;
         height: 10px;
@@ -646,7 +646,7 @@
         border-radius: 2px;
     }
 
-    .rebelABTestingChecks {
+    .rebelExperimentsChecks {
         display: flex;
         flex-wrap: wrap;
         gap: 4px 20px;
@@ -655,5 +655,35 @@
             font-weight: normal;
             margin: 0;
         }
+    }
+
+    .rebelExperimentsRollOut {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        margin: 12px 0;
+
+        select {
+            width: auto;
+            height: auto;
+            padding: 6px 10px;
+        }
+
+        .form-hint {
+            flex-basis: 100%;
+            margin: 0;
+        }
+    }
+
+    .rebelExperimentsDecisionNote {
+        white-space: pre-wrap;
+        max-width: 760px;
+    }
+
+    textarea.rebelExperimentsNote {
+        font-family: inherit;
+        min-height: 90px;
+        max-width: 760px;
     }
 }

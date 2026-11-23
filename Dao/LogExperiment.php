@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Dao;
+namespace Piwik\Plugins\RebelExperiments\Dao;
 
 use Piwik\Common;
 use Piwik\Db;
@@ -18,7 +18,7 @@ use Piwik\DbHelper;
  */
 class LogExperiment
 {
-    public const TABLE = 'rebel_ab_testing_log';
+    public const TABLE = 'rebel_experiments_log';
 
     public function install()
     {

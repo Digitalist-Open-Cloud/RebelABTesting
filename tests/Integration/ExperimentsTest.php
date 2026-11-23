@@ -1,19 +1,19 @@
 <?php
 
-namespace Piwik\Plugins\RebelABTesting\tests\Integration;
+namespace Piwik\Plugins\RebelExperiments\tests\Integration;
 
 use Exception;
 use Piwik\Date;
 use Piwik\NoAccessException;
 use Piwik\Plugins\Goals\API as GoalsApi;
-use Piwik\Plugins\RebelABTesting\API;
-use Piwik\Plugins\RebelABTesting\Dao\Experiments;
+use Piwik\Plugins\RebelExperiments\API;
+use Piwik\Plugins\RebelExperiments\Dao\Experiments;
 use Piwik\Tests\Framework\Fixture;
 use Piwik\Tests\Framework\Mock\FakeAccess;
 use Piwik\Tests\Framework\TestCase\IntegrationTestCase;
 
 /**
- * @group RebelABTesting
+ * @group RebelExperiments
  * @group Plugins
  */
 class ExperimentsTest extends IntegrationTestCase
@@ -62,7 +62,8 @@ class ExperimentsTest extends IntegrationTestCase
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertRegExpCompat('/^[0-9a-f]{32}$/', $experiment['preview_token']);
         $this->assertSame(['superUserLogin', true, ''], [$experiment['created_by'], $experiment['notify'], $experiment['notified']]);
-        unset($experiment['preview_token'], $experiment['created_by'], $experiment['notify'], $experiment['notified']);
+        $this->assertSame(['', '', '', null], [$experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']]);
+        unset($experiment['preview_token'], $experiment['created_by'], $experiment['notify'], $experiment['notified'], $experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']);
         $this->assertEquals([
             'id' => $id,
             'idsite' => 1,
@@ -124,6 +125,115 @@ class ExperimentsTest extends IntegrationTestCase
         $experiment = $this->api->getExperiment($id, 1);
         $this->assertSame(['type' => 'goal_revenue', 'idgoal' => $idGoal], $experiment['primary_measure']);
         $this->assertSame([99, 'starts_with', 'https://example.org/checkout'], [$experiment['confidence'], $experiment['exclude_match'], $experiment['exclude_value']]);
+    }
+
+    public function testARolloutIsOneChangeForAShareOfTheVisitors()
+    {
+        $id = $this->api->insertExperiment(1, 'rollout', '', '', '2024-03-01', '2024-03-31', [self::VARIANT, ['name' => 'left out']], 5, 'any', '', ['type' => 'bounce'], 'rollout');
+
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['rollout', 5, 1, ['type' => 'bounce']], [$experiment['kind'], $experiment['traffic_share'], count($experiment['variants']), $experiment['primary_measure']]);
+        $this->assertSame(2, Experiments::getMaxVariant($experiment));
+    }
+
+    public function testAVariantOfAnABTestIsRolledOutToEveryoneAndTheTestEnds()
+    {
+        $audience = ['visitor' => 'new', 'devices' => ['mobile'], 'campaign' => '', 'referrer' => '', 'languages' => []];
+        $changes = [['selector' => '.buy', 'action' => 'add_class', 'value' => 'green']];
+        $id = $this->api->insertExperiment(1, 'button', '', '', '2024-03-01', '2024-03-31', [['name' => 'Blue'], ['name' => 'Green', 'changes' => $changes]], 50, 'contains', '/pricing', ['type' => 'bounce'], 'ab', [], [['type' => 'search']], 99, 'contains', '/checkout', true, $audience);
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        $idRollout = $this->api->rollOutVariant(1, $id, 3);
+
+        $rollout = $this->api->getExperiment($idRollout, 1);
+        $this->assertSame(
+            ['rollout', 'button: Green (2024-03-05)', 100, '2024-03-05', '2025-03-05', 'running', false],
+            [$rollout['kind'], $rollout['name'], $rollout['traffic_share'], $rollout['from_date'], $rollout['to_date'], $rollout['status'], $rollout['notify']]
+        );
+        $this->assertSame([['name' => 'Green', 'changes' => $changes, 'redirect' => '', 'css' => '', 'js' => '']], $rollout['variants']);
+        $this->assertSame(
+            ['contains', '/pricing', 'contains', '/checkout', $audience, ['type' => 'bounce'], [['type' => 'search']], 99],
+            [$rollout['target_match'], $rollout['target_value'], $rollout['exclude_match'], $rollout['exclude_value'], $rollout['audience'], $rollout['primary_measure'], $rollout['guardrails'], $rollout['confidence']]
+        );
+        $source = $this->api->getExperiment($id, 1);
+        $this->assertSame(['ended', 'adopt', 'Rolled out the variant "Green".', 'writer'], [$source['status'], $source['decision'], $source['decision_note'], $source['decided_by']]);
+    }
+
+    public function testADecisionIsRecordedWithWhoMadeItAndCanBeTakenBack()
+    {
+        $id = $this->add(1, 'button', '2024-03-01', '2024-03-31');
+        FakeAccess::clearAccess(false, [], [], 'writer', [1]);
+
+        $this->api->setDecision($id, 1, 'inconclusive', " Too few visits.\nTry again in spring. ");
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(
+            ['inconclusive', "Too few visits.\nTry again in spring.", 'writer', '2024-03-05 12:00:00'],
+            [$experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']]
+        );
+
+        $this->api->setDecision($id, 1, '');
+        $experiment = $this->api->getExperiment($id, 1);
+        $this->assertSame(['', '', '', null], [$experiment['decision'], $experiment['decision_note'], $experiment['decided_by'], $experiment['decided_at']]);
+    }
+
+    public function testADecisionIsOneOfTheChoicesAndItsNoteHasALimit()
+    {
+        $id = $this->add(1, 'button', '2024-03-01', '2024-03-31');
+
+        foreach ([['maybe', ''], ['adopt', str_repeat('a', 2001)]] as [$decision, $note]) {
+            try {
+                $this->api->setDecision($id, 1, $decision, $note);
+                $this->fail('The decision was not refused.');
+            } catch (Exception $e) {
+                $this->assertStringContainsString('decision is not one of the choices', $e->getMessage());
+            }
+        }
+        $this->assertSame('', $this->api->getExperiment($id, 1)['decision']);
+    }
+
+    /**
+     * @dataProvider getWhatCannotBeRolledOut
+     */
+    public function testOnlyAVariantOfAnABTestCanBeRolledOut(string $kind, int $variant)
+    {
+        $id = $this->api->insertExperiment(1, 'source', '', '', '2024-03-01', '2024-03-31', [self::VARIANT], 100, 'any', '', [], $kind, ['selector' => '#menu', 'label' => 'Export', 'message' => 'Soon']);
+
+        try {
+            $this->api->rollOutVariant(1, $id, $variant);
+            $this->fail('The rollout was not refused.');
+        } catch (Exception $e) {
+            $this->assertStringContainsString('Only a variant of an A/B test', $e->getMessage());
+        }
+
+        $this->assertSame(['running', 1], [$this->api->getExperiment($id, 1)['status'], count($this->api->getExperiments(1))]);
+    }
+
+    public function getWhatCannotBeRolledOut(): array
+    {
+        return [
+            'the original' => ['ab', 1],
+            'a variant the test does not have' => ['ab', 3],
+            'a rollout' => ['rollout', 2],
+            'a fake door' => ['fake_door', 2],
+        ];
+    }
+
+    public function testRollingOutAVariantWithCodeNeedsAdminAccessAndRollingOutNeedsWriteAccess()
+    {
+        $id = $this->api->insertExperiment(1, 'code', '', '', '2024-03-01', '2024-03-31', [self::VARIANT, ['js' => 'x()']]);
+
+        foreach ([[[], [], [1], 2], [[], [], [1], 3], [[1], [], [], 3]] as $index => [$admin, $view, $write, $variant]) {
+            FakeAccess::clearAccess(false, $admin, $index === 0 ? [1] : $view, 'someone', $index === 0 ? [] : $write);
+            try {
+                $this->api->rollOutVariant(1, $id, $variant);
+                $this->assertSame(2, $index, 'A rollout was not refused.');
+            } catch (NoAccessException $e) {
+                $this->assertContains($index, [0, 1]);
+            }
+        }
+
+        FakeAccess::clearAccess(true);
+        $this->assertSame(['code', 'code: Variant 2 (2024-03-05)'], array_column($this->api->getExperiments(1), 'name'));
     }
 
     public function testAnExperimentCanBeForAnAudience()
@@ -255,6 +365,8 @@ class ExperimentsTest extends IntegrationTestCase
             'a goal the website does not have' => [['measure' => ['type' => 'goal', 'idgoal' => 99]], 'A measure is'],
             'an event without a category' => [['measure' => ['type' => 'event', 'action' => 'Play']], 'A measure is'],
             'an unknown measure' => [['measure' => ['type' => 'happiness']], 'A measure is'],
+            'a funnel the website does not have' => [['measure' => ['type' => 'funnel', 'idfunnel' => 99]], 'A measure is'],
+            'a feedback form the website does not have' => [['measure' => ['type' => 'feedback', 'idform' => 99]], 'A measure is'],
             'a watched element without a selector' => [['kind' => 'watch', 'door' => []], 'element to watch'],
             'an unknown way to leave out pages' => [['exclude' => ['sounds_like', 'x']], 'Unknown way'],
             'no pages to leave out' => [['exclude' => ['contains', '']], 'address to compare'],
@@ -301,6 +413,7 @@ class ExperimentsTest extends IntegrationTestCase
             'add' => ['insertExperiment', [2, 'mine', '', '', '2024-05-01', '2024-05-31', [self::VARIANT]]],
             'update' => ['updateExperiment', [1, 2, 'mine', '', '', '2024-03-01', '2024-03-31', [self::VARIANT]]],
             'stop' => ['stopExperiment', [1, 2]],
+            'decide' => ['setDecision', [1, 2, 'adopt', 'mine']],
             'delete' => ['deleteExperiment', [1, 2]],
             'read' => ['getExperiment', [1, 2]],
         ];
@@ -385,10 +498,11 @@ class ExperimentsTest extends IntegrationTestCase
     public function testAViewerSeesTheExperimentsButNotWhatTheirVariantsDo()
     {
         $id = $this->add(1, 'button', '2024-03-01', '2024-03-31');
+        $this->api->setDecision($id, 1, 'keep', 'No difference worth the work.');
         FakeAccess::clearAccess(false, [], [1]);
 
         $this->assertSame(
-            [['id' => $id, 'idsite' => 1, 'name' => 'button', 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'kind' => 'ab', 'status' => 'running', 'has_code' => false]],
+            [['id' => $id, 'idsite' => 1, 'name' => 'button', 'from_date' => '2024-03-01', 'to_date' => '2024-03-31', 'kind' => 'ab', 'decision' => 'keep', 'decision_note' => 'No difference worth the work.', 'status' => 'running', 'has_code' => false]],
             $this->api->getExperiments(1)
         );
     }
@@ -426,6 +540,6 @@ class ExperimentsTest extends IntegrationTestCase
     {
         parent::configureFixture($fixture);
 
-        $fixture->extraPluginsToLoad = ['RebelABTesting'];
+        $fixture->extraPluginsToLoad = ['RebelExperiments'];
     }
 }

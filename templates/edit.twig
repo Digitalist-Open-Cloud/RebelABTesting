@@ -1,12 +1,12 @@
-<div class="rebelABTestingPlugin">
+<div class="rebelExperimentsPlugin">
     <div class="card">
         <div class="card-content">
-            <h2>{{ 'RebelABTesting_EditExperiment'|translate }}</h2>
-            <a href="{{ backUrl }}" class="back-link rebelABTestingBack">&laquo; {{ 'RebelABTesting_FormBack'|translate }}</a>
+            <h2>{{ 'RebelExperiments_EditExperiment'|translate }}</h2>
+            <a href="{{ backUrl }}" class="back-link rebelExperimentsBack">&laquo; {{ 'RebelExperiments_FormBack'|translate }}</a>
             {% if experiment is empty %}
-            <div class="alert">{{ 'RebelABTesting_ExperimentNotFound'|translate }}</div>
+            <div class="alert">{{ 'RebelExperiments_ExperimentNotFound'|translate }}</div>
             {% else %}
-            {% include '@RebelABTesting/_form.twig' with {submitLabel: 'RebelABTesting_FormSave'|translate} %}
+            {% include '@RebelExperiments/_form.twig' with {submitLabel: 'RebelExperiments_FormSave'|translate} %}
             {% endif %}
         </div>
     </div>

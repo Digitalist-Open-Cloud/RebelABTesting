@@ -1,20 +1,21 @@
-<div class="rebelABTestingPlugin">
+<div class="rebelExperimentsPlugin">
     <div class="card">
         <div class="card-content">
-            <h2>{{ 'RebelABTesting_ManageExperiments'|translate }}</h2>
+            <h2>{{ 'RebelExperiments_ManageExperiments'|translate }}</h2>
             {% if experiments is not empty %}
             <div class="table-scroll">
-                <table class="rebelABTestingTable">
+                <table class="rebelExperimentsTable">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>{{ 'General_Name'|translate }}</th>
-                            <th>{{ 'RebelABTesting_FormKind'|translate }}</th>
-                            <th>{{ 'RebelABTesting_ListStatus'|translate }}</th>
-                            <th>{{ 'RebelABTesting_ResultVerdict'|translate }}</th>
-                            <th>{{ 'RebelABTesting_FormFromDate'|translate }}</th>
-                            <th>{{ 'RebelABTesting_FormToDate'|translate }}</th>
-                            {% if canWrite %}<th>{{ 'RebelABTesting_ListActions'|translate }}</th>{% endif %}
+                            <th>{{ 'RebelExperiments_FormKind'|translate }}</th>
+                            <th>{{ 'RebelExperiments_ListStatus'|translate }}</th>
+                            <th>{{ 'RebelExperiments_ResultVerdict'|translate }}</th>
+                            <th>{{ 'RebelExperiments_DecisionTitle'|translate }}</th>
+                            <th>{{ 'RebelExperiments_FormFromDate'|translate }}</th>
+                            <th>{{ 'RebelExperiments_FormToDate'|translate }}</th>
+                            {% if canWrite %}<th>{{ 'RebelExperiments_ListActions'|translate }}</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -22,21 +23,22 @@
                         <tr>
                             <td>{{ experiment.id }}</td>
                             <td><a href="{{ resultUrl }}{{ experiment.id }}">{{ experiment.name }}</a></td>
-                            <td>{{ ('RebelABTesting_Kind_' ~ experiment.kind)|translate }}</td>
-                            <td><span class="rebelABTestingStatus rebelABTestingStatus-{{ experiment.status }}">{{ ('RebelABTesting_Status_' ~ experiment.status)|translate }}</span></td>
-                            <td>{% if experiment.summary %}<span class="rebelABTestingVerdict rebelABTestingVerdict-{{ experiment.summary.verdict }}">{{ experiment.summary.text }}</span>{% endif %}</td>
+                            <td>{{ ('RebelExperiments_Kind_' ~ experiment.kind)|translate }}</td>
+                            <td><span class="rebelExperimentsStatus rebelExperimentsStatus-{{ experiment.status }}">{{ ('RebelExperiments_Status_' ~ experiment.status)|translate }}</span></td>
+                            <td>{% if experiment.summary %}<span class="rebelExperimentsVerdict rebelExperimentsVerdict-{{ experiment.summary.verdict }}">{{ experiment.summary.text }}</span>{% endif %}</td>
+                            <td>{% if experiment.decision %}{{ ('RebelExperiments_Decision_' ~ experiment.decision)|translate }}{% endif %}</td>
                             <td>{{ experiment.from_date }}</td>
                             <td>{{ experiment.to_date }}</td>
                             {% if canWrite %}
                             <td class="actions-cell">
                                 {% if canUseCode or not experiment.has_code %}
-                                <a class="btn rebelABTestingEdit" href="{{ editUrl }}&amp;id={{ experiment.id }}">{{ 'General_Edit'|translate }}</a>
+                                <a class="btn rebelExperimentsEdit" href="{{ editUrl }}&amp;id={{ experiment.id }}">{{ 'General_Edit'|translate }}</a>
                                 {% endif %}
                                 {% if experiment.status == 'running' %}
                                 <form method="post" action="{{ stopUrl }}">
                                     <input type="hidden" name="nonce" value="{{ nonce }}">
                                     <input type="hidden" name="id" value="{{ experiment.id }}">
-                                    <button type="submit" class="btn">{{ 'RebelABTesting_ListStop'|translate }}</button>
+                                    <button type="submit" class="btn">{{ 'RebelExperiments_ListStop'|translate }}</button>
                                 </form>
                                 {% endif %}
                                 <form method="post" action="{{ deleteUrl }}">
@@ -51,10 +53,10 @@
                     </tbody>
                 </table>
             </div>
-            <p class="section-help">{{ 'RebelABTesting_ListResultsHelp'|translate }}</p>
+            <p class="section-help">{{ 'RebelExperiments_ListResultsHelp'|translate }}</p>
             {% else %}
-            <div class="alert">{{ 'RebelABTesting_ListEmpty'|translate }}</div>
-            {% if canWrite %}<p class="section-help">{{ 'RebelABTesting_TagHelp'|translate }}</p>{% endif %}
+            <div class="alert">{{ 'RebelExperiments_ListEmpty'|translate }}</div>
+            {% if canWrite %}<p class="section-help">{{ 'RebelExperiments_TagHelp'|translate }}</p>{% endif %}
             {% endif %}
         </div>
     </div>

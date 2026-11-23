@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting\Dao;
+namespace Piwik\Plugins\RebelExperiments\Dao;
 
 use Exception;
 use Piwik\Common;
@@ -15,12 +15,12 @@ use Piwik\Date;
 use Piwik\Db;
 use Piwik\DbHelper;
 use Piwik\Piwik;
-use Piwik\Plugins\RebelABTesting\Audience;
-use Piwik\Plugins\RebelABTesting\Validation\ExperimentValidator;
+use Piwik\Plugins\RebelExperiments\Audience;
+use Piwik\Plugins\RebelExperiments\Validation\ExperimentValidator;
 
 class Experiments
 {
-    public const TABLE = 'rebel_ab_testing_experiments';
+    public const TABLE = 'rebel_experiments';
 
     public const STATUS_PLANNED = 'planned';
     public const STATUS_RUNNING = 'running';
@@ -55,6 +55,10 @@ class Experiments
             `created_by` VARCHAR(100) NOT NULL DEFAULT '',
             `notify` TINYINT UNSIGNED NOT NULL DEFAULT 1,
             `notified` VARCHAR(40) NOT NULL DEFAULT '',
+            `decision` VARCHAR(20) NOT NULL DEFAULT '',
+            `decision_note` TEXT,
+            `decided_by` VARCHAR(100) NOT NULL DEFAULT '',
+            `decided_at` DATETIME NULL,
             PRIMARY KEY (`id`),
             UNIQUE KEY `unique_name` (`idsite`, `name`)
         ");
@@ -107,6 +111,24 @@ class Experiments
         Db::query(
             'UPDATE `' . $this->table() . '` SET stopped_at = ? WHERE id = ? AND idsite = ? AND stopped_at IS NULL',
             [Date::now()->getDatetime(), $id, $idSite]
+        );
+    }
+
+    /**
+     * Records what was decided about an experiment, by whom and when. An empty decision takes it
+     * back.
+     */
+    public function setDecision(int $id, int $idSite, string $decision, string $note): void
+    {
+        if (!in_array($decision, ExperimentValidator::DECISIONS, true) || mb_strlen($note) > ExperimentValidator::DECISION_NOTE_MAX_LENGTH) {
+            throw new Exception(Piwik::translate('RebelExperiments_ErrorDecision'));
+        }
+
+        Db::query(
+            'UPDATE `' . $this->table() . '` SET decision = ?, decision_note = ?, decided_by = ?, decided_at = ? WHERE id = ? AND idsite = ?',
+            $decision === ''
+                ? ['', '', '', null, $id, $idSite]
+                : [$decision, trim($note), Piwik::getCurrentUserLogin(), Date::now()->getDatetime(), $id, $idSite]
         );
     }
 
@@ -199,6 +221,7 @@ class Experiments
         $row['confidence'] = (int) $row['confidence'];
         $row['audience'] = Audience::normalize(json_decode((string) $row['audience'], true));
         $row['notify'] = (bool) $row['notify'];
+        $row['decision_note'] = (string) $row['decision_note'];
         $row['variants'] = ExperimentValidator::normalizeVariants(json_decode($row['variants'], true));
         $row['door'] = $row['door'] === null ? null : json_decode($row['door'], true);
         $row['status'] = self::getStatus($row, Date::now()->getTimestamp());
@@ -220,7 +243,7 @@ class Experiments
             Db::query($query, $params);
         } catch (Exception $e) {
             if (Db::get()->isErrNo($e, self::DUPLICATE_ENTRY)) {
-                throw new Exception(Piwik::translate('RebelABTesting_ErrorNameExists'));
+                throw new Exception(Piwik::translate('RebelExperiments_ErrorNameExists'));
             }
             throw $e;
         }
@@ -252,6 +275,10 @@ class Experiments
         $kind = (string) ($experiment['kind'] ?? ExperimentValidator::KIND_AB);
         $hasVariants = !ExperimentValidator::countsWhatIsShown($kind);
         $variants = $hasVariants ? ExperimentValidator::normalizeVariants($experiment['variants'] ?? null) : [];
+        if ($kind === ExperimentValidator::KIND_ROLLOUT) {
+            // A rollout is one change, which a share of the visitors gets.
+            $variants = array_slice($variants, 0, 1);
+        }
         $door = null;
         $kindError = null;
         if ($kind === ExperimentValidator::KIND_FAKE_DOOR) {
@@ -260,7 +287,7 @@ class Experiments
         } elseif ($kind === ExperimentValidator::KIND_WATCH) {
             $door = ExperimentValidator::normalizeWatch($experiment['door'] ?? null);
             $kindError = ExperimentValidator::validateWatch($door);
-        } elseif ($kind === ExperimentValidator::KIND_AB) {
+        } elseif (in_array($kind, ExperimentValidator::KINDS, true)) {
             $kindError = ExperimentValidator::validateVariants($variants);
         }
 
@@ -271,7 +298,7 @@ class Experiments
             ?? ExperimentValidator::validateExclude($values['exclude_match'], $values['exclude_value'])
             ?? ExperimentValidator::validateConfidence($values['confidence'])
             ?? Audience::validate($audience)
-            ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelABTesting_ErrorKind')
+            ?? (in_array($kind, ExperimentValidator::KINDS, true) ? null : 'RebelExperiments_ErrorKind')
             ?? $kindError;
 
         if ($error !== null) {

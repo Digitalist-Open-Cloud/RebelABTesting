@@ -3,7 +3,7 @@ import { assertEquals } from "jsr:@std/assert@1";
 const root = new URL("../../", import.meta.url);
 const window = {};
 new Function("window", Deno.readTextFileSync(new URL("javascripts/experimentForm.js", root)))(window);
-const { requiredVisits, requiredDays } = window.RebelABTesting;
+const { requiredVisits, requiredDays } = window.RebelExperiments;
 
 Deno.test("a rate of 5% and a variant that is 10% better need about 25,000 visits in each group", () => {
   // (1.6449 + 0.8416)^2 * (0.05 * 0.95 + 0.055 * 0.945) / 0.005^2 = 6.18268 * 3979 = 24600.9

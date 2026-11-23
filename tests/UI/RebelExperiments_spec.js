@@ -1,17 +1,17 @@
-describe('RebelABTesting', function () {
-    this.fixture = 'Piwik\\Plugins\\RebelABTesting\\tests\\Fixtures\\SiteWithGoal';
+describe('RebelExperiments', function () {
+    this.fixture = 'Piwik\\Plugins\\RebelExperiments\\tests\\Fixtures\\SiteWithGoal';
 
     const params = 'idSite=1&period=day&date=2024-03-05';
     const pageUrl = (subcategory) => `?module=CoreHome&action=index&${params}#?${params}`
-        + `&category=RebelABTesting_RebelABTesting&subcategory=${subcategory}`;
+        + `&category=RebelExperiments_RebelExperiments&subcategory=${subcategory}`;
 
     before(async function () {
-        testEnvironment.pluginsToLoad = ['RebelABTesting'];
+        testEnvironment.pluginsToLoad = ['RebelExperiments'];
         testEnvironment.save();
 
         // The database of the fixture can be kept from an earlier run, with its experiments.
-        for (const experiment of await testEnvironment.callApi('RebelABTesting.getExperiments', { idSite: 1 })) {
-            await testEnvironment.callApi('RebelABTesting.deleteExperiment', { idSite: 1, id: experiment.id });
+        for (const experiment of await testEnvironment.callApi('RebelExperiments.getExperiments', { idSite: 1 })) {
+            await testEnvironment.callApi('RebelExperiments.deleteExperiment', { idSite: 1, id: experiment.id });
         }
     });
 
@@ -24,101 +24,111 @@ describe('RebelABTesting', function () {
     }
 
     // The steps as a visitor reads them, without what is hidden.
-    const stepNames = () => page.evaluate(() => [...document.querySelectorAll('.rebelABTestingStep')]
+    const stepNames = () => page.evaluate(() => [...document.querySelectorAll('.rebelExperimentsStep')]
         .filter((step) => step.offsetParent !== null).map((step) => step.innerText.replace(/\s+/g, ' ').trim()).join(' | '));
 
     // Shows a step of the form.
-    const step = (name) => page.click(`.rebelABTestingStep[data-panel=${name}]`);
+    const step = (name) => page.click(`.rebelExperimentsStep[data-panel=${name}]`);
     const visible = (selector) => page.evaluate((s) => document.querySelector(s).offsetParent !== null, selector);
 
     async function submit(selector) {
         await Promise.all([page.waitForNavigation(), page.click(selector)]);
-        await page.waitForSelector('.rebelABTestingPlugin', { visible: true });
+        await page.waitForSelector('.rebelExperimentsPlugin', { visible: true });
         await page.waitForNetworkIdle();
     }
 
     it('should add and remove variants in the form', async function () {
-        await page.goto(pageUrl('RebelABTesting_CreateNewExperiment'));
-        await page.waitForSelector('.rebelABTestingForm', { visible: true });
+        await page.goto(pageUrl('RebelExperiments_CreateNewExperiment'));
+        await page.waitForSelector('.rebelExperimentsForm', { visible: true });
         await page.waitForNetworkIdle();
 
         expect(await stepNames()).to.equal('1 Basics | 2 Variants | 3 Where and who | 4 Measures | 5 When');
         expect(await visible('#name')).to.equal(true);
-        expect(await visible('.rebelABTestingVariants')).to.equal(false);
+        expect(await visible('.rebelExperimentsVariants')).to.equal(false);
 
-        await page.click('.rebelABTestingNext');
-        expect(await visible('.rebelABTestingVariants')).to.equal(true);
+        await page.click('.rebelExperimentsNext');
+        expect(await visible('.rebelExperimentsVariants')).to.equal(true);
         expect(await visible('#name')).to.equal(false);
         expect(await stepNames()).to.contain('2 Variants');
-        expect(await page.evaluate(() => document.querySelector('.rebelABTestingStep-current').dataset.panel)).to.equal('changes');
-        expect(await count('.rebelABTestingVariant')).to.equal(1);
-        expect(await visible('.rebelABTestingRemoveVariant')).to.equal(false);
+        expect(await page.evaluate(() => document.querySelector('.rebelExperimentsStep-current').dataset.panel)).to.equal('changes');
+        expect(await count('.rebelExperimentsVariant')).to.equal(1);
+        expect(await visible('.rebelExperimentsRemoveVariant')).to.equal(false);
 
-        await page.click('.rebelABTestingAddVariant');
-        await page.click('.rebelABTestingAddVariant');
-        expect(await count('.rebelABTestingVariant')).to.equal(3);
+        await page.click('.rebelExperimentsAddVariant');
+        await page.click('.rebelExperimentsAddVariant');
+        expect(await count('.rebelExperimentsVariant')).to.equal(3);
         expect(await count('textarea[name="variants[2][css]"]')).to.equal(1);
 
-        await page.evaluate(() => document.querySelectorAll('.rebelABTestingRemoveVariant')[1].click());
-        expect(await count('.rebelABTestingVariant')).to.equal(2);
+        await page.evaluate(() => document.querySelectorAll('.rebelExperimentsRemoveVariant')[1].click());
+        expect(await count('.rebelExperimentsVariant')).to.equal(2);
         expect(await count('textarea[name="variants[1][js]"]')).to.equal(1);
-        expect(await text('.rebelABTestingVariantNumber')).to.equal('1 | 2');
+        expect(await text('.rebelExperimentsVariantNumber')).to.equal('1 | 2');
     });
 
     it('should add and remove the changes of a variant', async function () {
-        const names = () => page.evaluate(() => [...document.querySelectorAll('.rebelABTestingVariant:nth-child(2) .rebelABTestingChange input[name$="[selector]"]')]
+        const names = () => page.evaluate(() => [...document.querySelectorAll('.rebelExperimentsVariant:nth-child(2) .rebelExperimentsChange input[name$="[selector]"]')]
             .map((field) => `${field.name}=${field.value}`));
 
         await page.type('input[name="variants[1][changes][0][selector]"]', 'h1');
-        await page.evaluate(() => document.querySelector('.rebelABTestingVariant:nth-child(2) .rebelABTestingAddChange').click());
+        await page.evaluate(() => document.querySelector('.rebelExperimentsVariant:nth-child(2) .rebelExperimentsAddChange').click());
         await page.type('input[name="variants[1][changes][1][selector]"]', '.banner');
         expect(await names()).to.deep.equal(['variants[1][changes][0][selector]=h1', 'variants[1][changes][1][selector]=.banner']);
 
-        await page.evaluate(() => document.querySelector('.rebelABTestingVariant:nth-child(2) .rebelABTestingRemoveChange').click());
+        await page.evaluate(() => document.querySelector('.rebelExperimentsVariant:nth-child(2) .rebelExperimentsRemoveChange').click());
         expect(await names()).to.deep.equal(['variants[1][changes][0][selector]=.banner']);
 
-        await page.evaluate(() => document.querySelector('.rebelABTestingVariant:nth-child(2) .rebelABTestingRemoveChange').click());
+        await page.evaluate(() => document.querySelector('.rebelExperimentsVariant:nth-child(2) .rebelExperimentsRemoveChange').click());
         expect(await names()).to.deep.equal(['variants[1][changes][0][selector]=']);
     });
 
     it('should fill in the changes of a template', async function () {
-        const rows = () => page.evaluate(() => [...document.querySelectorAll('.rebelABTestingVariant:nth-child(2) .rebelABTestingChange')]
+        const rows = () => page.evaluate(() => [...document.querySelectorAll('.rebelExperimentsVariant:nth-child(2) .rebelExperimentsChange')]
             .map((row) => ['selector', 'action', 'value'].map((field) => row.querySelector(`[name$="[${field}]"]`).value).join(' / ')));
 
-        await page.select('.rebelABTestingVariant:nth-child(2) .rebelABTestingTemplate', 'banner');
+        await page.select('.rebelExperimentsVariant:nth-child(2) .rebelExperimentsTemplate', 'banner');
         expect(await rows()).to.deep.equal([
             'body / insert_first / Free shipping this week',
             '.rebel-experiment-insert / style / background: #fff3cd; color: #222222; padding: 10px; text-align: center',
         ]);
         expect(await count('[name="variants[1][changes][1][value]"]')).to.equal(1);
 
-        await page.select('.rebelABTestingVariant:nth-child(2) .rebelABTestingTemplate', 'hide');
+        await page.select('.rebelExperimentsVariant:nth-child(2) .rebelExperimentsTemplate', 'hide');
         expect(await rows()).to.deep.equal([' / hide / ']);
         expect(await page.evaluate(() => document.activeElement.name)).to.equal('variants[1][changes][0][selector]');
     });
 
     it('should show the fields of the kind of experiment', async function () {
         expect(await visible('#door_label')).to.equal(false);
-        expect(await visible('.rebelABTestingVariants')).to.equal(true);
+        expect(await visible('.rebelExperimentsVariants')).to.equal(true);
 
         await step('basics');
-        await page.click('.rebelABTestingKind[value=fake_door]');
+        await page.click('.rebelExperimentsKind[value=fake_door]');
         expect(await stepNames()).to.equal('1 Basics | 2 Fake door | 3 Where and who | 4 When');
         await step('changes');
         expect(await visible('#door_label')).to.equal(true);
-        expect(await visible('.rebelABTestingVariants')).to.equal(false);
+        expect(await visible('.rebelExperimentsVariants')).to.equal(false);
 
         await step('basics');
-        await page.click('.rebelABTestingKind[value=watch]');
+        await page.click('.rebelExperimentsKind[value=rollout]');
+        expect(await stepNames()).to.equal('1 Basics | 2 Change | 3 Where and who | 4 Measures | 5 When');
+        await step('changes');
+        // A rollout is one change: the second variant of the form and the way to add more are gone.
+        expect(await page.evaluate(() => [...document.querySelectorAll('.rebelExperimentsVariant')].map((variant) => variant.offsetParent !== null))).to.deep.equal([true, false]);
+        expect(await visible('.rebelExperimentsAddVariant')).to.equal(false);
+        await step('audience');
+        expect(await page.evaluate(() => document.querySelector('label[for=traffic_share]').innerText.trim())).to.equal('Share of visitors that get the change (%)');
+
+        await step('basics');
+        await page.click('.rebelExperimentsKind[value=watch]');
         await step('changes');
         expect(await visible('#watch_selector')).to.equal(true);
         expect(await visible('#door_label')).to.equal(false);
 
         await step('basics');
-        await page.click('.rebelABTestingKind[value=ab]');
+        await page.click('.rebelExperimentsKind[value=ab]');
         await step('changes');
         expect(await visible('#door_label')).to.equal(false);
-        expect(await visible('.rebelABTestingVariants')).to.equal(true);
+        expect(await visible('.rebelExperimentsVariants')).to.equal(true);
     });
 
     it('should ask for the category of an event only when an event is chosen', async function () {
@@ -135,14 +145,14 @@ describe('RebelABTesting', function () {
 
     it('should tell how long to run the experiment', async function () {
         await step('schedule');
-        await page.click('.rebelABTestingPlanner summary');
-        expect(await text('.rebelABTestingPlannerResult')).to.equal('Fill in the three numbers to see the days.');
+        await page.click('.rebelExperimentsPlanner summary');
+        expect(await text('.rebelExperimentsPlannerResult')).to.equal('Fill in the three numbers to see the days.');
 
         await page.type('#planner_visits', '2000');
         await page.type('#planner_rate', '5');
 
         // 24,601 visits in each of 3 groups, 2,000 visits a day.
-        expect(await text('.rebelABTestingPlannerResult')).to.contain('Run for at least 37 days');
+        expect(await text('.rebelExperimentsPlannerResult')).to.contain('Run for at least 37 days');
     });
 
     it('should create an experiment and go back to the list', async function () {
@@ -150,10 +160,10 @@ describe('RebelABTesting', function () {
         await page.select('#audience_visitor', 'returning');
         await page.click('input[name="audience[devices][]"][value=mobile] + span');
         await step('basics');
-        await page.type('.rebelABTestingForm #name', 'Green button');
-        await page.type('.rebelABTestingForm #hypothesis', 'Green gets more clicks');
+        await page.type('.rebelExperimentsForm #name', 'Green button');
+        await page.type('.rebelExperimentsForm #hypothesis', 'Green gets more clicks');
         await step('changes');
-        await page.evaluate(() => document.querySelectorAll('details.rebelABTestingMore').forEach((details) => { details.open = true; }));
+        await page.evaluate(() => document.querySelectorAll('details.rebelExperimentsMore').forEach((details) => { details.open = true; }));
         await page.evaluate(() => {
             document.querySelector('#target_match').value = 'contains';
             document.querySelector('#target_value').value = '/pricing';
@@ -164,48 +174,48 @@ describe('RebelABTesting', function () {
         await page.type('input[name="variants[0][changes][0][value]"]', 'green');
         await page.type('textarea[name="variants[0][css]"]', '.btn { background: green; }');
         await page.type('textarea[name="variants[1][js]"]', "// second\ndocument.title = 'B';");
-        await submit('.rebelABTestingForm input[type=submit]');
+        await submit('.rebelExperimentsForm input[type=submit]');
 
-        expect(page.url()).to.contain('subcategory=RebelABTesting_ManageExperiments');
-        expect(await text('.rebelABTestingTable tbody tr td:nth-child(2)')).to.equal('Green button');
-        expect(await text('.rebelABTestingStatus')).to.equal('Running');
+        expect(page.url()).to.contain('subcategory=RebelExperiments_ManageExperiments');
+        expect(await text('.rebelExperimentsTable tbody tr td:nth-child(2)')).to.equal('Green button');
+        expect(await text('.rebelExperimentsStatus')).to.equal('Running');
         expect(await text('.notification')).to.contain('The experiment was created.');
     });
 
     it('should show the menu icon and a page for the experiment', async function () {
         const mask = await page.evaluate(() => {
-            const icon = document.querySelector('.rebelABTestingIcon');
+            const icon = document.querySelector('.rebelExperimentsIcon');
             const style = icon ? getComputedStyle(icon, '::before') : null;
             return style ? (style.maskImage || style.webkitMaskImage) : 'no icon';
         });
         expect(mask).to.contain('svg');
 
         // The name of an experiment in the list leads to its page.
-        await page.click('.rebelABTestingTable tbody td a');
+        await page.click('.rebelExperimentsTable tbody td a');
         await page.waitForFunction(() => {
-            const heading = document.querySelector('.rebelABTestingPlugin h2');
+            const heading = document.querySelector('.rebelExperimentsPlugin h2');
             return heading && heading.textContent === 'Green button';
         });
         expect(page.url()).to.match(/subcategory=\d+$/);
         await page.waitForNetworkIdle();
 
-        expect(await text('.rebelABTestingPlugin h2')).to.equal('Green button');
-        expect(await text('.rebelABTestingTable:first-of-type tbody td:first-child')).to.equal('Original | Green | Variant 2');
-        expect(await text('.rebelABTestingMeasureTable-primary tbody td:first-child')).to.equal('Original | Green | Variant 2');
+        expect(await text('.rebelExperimentsPlugin h2')).to.equal('Green button');
+        expect(await text('.rebelExperimentsTable:first-of-type tbody td:first-child')).to.equal('Original | Green | Variant 2');
+        expect(await text('.rebelExperimentsMeasureTable-primary tbody td:first-child')).to.equal('Original | Green | Variant 2');
         expect(await text('h3.form-section-title')).to.contain('Judged by: Goal: Thanks page');
-        expect(await count('a[href*="#rabt-preview=1-"]')).to.equal(3);
+        expect(await count('a[href*="#rexp-preview=1-"]')).to.equal(3);
     });
 
     it('should edit an experiment', async function () {
-        await page.goto(pageUrl('RebelABTesting_ManageExperiments'));
-        await page.waitForSelector('.rebelABTestingTable', { visible: true });
-        await page.click('.rebelABTestingTable .actions-cell a.btn');
-        await page.waitForSelector('.rebelABTestingForm', { visible: true });
+        await page.goto(pageUrl('RebelExperiments_ManageExperiments'));
+        await page.waitForSelector('.rebelExperimentsTable', { visible: true });
+        await page.click('.rebelExperimentsTable .actions-cell a.btn');
+        await page.waitForSelector('.rebelExperimentsForm', { visible: true });
 
         // The form is in the reporting interface, in the place of the list.
-        expect(page.url()).to.contain('subcategory=RebelABTesting_ManageExperiments');
-        expect(await count('.rebelABTestingTable')).to.equal(0);
-        expect(await text('.rebelABTestingPlugin h2')).to.equal('Edit experiment');
+        expect(page.url()).to.contain('subcategory=RebelExperiments_ManageExperiments');
+        expect(await count('.rebelExperimentsTable')).to.equal(0);
+        expect(await text('.rebelExperimentsPlugin h2')).to.equal('Edit experiment');
 
         expect(await page.evaluate(() => document.querySelector('textarea[name="variants[1][js]"]').value)).to.equal("// second\ndocument.title = 'B';");
         expect(await page.evaluate(() => document.querySelector('#target_match').value)).to.equal('contains');
@@ -213,44 +223,44 @@ describe('RebelABTesting', function () {
         expect(await page.evaluate(() => ['selector', 'action', 'value']
             .map((field) => document.querySelector(`[name="variants[0][changes][0][${field}]"]`).value))).to.deep.equal(['.buy', 'add_class', 'green']);
 
-        await page.evaluate(() => { document.querySelector('.rebelABTestingForm #name').value = 'Greener button'; });
-        await submit('.rebelABTestingForm input[type=submit]');
+        await page.evaluate(() => { document.querySelector('.rebelExperimentsForm #name').value = 'Greener button'; });
+        await submit('.rebelExperimentsForm input[type=submit]');
 
-        expect(await text('.rebelABTestingTable tbody tr td:nth-child(2)')).to.equal('Greener button');
+        expect(await text('.rebelExperimentsTable tbody tr td:nth-child(2)')).to.equal('Greener button');
         expect(await text('.notification')).to.contain('The experiment was updated.');
     });
 
     it('should show the step with a field that is not filled in', async function () {
-        await page.goto(pageUrl('RebelABTesting_CreateNewExperiment'));
-        await page.waitForSelector('.rebelABTestingForm', { visible: true });
+        await page.goto(pageUrl('RebelExperiments_CreateNewExperiment'));
+        await page.waitForSelector('.rebelExperimentsForm', { visible: true });
         await step('schedule');
         expect(await visible('#name')).to.equal(false);
 
-        await page.click('.rebelABTestingForm input[type=submit]');
+        await page.click('.rebelExperimentsForm input[type=submit]');
 
         expect(await visible('#name')).to.equal(true);
-        expect(await page.evaluate(() => document.querySelector('.rebelABTestingStep-current').dataset.panel)).to.equal('basics');
+        expect(await page.evaluate(() => document.querySelector('.rebelExperimentsStep-current').dataset.panel)).to.equal('basics');
     });
 
     it('should tell when an experiment cannot be saved', async function () {
-        await page.goto(pageUrl('RebelABTesting_CreateNewExperiment'));
-        await page.waitForSelector('.rebelABTestingForm', { visible: true });
-        await page.type('.rebelABTestingForm #name', 'Greener button');
-        await submit('.rebelABTestingForm input[type=submit]');
+        await page.goto(pageUrl('RebelExperiments_CreateNewExperiment'));
+        await page.waitForSelector('.rebelExperimentsForm', { visible: true });
+        await page.type('.rebelExperimentsForm #name', 'Greener button');
+        await submit('.rebelExperimentsForm input[type=submit]');
 
-        expect(page.url()).to.contain('subcategory=RebelABTesting_CreateNewExperiment');
+        expect(page.url()).to.contain('subcategory=RebelExperiments_CreateNewExperiment');
         expect(await text('.notification')).to.contain('already has an experiment with this name');
     });
 
     it('should stop and delete an experiment', async function () {
-        await page.goto(pageUrl('RebelABTesting_ManageExperiments'));
-        await page.waitForSelector('.rebelABTestingTable', { visible: true });
-        await submit('.rebelABTestingTable form[action*="action=stop"] button');
-        expect(await text('.rebelABTestingStatus')).to.equal('Ended');
+        await page.goto(pageUrl('RebelExperiments_ManageExperiments'));
+        await page.waitForSelector('.rebelExperimentsTable', { visible: true });
+        await submit('.rebelExperimentsTable form[action*="action=stop"] button');
+        expect(await text('.rebelExperimentsStatus')).to.equal('Ended');
         expect(await count('form[action*="action=stop"]')).to.equal(0);
 
-        await submit('.rebelABTestingTable form[action*="action=delete"] button');
-        expect(await count('.rebelABTestingTable')).to.equal(0);
-        expect(await text('.rebelABTestingPlugin .alert')).to.contain('No experiments');
+        await submit('.rebelExperimentsTable form[action*="action=delete"] button');
+        expect(await count('.rebelExperimentsTable')).to.equal(0);
+        expect(await text('.rebelExperimentsPlugin .alert')).to.contain('No experiments');
     });
 });

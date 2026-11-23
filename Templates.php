@@ -7,7 +7,7 @@
  * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
-namespace Piwik\Plugins\RebelABTesting;
+namespace Piwik\Plugins\RebelExperiments;
 
 use Piwik\Piwik;
 
@@ -25,7 +25,7 @@ class Templates
     {
         $inserted = '.' . self::INSERTED_CLASS;
         $text = function (string $key): string {
-            return Piwik::translate('RebelABTesting_TemplateText_' . $key);
+            return Piwik::translate('RebelExperiments_TemplateText_' . $key);
         };
 
         $templates = [
@@ -43,7 +43,7 @@ class Templates
         $all = [];
         foreach ($templates as $key => $changes) {
             $all[$key] = [
-                'name' => Piwik::translate('RebelABTesting_Template_' . $key),
+                'name' => Piwik::translate('RebelExperiments_Template_' . $key),
                 'changes' => array_map(function (array $change): array {
                     return array_combine(['selector', 'action', 'value'], $change);
                 }, $changes),

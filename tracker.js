@@ -1,5 +1,5 @@
 (function () {
-  var KEY_PREFIX = 'sabt:';
+  var KEY_PREFIX = 'rexp:';
 
   // The experiments the visitor takes part in, as the tag of the plugin keeps them in
   // localStorage: "id-variant-assignment" of each, separated by commas.
@@ -32,7 +32,7 @@
 
   function trackingParams() {
       var active = activeAssignments();
-      return active ? '&rabt=' + active : '';
+      return active ? '&rexp=' + active : '';
   }
 
   // Every kind of request gets the parameter, so that a goal, event or order without a new page
@@ -45,7 +45,7 @@
       for (var i = 0; i < HOOKS.length; i++) {
           plugin[HOOKS[i]] = trackingParams;
       }
-      Matomo.addPlugin('RebelABTesting', plugin);
+      Matomo.addPlugin('RebelExperiments', plugin);
   }
 
   if ('object' === typeof window.Matomo) {
