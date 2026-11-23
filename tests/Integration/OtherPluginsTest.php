@@ -43,11 +43,14 @@ class OtherPluginsTest extends IntegrationTestCase
     protected static function configureFixture($fixture)
     {
         parent::configureFixture($fixture);
-        $fixture->extraPluginsToLoad = ['RebelFunnels', 'UserFeedback'];
+        $fixture->extraPluginsToLoad = array_values(array_filter(['RebelFunnels', 'UserFeedback'], function (string $plugin): bool {
+            return is_dir(PIWIK_INCLUDE_PATH . '/plugins/' . $plugin);
+        }));
     }
 
     public function testAnExperimentIsJudgedByTheVisitsThatCompleteAFunnel()
     {
+        $this->needs('RebelFunnels');
         $idFunnel = $this->addFunnel();
         $id = $this->addExperiment(['type' => 'funnel', 'idfunnel' => $idFunnel]);
 
@@ -71,6 +74,7 @@ class OtherPluginsTest extends IntegrationTestCase
 
     public function testAFunnelThatIsDeletedLeavesTheExperimentWithoutOutcomes()
     {
+        $this->needs('RebelFunnels');
         $idFunnel = $this->addFunnel();
         $id = $this->addExperiment(['type' => 'funnel', 'idfunnel' => $idFunnel]);
         $this->trackVisit([$id => 2], ['/cart', '/thanks']);
@@ -82,6 +86,7 @@ class OtherPluginsTest extends IntegrationTestCase
 
     public function testAnExperimentIsJudgedByTheVisitsThatAnswerAFormAndShowsTheirAnswers()
     {
+        $this->needs('UserFeedback');
         $idForm = $this->addForm(1, 'Page feedback');
         $other = $this->addForm(1, 'Other form');
         $id = $this->addExperiment(['type' => 'feedback', 'idform' => $idForm]);
@@ -111,6 +116,7 @@ class OtherPluginsTest extends IntegrationTestCase
 
     public function testTheFormOffersTheFunnelsAndFormsOfTheWebsite()
     {
+        $this->needs('RebelFunnels', 'UserFeedback');
         Fixture::createWebsite('2024-01-01 00:00:00');
         $idFunnel = $this->addFunnel();
         $idForm = $this->addForm(1, 'Page feedback');
@@ -127,6 +133,7 @@ class OtherPluginsTest extends IntegrationTestCase
 
     public function testFunnelsAndFormsAreNotMeasuresWithoutTheirPlugins()
     {
+        $this->needs('RebelFunnels', 'UserFeedback');
         $idFunnel = $this->addFunnel();
         $idForm = $this->addForm(1, 'Page feedback');
         $id = $this->addExperiment(['type' => 'feedback', 'idform' => $idForm]);
@@ -142,6 +149,19 @@ class OtherPluginsTest extends IntegrationTestCase
 
         $this->expectExceptionMessage('A measure is');
         $this->addExperiment(['type' => 'funnel', 'idfunnel' => $idFunnel], 'second');
+    }
+
+    /**
+     * Skips the test where the other plugins are not there, as where this plugin is tested on
+     * its own.
+     */
+    private function needs(string ...$plugins): void
+    {
+        foreach ($plugins as $plugin) {
+            if (!Manager::getInstance()->isPluginActivated($plugin)) {
+                $this->markTestSkipped('The plugin ' . $plugin . ' is not installed.');
+            }
+        }
     }
 
     private function addFunnel(): int

@@ -1,5 +1,9 @@
 # Rebel Experiments
 
+[![PHPCS check](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/phpcs.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/phpcs.yaml)
+[![Semgrep OSS scan](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/semgrep.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/semgrep.yaml)
+[![Test plugin with Matomo](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/matomo.yaml/badge.svg)](https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-SimpleABTesting/actions/workflows/matomo.yaml)
+
 *Stop guessing. Test it on your own visitors.*
 
 Experiments on a website with Matomo: A/B tests, rollouts, fake doors and watching an element. An
