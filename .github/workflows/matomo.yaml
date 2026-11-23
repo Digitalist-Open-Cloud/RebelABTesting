@@ -21,8 +21,11 @@ jobs:
           persist-credentials: false
       - name: Run tests
         uses: Digitalist-Open-Cloud/Matomo-github-action-tests@main
+        env:
+          OTHER_PLUGINS_TOKEN: ${{ secrets.TESTS_ACCESS_TOKEN }}
         with:
           plugin-name: 'RebelExperiments'
+          setup-script: 'tests/ci/other-plugins.sh'
           php-version: ${{ matrix.php }}
           test-type: 'PluginTests'
           mysql-engine: 'Mariadb'
